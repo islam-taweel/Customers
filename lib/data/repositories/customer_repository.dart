@@ -1,3 +1,4 @@
+import '../../core/constants/app_constants.dart';
 import '../database/database_helper.dart';
 import '../models/customer.dart';
 import '../models/customer_with_balance.dart';
@@ -18,7 +19,7 @@ class CustomerRepository {
   final DatabaseHelper _dbHelper;
 
   /// عدد العملاء في كل دفعة
-  static const int pageSize = 20;
+  static const int pageSize = AppConstants.customersPageSize;
 
   static const _customers = DatabaseHelper.tableCustomers;
   static const _operations = DatabaseHelper.tableOperations;
@@ -95,6 +96,18 @@ class CustomerRepository {
   Future<int> addCustomer(Customer customer) async {
     final db = await _dbHelper.database;
     return db.insert(_customers, customer.toMap());
+  }
+
+  /// تعديل اسم عميل وهاتفه (يُحدَّد بالـ id)، وتُرجع عدد الصفوف المتأثرة
+  /// (0 يعني أن العميل غير موجود).
+  Future<int> updateCustomer(Customer customer) async {
+    final db = await _dbHelper.database;
+    return db.update(
+      _customers,
+      {'name': customer.name, 'phone': customer.phone},
+      where: 'id = ?',
+      whereArgs: [customer.id],
+    );
   }
 
   /// إضافة عدة عملاء دفعة واحدة داخل معاملة واحدة (إما أن تُحفظ كلها أو لا شيء).

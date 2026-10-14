@@ -20,17 +20,20 @@ Future<void> main() async {
 
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
   final dbHelper = DatabaseHelper.instance;
-  final customersController = CustomersController(CustomerRepository(dbHelper));
+  final customerRepository = CustomerRepository(dbHelper);
+  final customersController = CustomersController(customerRepository);
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
+    customerRepository,
   );
 
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
   // الـ timeout حماية فقط: إن تأخر التحميل تظهر الشاشة بمؤشر التحميل
   // بدل بقاء الـ splash إلى الأبد.
-  await customersController
-      .loadFirstPage()
-      .timeout(AppConstants.splashTimeout, onTimeout: () {});
+  await customersController.loadFirstPage().timeout(
+    AppConstants.splashTimeout,
+    onTimeout: () {},
+  );
 
   runApp(
     DebtsApp(
@@ -70,10 +73,8 @@ class DebtsApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         // فرض الاتجاه من اليمين لليسار على التطبيق كله
-        builder: (context, child) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: child!,
-        ),
+        builder: (context, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
         home: const CustomersScreen(),
       ),
     );

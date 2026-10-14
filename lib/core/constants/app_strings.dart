@@ -38,6 +38,15 @@ class AppStrings {
   static const amountInvalid = 'الرجاء إدخال مبلغ صحيح';
   static const amountMustBePositive = 'يجب أن يكون المبلغ أكبر من صفر';
 
+  // ───────── تعديل العميل ─────────
+  static const editCustomer = 'تعديل';
+  static const editCustomerTitle = 'تعديل بيانات العميل';
+  static const saveChanges = 'حفظ التغييرات';
+  static const phoneInvalid = 'رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بـ 05';
+  static const phoneHint = '05XXXXXXXX';
+  static const customerUpdated = 'تم حفظ التعديلات';
+  static const customerUpdateFailed = 'تعذّر حفظ التعديلات';
+
   // ───────── حالة الرصيد ─────────
   static const owed = 'مستحق';
   static const hasCredit = 'له رصيد';

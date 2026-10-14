@@ -4,6 +4,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/utils/validators.dart';
 import '../../../data/dev/fake_customers.dart';
 import '../../../data/models/customer.dart';
 import '../../../data/models/customer_with_balance.dart';
@@ -16,8 +20,8 @@ class CustomersController extends ChangeNotifier {
 
   final CustomerRepository _repository;
 
-  static const _loadError = 'تعذّر تحميل العملاء. حاول مرة أخرى.';
-  static const _loadMoreError = 'تعذّر تحميل المزيد من العملاء';
+  static const _loadError = AppStrings.loadCustomersError;
+  static const _loadMoreError = AppStrings.loadMoreCustomersError;
 
   // ───────────────────────── الحالة ─────────────────────────
 
@@ -129,8 +133,12 @@ class CustomersController extends ChangeNotifier {
   /// تُرجع true عند النجاح.
   Future<bool> addCustomer(Customer customer) async {
     final name = customer.name.trim();
-    final phone = customer.phone.trim();
-    if (name.isEmpty || phone.isEmpty) return false;
+    final phone = normalizeDigits(customer.phone.trim());
+
+    // حماية ثانية بعد تحقق الواجهة: القواعد نفسها المستخدمة في التعديل
+    if (Validators.name(name) != null || Validators.phone(phone) != null) {
+      return false;
+    }
 
     try {
       await _repository.addCustomer(customer.copyWith(name: name, phone: phone));
@@ -184,7 +192,7 @@ class CustomersController extends ChangeNotifier {
     _query = query;
     _notify(); // لتحديث زر المسح في الواجهة
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), loadFirstPage);
+    _debounce = Timer(AppConstants.searchDebounce, loadFirstPage);
   }
 
   void clearSearch() {
@@ -197,7 +205,9 @@ class CustomersController extends ChangeNotifier {
 
   /// إدخال [count] عميل وهمي في قاعدة البيانات ثم العودة لأول صفحة،
   /// لاختبار التصفح اللانهائي. لا تفعل شيئًا خارج وضع التطوير (debug).
-  Future<bool> addFakeCustomers({int count = 200}) async {
+  Future<bool> addFakeCustomers({
+    int count = AppConstants.fakeCustomersCount,
+  }) async {
     if (!kDebugMode || _isSeeding) return false;
     _isSeeding = true;
 

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/utils/validators.dart';
 import '../../../data/models/customer.dart';
 
 /// نافذة إضافة عميل (الاسم والهاتف). تُرجع [Customer] أو null إن أُلغيت.
+/// قواعد التحقق نفسها المستخدمة في شاشة التعديل ([Validators]):
+/// الاسم مطلوب، والهاتف 10 أرقام ويبدأ بـ 05.
 class AddCustomerDialog extends StatefulWidget {
   const AddCustomerDialog({super.key});
 
@@ -45,12 +50,13 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
   }
 
   void _submit() {
+    // يعرض رسائل الخطأ أسفل الحقول غير الصحيحة ويتوقف
     if (!_formKey.currentState!.validate()) return;
     Navigator.pop(
       context,
       Customer(
         name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: normalizeDigits(_phoneController.text.trim()),
       ),
     );
   }
@@ -71,10 +77,9 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
               textInputAction: TextInputAction.next,
               // زر «التالي» في لوحة المفاتيح ينقل المؤشر إلى حقل الهاتف
               onEditingComplete: () => _phoneFocus.requestFocus(),
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               decoration: const InputDecoration(labelText: AppStrings.name),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? AppStrings.nameRequired
-                  : null,
+              validator: Validators.name,
             ),
             const SizedBox(height: 8),
             TextFormField(
@@ -83,10 +88,17 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(labelText: AppStrings.phone),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? AppStrings.phoneRequired
-                  : null,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              // أرقام فقط (لاتينية أو عربية)، وبحد أقصى 10 خانات
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')),
+                LengthLimitingTextInputFormatter(10),
+              ],
+              decoration: const InputDecoration(
+                labelText: AppStrings.phone,
+                hintText: AppStrings.phoneHint,
+              ),
+              validator: Validators.phone,
             ),
           ],
         ),

@@ -6,11 +6,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
+import '../../../data/models/customer.dart';
 import '../../../data/models/operation.dart';
 import '../controllers/customer_details_controller.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/operation_dialog.dart';
 import '../widgets/operation_tile.dart';
+import 'edit_customer_screen.dart';
 
 /// واجهة فقط: تقرأ من [CustomerDetailsController] وتستدعي دوالَه.
 /// لا SQL ولا DatabaseHelper ولا setState.
@@ -53,12 +55,38 @@ class CustomerDetailsScreen extends StatelessWidget {
     );
   }
 
+  /// يفتح شاشة التعديل وينتظر نتيجتها: [Customer] المحدَّث إن حُفظت التغييرات،
+  /// أو null إن رجع المستخدم دون حفظ. الشاشة تتحدث وحدها لأن المتحكم نفسه تغيّر.
+  Future<void> _editCustomer(BuildContext context) async {
+    final controller = context.read<CustomerDetailsController>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final updated = await Navigator.push<Customer>(
+      context,
+      EditCustomerScreen.route(controller),
+    );
+    if (updated == null) return;
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text(AppStrings.customerUpdated)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CustomerDetailsController>();
 
     return Scaffold(
-      appBar: AppBar(title: Text(controller.customer.name)),
+      appBar: AppBar(
+        title: Text(controller.customer.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: AppStrings.editCustomer,
+            onPressed: () => _editCustomer(context),
+          ),
+        ],
+      ),
       body: _buildBody(context, controller),
     );
   }
