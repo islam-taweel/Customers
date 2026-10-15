@@ -9,7 +9,7 @@ import 'data/database/database_helper.dart';
 import 'data/repositories/customer_repository.dart';
 import 'data/repositories/operation_repository.dart';
 import 'features/customers/controllers/customer_details_controller.dart';
-import 'features/customers/controllers/customerscontroller.dart';
+import 'features/customers/controllers/customers_controller.dart';
 import 'features/customers/screens/customer_screen.dart';
 
 Future<void> main() async {

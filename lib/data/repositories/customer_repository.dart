@@ -2,6 +2,8 @@ import '../../core/constants/app_constants.dart';
 import '../database/database_helper.dart';
 import '../models/customer.dart';
 import '../models/customer_with_balance.dart';
+import '../models/deleted_customer.dart';
+import '../models/operation.dart';
 
 /// صفحة واحدة من العملاء، مع إشارة إلى وجود المزيد بعدها
 class CustomersPage {
@@ -108,6 +110,56 @@ class CustomerRepository {
       where: 'id = ?',
       whereArgs: [customer.id],
     );
+  }
+
+  /// حذف عميل وكل عملياته (ديونه ودفعاته) داخل **معاملة واحدة**: إما أن يُحذف
+  /// كل شيء أو لا يُحذف شيء إذا فشلت أي خطوة (rollback).
+  ///
+  /// تُرجع نسخة من المحذوف لاستعادته، أو null إذا كان العميل غير موجود.
+  Future<DeletedCustomer?> deleteCustomer(int customerId) async {
+    final db = await _dbHelper.database;
+
+    // داخل المعاملة نستخدم txn وليس db، وإلا حدث تعليق (deadlock)
+    return db.transaction<DeletedCustomer?>((txn) async {
+      final customerRows = await txn.query(
+        _customers,
+        where: 'id = ?',
+        whereArgs: [customerId],
+      );
+      if (customerRows.isEmpty) return null;
+
+      // نسخة احتياطية من العمليات قبل حذفها (في المعاملة نفسها فتكون متسقة)
+      final operationRows = await txn.query(
+        _operations,
+        where: 'customerId = ?',
+        whereArgs: [customerId],
+        orderBy: 'id ASC',
+      );
+
+      // نحذف العمليات صراحةً ثم العميل (ولا نعتمد على ON DELETE CASCADE وحده)
+      await txn.delete(_operations, where: 'customerId = ?', whereArgs: [customerId]);
+      await txn.delete(_customers, where: 'id = ?', whereArgs: [customerId]);
+
+      return DeletedCustomer(
+        customer: Customer.fromMap(customerRows.first),
+        operations: operationRows.map(Operation.fromMap).toList(),
+      );
+    });
+  }
+
+  /// استعادة عميل محذوف وكل عملياته بنفس الـ id، داخل معاملة واحدة
+  /// (الـ AUTOINCREMENT لا يعيد استخدام الـ id، فلا يحدث تعارض مع عملاء جدد).
+  Future<void> restoreCustomer(DeletedCustomer deleted) async {
+    final db = await _dbHelper.database;
+
+    await db.transaction((txn) async {
+      await txn.insert(_customers, deleted.customer.toMap());
+      final batch = txn.batch();
+      for (final operation in deleted.operations) {
+        batch.insert(_operations, operation.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   /// إضافة عدة عملاء دفعة واحدة داخل معاملة واحدة (إما أن تُحفظ كلها أو لا شيء).

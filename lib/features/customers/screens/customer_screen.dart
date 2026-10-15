@@ -8,10 +8,12 @@ import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/customer.dart';
+import '../../../data/models/customer_with_balance.dart';
 import '../controllers/customer_details_controller.dart';
-import '../controllers/customerscontroller.dart';
+import '../controllers/customers_controller.dart';
 import '../widgets/add_customer_dialog.dart';
-import '../widgets/customer_tile.dart';
+import '../widgets/confirm_delete_dialog.dart';
+import '../widgets/dismissible_customer_tile.dart';
 import '../widgets/list_footer.dart';
 import '../widgets/total_debts_card.dart';
 import 'customer_details_screen.dart';
@@ -52,8 +54,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   /// طلب مكرر ولا طلب بعد انتهاء البيانات.
   void _maybeLoadMore() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter <=
-        AppConstants.loadMoreThreshold) {
+    if (_scrollController.position.extentAfter <= AppConstants.loadMoreThreshold) {
       context.read<CustomersController>().loadNextPage();
     }
   }
@@ -106,6 +107,53 @@ class _CustomersScreenState extends State<CustomersScreen> {
         ),
       ),
     );
+  }
+
+  /// نافذة التأكيد قبل الحذف: true = حذف، false = إلغاء (يبقى العميل)
+  Future<bool> _confirmDelete() => ConfirmDeleteDialog.show(context);
+
+  /// يُستدعى بعد موافقة المستخدم وانتهاء حركة السحب. الـ controller يزيل العميل
+  /// من القائمة فورًا ثم يحذفه من القاعدة (العميل وعملياته في معاملة واحدة).
+  Future<void> _deleteCustomer(CustomerWithBalance item) async {
+    final controller = context.read<CustomersController>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final deleted = await controller.deleteCustomer(item);
+
+    if (deleted == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(AppStrings.customerDeleteFailed)),
+      );
+      return;
+    }
+
+    // شريط فيه زر «تراجع»: يعيد العميل وكل عملياته بنفس بياناتهم
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.customerDeleted(deleted.customer.name)),
+          duration: const Duration(seconds: 6),
+          persist: false, // يختفي بعد المدة حتى مع وجود زر
+          action: SnackBarAction(
+            label: AppStrings.undo,
+            onPressed: () async {
+              final restored = await controller.restoreCustomer(deleted);
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      restored
+                          ? AppStrings.customerRestored
+                          : AppStrings.customerRestoreFailed,
+                    ),
+                  ),
+                );
+            },
+          ),
+        ),
+      );
   }
 
   Future<void> _openDetails(Customer customer) async {
@@ -161,9 +209,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         onPressed: _clearSearch,
                       ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(
-                    AppConstants.borderRadius,
-                  ),
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                 ),
                 isDense: true,
               ),
@@ -185,7 +231,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
     // 2) الخطأ: رسالة عربية واضحة وزر إعادة المحاولة
     if (controller.error != null && customers.isEmpty) {
-      return ErrorView(message: controller.error!, onRetry: controller.retry);
+      return ErrorView(
+        message: controller.error!,
+        onRetry: controller.retry,
+      );
     }
 
     // 3) القائمة فارغة
@@ -232,9 +281,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   onRetry: controller.retry,
                 );
         }
-        return CustomerTile(
-          item: customers[i],
-          onTap: () => _openDetails(customers[i].customer),
+        // نلتقط العنصر الآن: القائمة قد تتغير قبل انتهاء السحب
+        final item = customers[i];
+        return DismissibleCustomerTile(
+          item: item,
+          onTap: () => _openDetails(item.customer),
+          confirmDelete: _confirmDelete,
+          onDelete: () => _deleteCustomer(item),
         );
       },
     );

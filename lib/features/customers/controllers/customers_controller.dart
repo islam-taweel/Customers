@@ -11,6 +11,7 @@ import '../../../core/utils/validators.dart';
 import '../../../data/dev/fake_customers.dart';
 import '../../../data/models/customer.dart';
 import '../../../data/models/customer_with_balance.dart';
+import '../../../data/models/deleted_customer.dart';
 import '../../../data/repositories/customer_repository.dart';
 
 /// حالة ومنطق شاشة العملاء. لا يعرف شيئًا عن الواجهة ولا عن SQL،
@@ -156,9 +157,12 @@ class CustomersController extends ChangeNotifier {
   /// تحديث ما هو معروض (نفس عدد العملاء المحمّلين) والإجمالي، دون إظهار
   /// مؤشر تحميل ودون العودة لأعلى القائمة. تُستخدم بعد إضافة عميل أو
   /// بعد الرجوع من شاشة التفاصيل (لأن الأرصدة قد تغيّرت).
-  Future<void> refresh() async {
+  Future<void> refresh({int extraItems = 0}) async {
     final requestId = ++_requestId;
-    final limit = math.max(_customers.length, CustomerRepository.pageSize);
+    final limit = math.max(
+      _customers.length + extraItems,
+      CustomerRepository.pageSize,
+    );
 
     try {
       final data = await _fetch(limit: limit);
@@ -199,6 +203,57 @@ class CustomersController extends ChangeNotifier {
     _debounce?.cancel();
     _query = '';
     loadFirstPage();
+  }
+
+  // ───────────────────────── حذف العميل ─────────────────────────
+
+  /// حذف عميل وكل عملياته. يُزال من القائمة **فورًا** (يتطلبه Dismissible: يجب ألا
+  /// يبقى العنصر في الشجرة بعد السحب)، ثم يُحذف من القاعدة داخل معاملة واحدة.
+  ///
+  /// تُرجع نسخة المحذوف لاستعادتها عند التراجع، أو null عند الفشل
+  /// (وفي حال خطأ في القاعدة يعود العميل إلى مكانه في القائمة).
+  Future<DeletedCustomer?> deleteCustomer(CustomerWithBalance item) async {
+    final id = item.customer.id;
+    if (id == null) return null;
+
+    // 1) إزالة فورية من القائمة المعروضة
+    final index = _customers.indexWhere((c) => c.customer.id == id);
+    if (index != -1) {
+      _customers.removeAt(index);
+      _notify();
+    }
+
+    // 2) الحذف الفعلي (العميل + عملياته) في معاملة واحدة
+    final DeletedCustomer? deleted;
+    try {
+      deleted = await _repository.deleteCustomer(id);
+    } catch (e) {
+      debugPrint('deleteCustomer failed: $e');
+      if (index != -1) {
+        _customers.insert(math.min(index, _customers.length), item);
+        _notify();
+      }
+      return null;
+    }
+
+    // 3) مزامنة القائمة والإجمالي مع القاعدة (صامتة، دون مؤشر تحميل). وهي تلغي
+    //    أي جلب صفحة تالية كان جاريًا، فلا تتكرر عناصر ولا يضيع عنصر بسبب الإزاحة.
+    await refresh();
+    return deleted;
+  }
+
+  /// التراجع عن الحذف: إعادة العميل وكل عملياته بنفس الـ id في معاملة واحدة،
+  /// ثم تحديث القائمة. تُرجع true عند النجاح.
+  Future<bool> restoreCustomer(DeletedCustomer deleted) async {
+    try {
+      await _repository.restoreCustomer(deleted);
+    } catch (e) {
+      debugPrint('restoreCustomer failed: $e');
+      return false;
+    }
+
+    await refresh(extraItems: 1);
+    return true;
   }
 
   // ───────────────────────── للتطوير فقط ─────────────────────────

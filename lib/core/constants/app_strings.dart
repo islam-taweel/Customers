@@ -47,6 +47,16 @@ class AppStrings {
   static const customerUpdated = 'تم حفظ التعديلات';
   static const customerUpdateFailed = 'تعذّر حفظ التعديلات';
 
+  // ───────── حذف العميل ─────────
+  static const delete = 'حذف';
+  static const undo = 'تراجع';
+  static const deleteCustomerTitle = 'حذف العميل';
+  static const deleteCustomerMessage = 'هل أنت متأكد من حذف هذا العميل وكل عملياته؟';
+  static const customerDeleteFailed = 'تعذّر حذف العميل';
+  static const customerRestored = 'تمت استعادة العميل';
+  static const customerRestoreFailed = 'تعذّرت استعادة العميل';
+  static String customerDeleted(String name) => 'تم حذف «$name»';
+
   // ───────── حالة الرصيد ─────────
   static const owed = 'مستحق';
   static const hasCredit = 'له رصيد';
