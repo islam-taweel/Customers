@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/constants/app_strings.dart';
+import 'core/services/whatsapp_launcher.dart';
 import 'core/theme/app_theme.dart';
 import 'data/database/database_helper.dart';
 import 'data/repositories/customer_repository.dart';
@@ -25,15 +26,15 @@ Future<void> main() async {
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
     customerRepository,
+    const WhatsAppLauncher(),
   );
 
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
   // الـ timeout حماية فقط: إن تأخر التحميل تظهر الشاشة بمؤشر التحميل
   // بدل بقاء الـ splash إلى الأبد.
-  await customersController.loadFirstPage().timeout(
-    AppConstants.splashTimeout,
-    onTimeout: () {},
-  );
+  await customersController
+      .loadFirstPage()
+      .timeout(AppConstants.splashTimeout, onTimeout: () {});
 
   runApp(
     DebtsApp(
@@ -73,8 +74,10 @@ class DebtsApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         // فرض الاتجاه من اليمين لليسار على التطبيق كله
-        builder: (context, child) =>
-            Directionality(textDirection: TextDirection.rtl, child: child!),
+        builder: (context, child) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: child!,
+        ),
         home: const CustomersScreen(),
       ),
     );

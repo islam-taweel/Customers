@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/models/customer.dart';
@@ -17,11 +18,13 @@ class CustomerDetailsController extends ChangeNotifier {
   CustomerDetailsController(
     this._operationRepository,
     this._customerRepository,
+    this._whatsAppLauncher,
     this._customer,
   ) : assert(_customer.id != null, 'يجب أن يكون للعميل id');
 
   final OperationRepository _operationRepository;
   final CustomerRepository _customerRepository;
+  final WhatsAppLauncher _whatsAppLauncher;
 
   // ───────────────────────── الحالة ─────────────────────────
 
@@ -138,6 +141,21 @@ class CustomerDetailsController extends ChangeNotifier {
     }
   }
 
+  // ───────────────────────── واتساب ─────────────────────────
+
+  /// يفتح واتساب على محادثة العميل برسالة عربية جاهزة فيها اسمه والمبلغ المستحق عليه.
+  /// لا ترمي استثناءات: النتيجة [WhatsAppResult] تُترجم في الواجهة إلى رسالة للمستخدم.
+  Future<WhatsAppResult> sendWhatsAppReminder() async {
+    // لا معنى للتذكير إن لم يكن على العميل دين (والزر مخفي أصلًا في هذه الحالة)
+    if (_balance <= 0) return WhatsAppResult.noDebt;
+
+    final message = AppStrings.whatsappDebtMessage(
+      _customer.name,
+      formatAmount(_balance),
+    );
+    return _whatsAppLauncher.send(localPhone: _customer.phone, message: message);
+  }
+
   // ───────────────────────── إضافة عملية ─────────────────────────
 
   /// حفظ دين أو دفعة جديدة ثم تحديث الرصيد والسجل. تُرجع true عند النجاح.
@@ -207,15 +225,18 @@ class CustomerDetailsControllerFactory {
   CustomerDetailsControllerFactory(
     this._operationRepository,
     this._customerRepository,
+    this._whatsAppLauncher,
   );
 
   final OperationRepository _operationRepository;
   final CustomerRepository _customerRepository;
+  final WhatsAppLauncher _whatsAppLauncher;
 
   CustomerDetailsController create(Customer customer) {
     return CustomerDetailsController(
       _operationRepository,
       _customerRepository,
+      _whatsAppLauncher,
       customer,
     );
   }

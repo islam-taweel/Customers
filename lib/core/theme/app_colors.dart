@@ -11,6 +11,9 @@ class AppColors {
   static const Color payment = Color(0xFF388E3C);
   static const Color settled = Color(0xFF757575);
 
+  /// لون زر واتساب
+  static const Color whatsapp = Color(0xFF128C7E);
+
   /// لون الرصيد: موجب = مستحق على العميل، سالب = له رصيد، صفر = مسدد
   static Color forBalance(double balance) {
     if (balance > 0) return debt;

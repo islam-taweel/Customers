@@ -5,6 +5,9 @@ class AppConstants {
   /// رمز العملة المعروض بجانب المبالغ
   static const String currencySymbol = '₪';
 
+  /// مفتاح الدولة (فلسطين 970) لتحويل الهاتف المحلي 05XXXXXXXX إلى الصيغة الدولية
+  static const String phoneCountryCode = '970';
+
   /// عدد العملاء في كل دفعة عند التصفح اللانهائي
   static const int customersPageSize = 20;
 

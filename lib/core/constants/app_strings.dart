@@ -57,6 +57,19 @@ class AppStrings {
   static const customerRestoreFailed = 'تعذّرت استعادة العميل';
   static String customerDeleted(String name) => 'تم حذف «$name»';
 
+  // ───────── واتساب ─────────
+  static const whatsappButton = 'إرسال تذكير عبر واتساب';
+  static const whatsappNotInstalled = 'تطبيق واتساب غير مثبّت على هذا الجهاز';
+  static const whatsappInvalidPhone = 'رقم هاتف العميل غير صالح لفتح واتساب';
+  static const whatsappNoDebt = 'لا يوجد مبلغ مستحق على هذا العميل';
+  static const whatsappFailed = 'تعذّر فتح واتساب. حاول مرة أخرى';
+
+  /// نص الرسالة الجاهزة (اسم العميل والمبلغ المستحق عليه)
+  static String whatsappDebtMessage(String name, String amount) =>
+      'مرحبًا $name،\n'
+      'نود تذكيرك بأن المبلغ المستحق عليك هو $amount.\n'
+      'نرجو التكرم بالتسديد في أقرب وقت. شكرًا لك.';
+
   // ───────── حالة الرصيد ─────────
   static const owed = 'مستحق';
   static const hasCredit = 'له رصيد';

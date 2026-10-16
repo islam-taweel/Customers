@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/services/whatsapp_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
@@ -72,6 +73,34 @@ class CustomerDetailsScreen extends StatelessWidget {
     );
   }
 
+  /// يفتح واتساب برسالة جاهزة. عند التعذر تُعرض رسالة عربية واضحة بدل توقف التطبيق.
+  Future<void> _sendWhatsApp(BuildContext context) async {
+    final controller = context.read<CustomerDetailsController>();
+
+    final result = await controller.sendWhatsAppReminder();
+
+    // أثناء الانتظار قد يغادر المستخدم الشاشة، فلا نستخدم context بعدها
+    if (!context.mounted) return;
+
+    final errorMessage = _whatsAppErrorMessage(result);
+    if (errorMessage == null) return; // فُتح واتساب بنجاح
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(errorMessage)),
+    );
+  }
+
+  /// رسالة الخطأ المناسبة لنتيجة فتح واتساب، أو null إن فُتح بنجاح.
+  String? _whatsAppErrorMessage(WhatsAppResult result) {
+    return switch (result) {
+      WhatsAppResult.opened => null,
+      WhatsAppResult.notInstalled => AppStrings.whatsappNotInstalled,
+      WhatsAppResult.invalidPhone => AppStrings.whatsappInvalidPhone,
+      WhatsAppResult.noDebt => AppStrings.whatsappNoDebt,
+      WhatsAppResult.failed => AppStrings.whatsappFailed,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CustomerDetailsController>();
@@ -136,6 +165,24 @@ class CustomerDetailsScreen extends StatelessWidget {
             ],
           ),
         ),
+        // زر واتساب: يظهر فقط إذا كان على العميل مبلغ مستحق (الرصيد أكبر من صفر)
+        if (controller.balance > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _sendWhatsApp(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.whatsapp,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text(AppStrings.whatsappButton),
+              ),
+            ),
+          ),
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: Align(
