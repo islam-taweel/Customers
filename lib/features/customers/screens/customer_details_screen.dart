@@ -69,7 +69,7 @@ class CustomerDetailsScreen extends StatelessWidget {
     if (updated == null) return;
 
     messenger.showSnackBar(
-      const SnackBar(content: Text(AppStrings.customerUpdated)),
+      SnackBar(content: Text(AppStrings.customerUpdated)),
     );
   }
 
@@ -147,7 +147,7 @@ class CustomerDetailsScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   icon: const Icon(Icons.add),
-                  label: const Text(AppStrings.addDebt),
+                  label: Text(AppStrings.addDebt),
                 ),
               ),
               const SizedBox(width: 12),
@@ -159,7 +159,7 @@ class CustomerDetailsScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   icon: const Icon(Icons.payments_outlined),
-                  label: const Text(AppStrings.addPayment),
+                  label: Text(AppStrings.addPayment),
                 ),
               ),
             ],
@@ -179,12 +179,12 @@ class CustomerDetailsScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 icon: const Icon(Icons.chat_outlined),
-                label: const Text(AppStrings.whatsappButton),
+                label: Text(AppStrings.whatsappButton),
               ),
             ),
           ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
             child: Text(
@@ -196,7 +196,7 @@ class CustomerDetailsScreen extends StatelessWidget {
         const Divider(height: 1),
         Expanded(
           child: operations.isEmpty
-              ? const EmptyView(
+              ? EmptyView(
                   icon: Icons.receipt_long_outlined,
                   title: AppStrings.noOperationsTitle,
                   message: AppStrings.noOperationsMessage,

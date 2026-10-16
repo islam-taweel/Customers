@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/constants/app_strings.dart';
+import 'core/localization/language_controller.dart';
+import 'core/localization/rebuild_all.dart';
 import 'core/services/whatsapp_launcher.dart';
 import 'core/theme/app_theme.dart';
 import 'data/database/database_helper.dart';
@@ -18,6 +21,9 @@ Future<void> main() async {
 
   // إبقاء الـ splash ظاهرًا إلى أن نطلب إزالته يدويًا
   FlutterNativeSplash.preserve(widgetsBinding: binding);
+
+  // اللغة المحفوظة (العربية افتراضيًا) تُحمَّل أولًا حتى تظهر النصوص بلغتها من أول إطار
+  final languageController = await LanguageController.load();
 
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
   final dbHelper = DatabaseHelper.instance;
@@ -40,6 +46,7 @@ Future<void> main() async {
     DebtsApp(
       customersController: customersController,
       detailsFactory: detailsFactory,
+      languageController: languageController,
     ),
   );
 
@@ -50,11 +57,13 @@ Future<void> main() async {
 class DebtsApp extends StatelessWidget {
   final CustomersController customersController;
   final CustomerDetailsControllerFactory detailsFactory;
+  final LanguageController languageController;
 
   const DebtsApp({
     super.key,
     required this.customersController,
     required this.detailsFactory,
+    required this.languageController,
   });
 
   @override
@@ -68,18 +77,62 @@ class DebtsApp extends StatelessWidget {
         ),
         // ينشئ متحكمًا جديدًا لكل عميل يُفتح
         Provider<CustomerDetailsControllerFactory>.value(value: detailsFactory),
-      ],
-      child: MaterialApp(
-        title: AppStrings.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        // فرض الاتجاه من اليمين لليسار على التطبيق كله
-        builder: (context, child) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: child!,
+        // اللغة الحالية (عربي/إنجليزي)
+        ChangeNotifierProvider<LanguageController>.value(
+          value: languageController,
         ),
-        home: const CustomersScreen(),
+      ],
+      child: Consumer<LanguageController>(
+        builder: (context, language, _) => MaterialApp(
+          title: AppStrings.appName,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          locale: language.locale,
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          // الاتجاه يتبع اللغة: عربي = من اليمين لليسار، إنجليزي = العكس
+          builder: (context, child) => _LanguageScope(
+            language: language.language,
+            child: Directionality(
+              textDirection: language.direction,
+              child: child!,
+            ),
+          ),
+          home: const CustomersScreen(),
+        ),
       ),
     );
   }
+}
+
+
+/// عند تغيّر اللغة نعيد بناء كل الشاشات المفتوحة،
+/// لأن النصوص تُقرأ من AppStrings (وليس من InheritedWidget).
+class _LanguageScope extends StatefulWidget {
+  final AppLanguage language;
+  final Widget child;
+
+  const _LanguageScope({required this.language, required this.child});
+
+  @override
+  State<_LanguageScope> createState() => _LanguageScopeState();
+}
+
+class _LanguageScopeState extends State<_LanguageScope> {
+  @override
+  void didUpdateWidget(covariant _LanguageScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.language != widget.language) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) rebuildAllChildren(context);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

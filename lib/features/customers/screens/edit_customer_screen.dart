@@ -73,7 +73,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
 
     if (updated == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text(AppStrings.customerUpdateFailed)),
+        SnackBar(content: Text(AppStrings.customerUpdateFailed)),
       );
       return;
     }
@@ -91,7 +91,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.editCustomerTitle)),
+      appBar: AppBar(title: Text(AppStrings.editCustomerTitle)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.pagePadding),
         child: Form(
@@ -149,7 +149,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: const Text(AppStrings.saveChanges),
+                  label: Text(AppStrings.saveChanges),
                 ),
               ),
             ],

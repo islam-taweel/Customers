@@ -64,7 +64,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(AppStrings.addCustomerTitle),
+      title: Text(AppStrings.addCustomerTitle),
       content: Form(
         key: _formKey,
         child: Column(
@@ -78,7 +78,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
               // زر «التالي» في لوحة المفاتيح ينقل المؤشر إلى حقل الهاتف
               onEditingComplete: () => _phoneFocus.requestFocus(),
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              decoration: const InputDecoration(labelText: AppStrings.name),
+              decoration: InputDecoration(labelText: AppStrings.name),
               validator: Validators.name,
             ),
             const SizedBox(height: 8),
@@ -94,7 +94,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')),
                 LengthLimitingTextInputFormatter(10),
               ],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: AppStrings.phone,
                 hintText: AppStrings.phoneHint,
               ),
@@ -106,9 +106,9 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(AppStrings.cancel),
+          child: Text(AppStrings.cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text(AppStrings.save)),
+        FilledButton(onPressed: _submit, child: Text(AppStrings.save)),
       ],
     );
   }

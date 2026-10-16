@@ -39,7 +39,7 @@ class ListFooterError extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(message)),
-          TextButton(onPressed: onRetry, child: const Text(AppStrings.retry)),
+          TextButton(onPressed: onRetry, child: Text(AppStrings.retry)),
         ],
       ),
     );

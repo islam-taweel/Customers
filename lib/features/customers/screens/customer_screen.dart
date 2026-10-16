@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/app_drawer.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
@@ -122,7 +123,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
     if (deleted == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text(AppStrings.customerDeleteFailed)),
+        SnackBar(content: Text(AppStrings.customerDeleteFailed)),
       );
       return;
     }
@@ -172,8 +173,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final controller = context.watch<CustomersController>();
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text(AppStrings.customers),
+        title: Text(AppStrings.customers),
         actions: [
           // يظهر في وضع التطوير (debug) فقط، ولا يوجد في نسخة الإنتاج
           if (kDebugMode)
@@ -226,7 +228,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
     // 1) التحميل الأولي (أو إعادة التحميل بعد بحث لم يُرجع شيئًا بعد)
     if (controller.isLoading && customers.isEmpty) {
-      return const LoadingView(message: AppStrings.loadingCustomers);
+      return LoadingView(message: AppStrings.loadingCustomers);
     }
 
     // 2) الخطأ: رسالة عربية واضحة وزر إعادة المحاولة
@@ -241,7 +243,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     if (customers.isEmpty) {
       // بحث بلا نتائج: رسالة فقط، دون زر إضافة
       if (controller.query.trim().isNotEmpty) {
-        return const EmptyView(
+        return EmptyView(
           icon: Icons.search_off,
           title: AppStrings.noSearchResultsTitle,
           message: AppStrings.noSearchResultsMessage,

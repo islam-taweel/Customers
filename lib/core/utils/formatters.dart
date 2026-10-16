@@ -1,4 +1,5 @@
 import '../constants/app_constants.dart';
+import '../constants/app_strings.dart';
 
 /// تنسيق المبلغ مع فواصل الآلاف، مثال: 1,250.50 ₪
 String formatAmount(double value) {
@@ -19,7 +20,7 @@ String formatDateTime(DateTime d) {
   var hour12 = d.hour % 12;
   if (hour12 == 0) hour12 = 12;
   return '${d.year}/${two(d.month)}/${two(d.day)} - '
-      '$hour12:${two(d.minute)} ${isPm ? 'م' : 'ص'}';
+      '$hour12:${two(d.minute)} ${isPm ? AppStrings.pm : AppStrings.am}';
 }
 
 /// تحويل الأرقام العربية/الهندية (٠١٢٣…) إلى أرقام لاتينية (0123…)

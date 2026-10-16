@@ -92,7 +92,7 @@ class _OperationDialogState extends State<OperationDialog> {
               textInputAction: TextInputAction.next,
               // زر «التالي» ينقل المؤشر إلى حقل الملاحظة
               onEditingComplete: () => _noteFocus.requestFocus(),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: AppStrings.amount,
                 suffixText: AppConstants.currencySymbol,
               ),
@@ -111,7 +111,7 @@ class _OperationDialogState extends State<OperationDialog> {
               onFieldSubmitted: (_) => _submit(),
               maxLines: 2,
               minLines: 1,
-              decoration: const InputDecoration(labelText: AppStrings.noteOptional),
+              decoration: InputDecoration(labelText: AppStrings.noteOptional),
             ),
           ],
         ),
@@ -119,14 +119,14 @@ class _OperationDialogState extends State<OperationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(AppStrings.cancel),
+          child: Text(AppStrings.cancel),
         ),
         FilledButton(
           onPressed: _submit,
           style: FilledButton.styleFrom(
             backgroundColor: isDebt ? AppColors.debt : AppColors.payment,
           ),
-          child: const Text(AppStrings.save),
+          child: Text(AppStrings.save),
         ),
       ],
     );

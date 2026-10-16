@@ -21,12 +21,12 @@ class ConfirmDeleteDialog extends StatelessWidget {
 
     return AlertDialog(
       icon: Icon(Icons.delete_outline, color: scheme.error, size: 32),
-      title: const Text(AppStrings.deleteCustomerTitle),
-      content: const Text(AppStrings.deleteCustomerMessage),
+      title: Text(AppStrings.deleteCustomerTitle),
+      content: Text(AppStrings.deleteCustomerMessage),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text(AppStrings.cancel),
+          child: Text(AppStrings.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
@@ -34,7 +34,7 @@ class ConfirmDeleteDialog extends StatelessWidget {
             backgroundColor: scheme.error,
             foregroundColor: scheme.onError,
           ),
-          child: const Text(AppStrings.delete),
+          child: Text(AppStrings.delete),
         ),
       ],
     );

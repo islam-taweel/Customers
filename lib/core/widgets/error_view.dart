@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_strings.dart';
 import 'state_message.dart';
 
 /// حالة الخطأ: رسالة واضحة بالعربية وزر لإعادة المحاولة.
@@ -7,15 +8,15 @@ import 'state_message.dart';
 class ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-  final String title;
-  final String retryLabel;
+  final String? title;
+  final String? retryLabel;
 
   const ErrorView({
     super.key,
     required this.message,
     required this.onRetry,
-    this.title = 'حدث خطأ',
-    this.retryLabel = 'إعادة المحاولة',
+    this.title,
+    this.retryLabel,
   });
 
   @override
@@ -23,9 +24,9 @@ class ErrorView extends StatelessWidget {
     return StateMessage(
       icon: Icons.error_outline,
       iconColor: Theme.of(context).colorScheme.error,
-      title: title,
+      title: title ?? AppStrings.errorTitle,
       message: message,
-      actionLabel: retryLabel,
+      actionLabel: retryLabel ?? AppStrings.retry,
       actionIcon: Icons.refresh,
       onAction: onRetry,
     );

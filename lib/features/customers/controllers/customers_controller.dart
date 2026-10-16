@@ -21,8 +21,8 @@ class CustomersController extends ChangeNotifier {
 
   final CustomerRepository _repository;
 
-  static const _loadError = AppStrings.loadCustomersError;
-  static const _loadMoreError = AppStrings.loadMoreCustomersError;
+  static String get _loadError => AppStrings.loadCustomersError;
+  static String get _loadMoreError => AppStrings.loadMoreCustomersError;
 
   // ───────────────────────── الحالة ─────────────────────────
 
