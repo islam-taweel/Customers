@@ -54,6 +54,12 @@ class AppStrings {
       );
   static String get unknownInitial => _t('؟', '?');
 
+  // ───────── الفرز ─────────
+  static String get sortTooltip => _t('فرز القائمة', 'Sort list');
+  static String get sortByName => _t('الاسم (أ - ي)', 'Name (A–Z)');
+  static String get sortNewest => _t('الأحدث أولًا', 'Newest first');
+  static String get sortHighestDebt => _t('الأعلى ديونًا', 'Highest debt');
+
   // ───────── الحقول والتحقق ─────────
   static String get name => _t('الاسم', 'Name');
   static String get phone => _t('رقم الهاتف', 'Phone number');

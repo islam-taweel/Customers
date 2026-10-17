@@ -14,13 +14,15 @@ class CustomerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('build: CustomerTile');
+
     final balance = item.balance;
     final color = AppColors.forBalance(balance);
     final label = balance > 0
         ? AppStrings.owed
         : balance < 0
-            ? AppStrings.hasCredit
-            : AppStrings.settled;
+        ? AppStrings.hasCredit
+        : AppStrings.settled;
     final name = item.customer.name;
 
     return ListTile(

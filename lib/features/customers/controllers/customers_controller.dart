@@ -10,6 +10,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/dev/fake_customers.dart';
 import '../../../data/models/customer.dart';
+import '../../../data/models/customer_sort_option.dart';
 import '../../../data/models/customer_with_balance.dart';
 import '../../../data/models/deleted_customer.dart';
 import '../../../data/repositories/customer_repository.dart';
@@ -44,6 +45,10 @@ class CustomersController extends ChangeNotifier {
   double _totalDebts = 0;
   String _query = '';
 
+  /// خيار الفرز الحالي. يبقى محفوظًا هنا، فيُطبَّق تلقائيًا على كل تحميل:
+  /// الصفحة الأولى، الصفحات التالية، التحديث بعد الحذف أو الإضافة، والبحث.
+  CustomerSortOption _sort = CustomerSortOption.name;
+
   bool _isSeeding = false;
 
   Timer? _debounce;
@@ -57,6 +62,7 @@ class CustomersController extends ChangeNotifier {
   String? get error => _error;
   double get totalDebts => _totalDebts;
   String get query => _query;
+  CustomerSortOption get sort => _sort;
 
   // ───────────────────────── 6) أول صفحة ─────────────────────────
 
@@ -105,6 +111,7 @@ class CustomersController extends ChangeNotifier {
       final page = await _repository.getCustomers(
         offset: _customers.length,
         query: _query,
+        sort: _sort,
       );
       if (_isStale(requestId)) return;
 
@@ -189,6 +196,18 @@ class CustomersController extends ChangeNotifier {
   Future<void> retry() {
     _error = null;
     return _customers.isEmpty ? loadFirstPage() : refresh();
+  }
+
+  /// تغيير الفرز: يحفظ الخيار الجديد ثم يعيد التحميل من الصفحة الأولى (offset = 0).
+  /// لا يكفي ترتيب الصفحات المحمّلة محليًا، فالقائمة مقسّمة على صفحات والترتيب
+  /// الصحيح لا يعرفه إلا SQL على كل العملاء. وإعادة التحميل من الأول تتجنب
+  /// خلط صفحات بترتيبين مختلفين.
+  Future<void> setSort(CustomerSortOption option) {
+    if (option == _sort) return Future.value();
+    _sort = option;
+    _debounce?.cancel(); // لا نُبقي بحثًا مؤجلًا يُعيد التحميل مرة ثانية
+    _notify(); // لتحديث علامة الخيار المحدد في القائمة فورًا
+    return loadFirstPage();
   }
 
   /// البحث بالاسم: يُنفَّذ بعد توقف الكتابة 300 مللي ثانية، ويبدأ من أول صفحة.
@@ -282,7 +301,11 @@ class CustomersController extends ChangeNotifier {
   // ───────────────────────── داخلي ─────────────────────────
 
   Future<({CustomersPage page, double total})> _fetch({required int limit}) async {
-    final page = await _repository.getCustomers(limit: limit, query: _query);
+    final page = await _repository.getCustomers(
+      limit: limit,
+      query: _query,
+      sort: _sort,
+    );
     final total = await _repository.getTotalDebts();
     return (page: page, total: total);
   }

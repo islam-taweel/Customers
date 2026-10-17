@@ -9,6 +9,7 @@ import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/customer.dart';
+import '../../../data/models/customer_sort_option.dart';
 import '../../../data/models/customer_with_balance.dart';
 import '../controllers/customer_details_controller.dart';
 import '../controllers/customers_controller.dart';
@@ -55,7 +56,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
   /// طلب مكرر ولا طلب بعد انتهاء البيانات.
   void _maybeLoadMore() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter <= AppConstants.loadMoreThreshold) {
+    if (_scrollController.position.extentAfter <=
+        AppConstants.loadMoreThreshold) {
       context.read<CustomersController>().loadNextPage();
     }
   }
@@ -63,6 +65,19 @@ class _CustomersScreenState extends State<CustomersScreen> {
   void _onSearchChanged(String value) {
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     context.read<CustomersController>().search(value);
+  }
+
+  /// اسم الخيار كما يظهر في القائمة (switch شامل: إضافة خيار جديد تفرض إضافة اسمه هنا)
+  String _sortLabel(CustomerSortOption option) => switch (option) {
+    CustomerSortOption.name => AppStrings.sortByName,
+    CustomerSortOption.newest => AppStrings.sortNewest,
+    CustomerSortOption.highestDebt => AppStrings.sortHighestDebt,
+  };
+
+  void _onSortSelected(CustomerSortOption option) {
+    // القائمة ستُستبدل بنتائج الصفحة الأولى، فنعود لأعلاها كما في البحث
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    context.read<CustomersController>().setSort(option);
   }
 
   void _clearSearch() {
@@ -177,6 +192,20 @@ class _CustomersScreenState extends State<CustomersScreen> {
       appBar: AppBar(
         title: Text(AppStrings.customers),
         actions: [
+          PopupMenuButton<CustomerSortOption>(
+            icon: const Icon(Icons.sort),
+            tooltip: AppStrings.sortTooltip,
+            onSelected: _onSortSelected,
+            itemBuilder: (_) => [
+              for (final option in CustomerSortOption.values)
+                // علامة ✓ بجانب الخيار المحدد حاليًا في المتحكم
+                CheckedPopupMenuItem<CustomerSortOption>(
+                  value: option,
+                  checked: option == controller.sort,
+                  child: Text(_sortLabel(option)),
+                ),
+            ],
+          ),
           // يظهر في وضع التطوير (debug) فقط، ولا يوجد في نسخة الإنتاج
           if (kDebugMode)
             IconButton(
@@ -211,7 +240,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         onPressed: _clearSearch,
                       ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.borderRadius,
+                  ),
                 ),
                 isDense: true,
               ),
@@ -233,10 +264,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
     // 2) الخطأ: رسالة عربية واضحة وزر إعادة المحاولة
     if (controller.error != null && customers.isEmpty) {
-      return ErrorView(
-        message: controller.error!,
-        onRetry: controller.retry,
-      );
+      return ErrorView(message: controller.error!, onRetry: controller.retry);
     }
 
     // 3) القائمة فارغة

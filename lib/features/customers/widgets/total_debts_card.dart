@@ -12,6 +12,8 @@ class TotalDebtsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('build: TotalDebtsCard');
+
     final scheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -21,12 +23,18 @@ class TotalDebtsCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Icon(Icons.account_balance_wallet, color: scheme.onPrimaryContainer),
+            Icon(
+              Icons.account_balance_wallet,
+              color: scheme.onPrimaryContainer,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 AppStrings.totalDebts,
-                style: TextStyle(fontSize: 16, color: scheme.onPrimaryContainer),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: scheme.onPrimaryContainer,
+                ),
               ),
             ),
             Text(

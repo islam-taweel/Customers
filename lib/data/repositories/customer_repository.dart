@@ -1,6 +1,7 @@
 import '../../core/constants/app_constants.dart';
 import '../database/database_helper.dart';
 import '../models/customer.dart';
+import '../models/customer_sort_option.dart';
 import '../models/customer_with_balance.dart';
 import '../models/deleted_customer.dart';
 import '../models/operation.dart';
@@ -32,10 +33,13 @@ class CustomerRepository {
   /// - كل دفعة تالية: `getCustomers(offset: عدد_ما_حُمّل_حتى_الآن)`.
   /// - [query] يصفّي بالاسم على كل العملاء وليس على من حُمّل منهم فقط.
   /// - [limit] الافتراضي 20، ويمكن رفعه لإعادة تحديث كل ما هو معروض دفعة واحدة.
+  /// - [sort] ترتيب النتائج (الاسم افتراضيًا)، ويُطبَّق في SQL عبر `ORDER BY`
+  ///   قبل `LIMIT/OFFSET` حتى يكون الترتيب صحيحًا على كل الصفحات.
   Future<CustomersPage> getCustomers({
     int offset = 0,
     int limit = pageSize,
     String query = '',
+    CustomerSortOption sort = CustomerSortOption.name,
   }) async {
     assert(offset >= 0 && limit > 0);
     final db = await _dbHelper.database;
@@ -68,7 +72,7 @@ class CustomerRepository {
              ), 0) AS balance
       FROM $_customers c
       $where
-      ORDER BY c.name COLLATE NOCASE ASC, c.id ASC
+      ORDER BY ${sort.orderBy}
       LIMIT ? OFFSET ?
     ''', args);
 
