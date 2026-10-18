@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/dev/fake_customers.dart';
@@ -14,13 +15,17 @@ import '../../../data/models/customer_sort_option.dart';
 import '../../../data/models/customer_with_balance.dart';
 import '../../../data/models/deleted_customer.dart';
 import '../../../data/repositories/customer_repository.dart';
+import '../../../data/repositories/erp_customer_repository.dart';
 
 /// حالة ومنطق شاشة العملاء. لا يعرف شيئًا عن الواجهة ولا عن SQL،
 /// وكل وصوله للبيانات يمر عبر [CustomerRepository].
 class CustomersController extends ChangeNotifier {
-  CustomersController(this._repository);
+  CustomersController(this._repository, this._erpCustomers);
 
   final CustomerRepository _repository;
+
+  /// مصدر أسماء العملاء وهواتفهم (ERPNext). الديون تبقى كلها في [_repository].
+  final ErpCustomerRepository _erpCustomers;
 
   static String get _loadError => AppStrings.loadCustomersError;
   static String get _loadMoreError => AppStrings.loadMoreCustomersError;
@@ -50,6 +55,7 @@ class CustomersController extends ChangeNotifier {
   CustomerSortOption _sort = CustomerSortOption.name;
 
   bool _isSeeding = false;
+  bool _isSyncing = false;
 
   Timer? _debounce;
   int _requestId = 0; // لتجاهل نتائج الطلبات القديمة
@@ -63,6 +69,44 @@ class CustomersController extends ChangeNotifier {
   double get totalDebts => _totalDebts;
   String get query => _query;
   CustomerSortOption get sort => _sort;
+
+  // ───────────────────────── جلب العملاء من ERPNext ─────────────────────────
+
+  /// يجلب أسماء العملاء وهواتفهم من ERPNext ويدمجها في القاعدة المحلية، ثم يحدّث
+  /// القائمة. الباقي (البحث، الفرز، التصفح، الديون) يعمل على القاعدة المحلية كما كان،
+  /// فتبقى القائمة تعمل دون إنترنت بآخر ما حُفظ.
+  ///
+  /// عند فشل الجلب تبقى القائمة المحلية كما هي، ولا يظهر خطأ إلا إن كانت فارغة.
+  Future<void> syncFromApi() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+
+    // قائمة فارغة (أول تشغيل): نُبقي مؤشر التحميل بدل رسالة «لا يوجد عملاء»
+    if (_customers.isEmpty && !_isLoading) {
+      _isLoading = true;
+      _error = null;
+      _notify();
+    }
+
+    String? syncError;
+    try {
+      final remote = await _erpCustomers.fetchCustomers();
+      await _repository.syncFromErp(remote);
+    } catch (e) {
+      debugPrint('syncFromApi failed: $e');
+      syncError = describeError(e, fallback: _loadError);
+    } finally {
+      _isSyncing = false;
+    }
+    if (_disposed) return;
+
+    await refresh();
+
+    if (syncError != null && _customers.isEmpty) {
+      _error = syncError;
+      _notify();
+    }
+  }
 
   // ───────────────────────── 6) أول صفحة ─────────────────────────
 
@@ -192,10 +236,10 @@ class CustomersController extends ChangeNotifier {
     _notify();
   }
 
-  /// إعادة المحاولة بعد خطأ: تحميل أول صفحة إن كانت القائمة فارغة، وإلا تحديث.
+  /// إعادة المحاولة بعد خطأ: جلب العملاء من ERPNext إن كانت القائمة فارغة، وإلا تحديث.
   Future<void> retry() {
     _error = null;
-    return _customers.isEmpty ? loadFirstPage() : refresh();
+    return _customers.isEmpty ? syncFromApi() : refresh();
   }
 
   /// تغيير الفرز: يحفظ الخيار الجديد ثم يعيد التحميل من الصفحة الأولى (offset = 0).

@@ -166,6 +166,89 @@ class AppStrings {
   static String get operationSaveFailed =>
       _t('تعذّر حفظ العملية', 'Could not save the transaction');
 
+  // ───────── الفاتورة ─────────
+  static String get tabOperations => _t('العمليات', 'Transactions');
+  static String get tabInvoice => _t('الفاتورة', 'Invoice');
+  static String get invoiceTitle => _t('فاتورة', 'Invoice');
+  static String get invoiceNumber => _t('رقم الفاتورة', 'Invoice no.');
+  static String get invoiceCustomer => _t('اسم العميل', 'Customer name');
+  static String get invoiceAmount => _t('مبلغ الفاتورة', 'Invoice amount');
+  static String get viewInvoicePdf => _t('عرض الفاتورة PDF', 'View invoice PDF');
+  static String get invoicePdfFailed =>
+      _t('تعذّر إنشاء ملف PDF', 'Could not create the PDF file');
+
+  // ───────── ERPNext (الفواتير فقط) ─────────
+  static String get erpMissingCredentials => _t(
+        'لم تُضبط مفاتيح ERPNext. شغّل التطبيق مع --dart-define-from-file=env.json (راجع env.example.json).',
+        'ERPNext keys are not set. Run the app with --dart-define-from-file=env.json (see env.example.json).',
+      );
+  static String get erpUnauthorized => _t(
+        'رفض ERPNext مفاتيح الدخول. تأكد من صحة API key و secret وصلاحياتهما.',
+        'ERPNext rejected the API keys. Check the key, the secret and their permissions.',
+      );
+  static String get erpNetworkError => _t(
+        'تعذّر الاتصال بـ ERPNext. تأكد أنك على نفس شبكة Wi-Fi وأن عنوان الخادم صحيح.',
+        'Could not reach ERPNext. Make sure you are on the same Wi-Fi and the server address is correct.',
+      );
+  static String get erpServerError => _t(
+        'ردّ ERPNext بخطأ. حاول مرة أخرى.',
+        'ERPNext returned an error. Please try again.',
+      );
+  static String get offlineNoCache => _t(
+        'لا يوجد اتصال بالإنترنت، ولا توجد نسخة محفوظة لهذه البيانات بعد. افتحها مرة واحدة وأنت متصل.',
+        'You are offline and there is no saved copy of this data yet. Open it once while online.',
+      );
+  static String offlineNotice(String when) => _t(
+        'غير متصل بالإنترنت. تُعرض بيانات محفوظة (آخر تحديث: $when)',
+        'You are offline. Showing saved data (last updated: $when)',
+      );
+  static String staleNotice(String reason, String when) => _t(
+        '$reason تُعرض بيانات محفوظة (آخر تحديث: $when)',
+        '$reason Showing saved data (last updated: $when)',
+      );
+  static String get erpNotFound => _t(
+        'لم يُعثر على الفاتورة في ERPNext.',
+        'The invoice was not found in ERPNext.',
+      );
+
+  static String get loadInvoicesError => _t(
+        'تعذّر تحميل الفواتير. حاول مرة أخرى.',
+        'Could not load the invoices. Please try again.',
+      );
+  static String get loadInvoiceError => _t(
+        'تعذّر تحميل تفاصيل الفاتورة. حاول مرة أخرى.',
+        'Could not load the invoice details. Please try again.',
+      );
+  static String get invoicesNoMatchTitle =>
+      _t('العميل غير موجود في ERPNext', 'Customer not found in ERPNext');
+  static String get invoicesNoMatchMessage => _t(
+        'لم نجد عميلًا في ERPNext يطابق رقم هاتف هذا العميل أو اسمه.',
+        'No ERPNext customer matches this customer’s phone number or name.',
+      );
+  static String get noInvoicesTitle => _t('لا توجد فواتير', 'No invoices');
+  static String get noInvoicesMessage => _t(
+        'لا توجد فواتير معتمدة لهذا العميل في ERPNext.',
+        'There are no submitted invoices for this customer in ERPNext.',
+      );
+  static String get invoiceRemaining => _t('المتبقي', 'Remaining');
+  static String get invoicePostingDate => _t('تاريخ الفاتورة', 'Invoice date');
+  static String get invoiceDueDate => _t('تاريخ الاستحقاق', 'Due date');
+  static String get invoiceStatusLabel => _t('الحالة', 'Status');
+  static String get invoiceItems => _t('الأصناف', 'Items');
+  static String get invoiceTaxes => _t('الضرائب والرسوم', 'Taxes and charges');
+  static String get invoiceOutstanding => _t('المتبقي', 'Outstanding');
+
+  /// حالة الفاتورة في ERPNext بلغة التطبيق (الحالة غير المعروفة تُعرض كما هي)
+  static String invoiceStatus(String status) => switch (status) {
+        'Paid' => _t('مدفوعة', 'Paid'),
+        'Unpaid' => _t('غير مدفوعة', 'Unpaid'),
+        'Overdue' => _t('متأخرة', 'Overdue'),
+        'Partly Paid' => _t('مدفوعة جزئيًا', 'Partly paid'),
+        'Return' => _t('مرتجع', 'Return'),
+        'Credit Note Issued' => _t('أُصدر لها إشعار دائن', 'Credit note issued'),
+        _ => status,
+      };
+
   // ───────── الوقت ─────────
   static String get am => _t('ص', 'AM');
   static String get pm => _t('م', 'PM');

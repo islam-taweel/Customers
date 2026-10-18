@@ -11,6 +11,7 @@ import '../../../data/models/customer.dart';
 import '../../../data/models/operation.dart';
 import '../controllers/customer_details_controller.dart';
 import '../widgets/balance_card.dart';
+import '../widgets/invoice_tab.dart';
 import '../widgets/operation_dialog.dart';
 import '../widgets/operation_tile.dart';
 import 'edit_customer_screen.dart';
@@ -105,18 +106,28 @@ class CustomerDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<CustomerDetailsController>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(controller.customer.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: AppStrings.editCustomer,
-            onPressed: () => _editCustomer(context),
+    // تبويبان: العمليات (الصفحة الأصلية) والفاتورة
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(controller.customer.name),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: AppStrings.editCustomer,
+              onPressed: () => _editCustomer(context),
+            ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              Tab(text: AppStrings.tabOperations),
+              Tab(text: AppStrings.tabInvoice),
+            ],
           ),
-        ],
+        ),
+        body: _buildBody(context, controller),
       ),
-      body: _buildBody(context, controller),
     );
   }
 
@@ -130,6 +141,19 @@ class CustomerDetailsScreen extends StatelessWidget {
       );
     }
 
+    return TabBarView(
+      children: [
+        _buildOperationsTab(context, controller),
+        const InvoiceTab(),
+      ],
+    );
+  }
+
+  /// التبويب الأول: الصفحة الأصلية (الرصيد، إضافة دين/دفعة، واتساب، سجل العمليات)
+  Widget _buildOperationsTab(
+    BuildContext context,
+    CustomerDetailsController controller,
+  ) {
     final operations = controller.operations;
 
     return Column(

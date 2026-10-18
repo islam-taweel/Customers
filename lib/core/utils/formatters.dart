@@ -42,3 +42,7 @@ double? parseAmount(String input) {
       .replaceAll('،', '.');
   return double.tryParse(s);
 }
+
+/// مبلغ بإشارة: السالب (مرتجع مثلًا) تظهر قبله علامة ناقص بدل أن يضيع في صيغة العملة.
+String formatSignedAmount(double value) =>
+    value < 0 ? '-${formatAmount(-value)}' : formatAmount(value);

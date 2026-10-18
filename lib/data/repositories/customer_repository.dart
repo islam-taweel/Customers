@@ -1,9 +1,12 @@
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/formatters.dart';
 import '../database/database_helper.dart';
 import '../models/customer.dart';
 import '../models/customer_sort_option.dart';
 import '../models/customer_with_balance.dart';
 import '../models/deleted_customer.dart';
+import '../models/erp_customer.dart';
+import '../models/invoice.dart';
 import '../models/operation.dart';
 
 /// صفحة واحدة من العملاء، مع إشارة إلى وجود المزيد بعدها
@@ -26,6 +29,7 @@ class CustomerRepository {
 
   static const _customers = DatabaseHelper.tableCustomers;
   static const _operations = DatabaseHelper.tableOperations;
+  static const _invoices = DatabaseHelper.tableInvoices;
 
   /// جلب دفعة من العملاء مع أرصدتهم.
   ///
@@ -140,13 +144,23 @@ class CustomerRepository {
         orderBy: 'id ASC',
       );
 
-      // نحذف العمليات صراحةً ثم العميل (ولا نعتمد على ON DELETE CASCADE وحده)
+      // نسخة احتياطية من فواتيره أيضًا، حتى تعود عند التراجع عن الحذف
+      final invoiceRows = await txn.query(
+        _invoices,
+        where: 'customerId = ?',
+        whereArgs: [customerId],
+        orderBy: 'id ASC',
+      );
+
+      // نحذف العمليات والفواتير صراحةً ثم العميل (ولا نعتمد على ON DELETE CASCADE وحده)
       await txn.delete(_operations, where: 'customerId = ?', whereArgs: [customerId]);
+      await txn.delete(_invoices, where: 'customerId = ?', whereArgs: [customerId]);
       await txn.delete(_customers, where: 'id = ?', whereArgs: [customerId]);
 
       return DeletedCustomer(
         customer: Customer.fromMap(customerRows.first),
         operations: operationRows.map(Operation.fromMap).toList(),
+        invoices: invoiceRows.map(Invoice.fromMap).toList(),
       );
     });
   }
@@ -162,9 +176,99 @@ class CustomerRepository {
       for (final operation in deleted.operations) {
         batch.insert(_operations, operation.toMap());
       }
+      for (final invoice in deleted.invoices) {
+        batch.insert(_invoices, invoice.toMap());
+      }
       await batch.commit(noResult: true);
     });
   }
+
+  /// دمج عملاء ERPNext (الاسم والهاتف فقط) في جدول العملاء المحلي، داخل معاملة واحدة.
+  ///
+  /// نُبقي العملاء في الجدول المحلي لأن الديون والعمليات مربوطة بـ id العميل المحلي،
+  /// فلا يتغير شيء فيها. المطابقة بالترتيب:
+  /// 1) بعمود erpId (عميل سبقت مزامنته)،
+  /// 2) بآخر 9 أرقام من الهاتف، 3) بالاسم، وذلك لعميل محلي لا يملك erpId بعد،
+  ///    فيُربط بعميل ERPNext ويحتفظ بديونه.
+  /// وإن لم يوجد مطابق يُضاف عميل جديد. الاسم والهاتف يؤخذان من ERPNext،
+  /// ولا يُحذف أي عميل محلي غير موجود في ERPNext.
+  Future<void> syncFromErp(List<ErpCustomer> remote) async {
+    // رد فارغ لا يغيّر شيئًا (حماية من محو أو تعديل البيانات بسبب رد ناقص)
+    if (remote.isEmpty) return;
+    final db = await _dbHelper.database;
+
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        _customers,
+        columns: ['id', 'name', 'phone', 'erpId'],
+      );
+
+      final idByErpId = <String, int>{};
+      final unlinkedByPhone = <String, int>{};
+      final unlinkedByName = <String, int>{};
+      for (final row in rows) {
+        final id = row['id'] as int;
+        final erpId = row['erpId'] as String?;
+        if (erpId != null && erpId.isNotEmpty) {
+          idByErpId[erpId] = id;
+          continue;
+        }
+        final phoneKey = _phoneKey(row['phone'] as String);
+        if (phoneKey != null) unlinkedByPhone.putIfAbsent(phoneKey, () => id);
+        unlinkedByName.putIfAbsent(_nameKey(row['name'] as String), () => id);
+      }
+
+      final batch = txn.batch();
+      for (final customer in remote) {
+        var localId = idByErpId[customer.id];
+
+        if (localId == null) {
+          final phoneKey = _phoneKey(customer.phone);
+          localId = (phoneKey == null ? null : unlinkedByPhone[phoneKey]) ??
+              unlinkedByName[_nameKey(customer.name)];
+
+          // العميل المحلي الذي ارتبط الآن لا يجوز أن يرتبط بعميل ERPNext آخر
+          if (localId != null) {
+            final linkedId = localId;
+            unlinkedByPhone.removeWhere((_, id) => id == linkedId);
+            unlinkedByName.removeWhere((_, id) => id == linkedId);
+          }
+        }
+
+        if (localId == null) {
+          batch.insert(_customers, {
+            'name': customer.name,
+            'phone': customer.phone,
+            'erpId': customer.id,
+          });
+        } else {
+          batch.update(
+            _customers,
+            {
+              'name': customer.name,
+              // عميل ERPNext بلا هاتف لا يمحو الهاتف المحلي
+              if (customer.phone.isNotEmpty) 'phone': customer.phone,
+              'erpId': customer.id,
+            },
+            where: 'id = ?',
+            whereArgs: [localId],
+          );
+        }
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  /// آخر 9 أرقام من الهاتف، فتتطابق الصيغ المحلية والدولية (null إن قصر الرقم).
+  String? _phoneKey(String raw) {
+    final digits = normalizeDigits(raw).replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 9) return null;
+    return digits.substring(digits.length - 9);
+  }
+
+  /// الاسم بلا فروق في حالة الأحرف أو المسافات الزائدة
+  String _nameKey(String name) =>
+      name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   /// إضافة عدة عملاء دفعة واحدة داخل معاملة واحدة (إما أن تُحفظ كلها أو لا شيء).
   Future<void> addCustomers(List<Customer> customers) async {

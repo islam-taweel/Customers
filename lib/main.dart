@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -9,8 +11,13 @@ import 'core/localization/language_controller.dart';
 import 'core/localization/rebuild_all.dart';
 import 'core/services/whatsapp_launcher.dart';
 import 'core/theme/app_theme.dart';
+import 'data/api/erp_api_client.dart';
 import 'data/database/database_helper.dart';
 import 'data/repositories/customer_repository.dart';
+import 'data/repositories/erp_customer_repository.dart';
+import 'data/repositories/erp_cache_store.dart';
+import 'data/repositories/erp_invoice_repository.dart';
+import 'data/repositories/invoice_repository.dart';
 import 'data/repositories/operation_repository.dart';
 import 'features/customers/controllers/customer_details_controller.dart';
 import 'features/customers/controllers/customers_controller.dart';
@@ -28,25 +35,38 @@ Future<void> main() async {
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
   final dbHelper = DatabaseHelper.instance;
   final customerRepository = CustomerRepository(dbHelper);
-  final customersController = CustomersController(customerRepository);
+  final erpApi = ErpApiClient();
+  final customersController = CustomersController(
+    customerRepository,
+    // أسماء العملاء وهواتفهم من ERPNext (الديون تبقى محلية)
+    ErpCustomerRepository(erpApi),
+  );
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
     customerRepository,
     const WhatsAppLauncher(),
+    // فواتير ERPNext فقط، مع نسخة محلية في قاعدة البيانات للعمل دون إنترنت
+    ErpInvoiceRepository(erpApi, ErpCacheStore(dbHelper)),
   );
 
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
   // الـ timeout حماية فقط: إن تأخر التحميل تظهر الشاشة بمؤشر التحميل
   // بدل بقاء الـ splash إلى الأبد.
-  await customersController
-      .loadFirstPage()
-      .timeout(AppConstants.splashTimeout, onTimeout: () {});
+  await customersController.loadFirstPage().timeout(
+    AppConstants.splashTimeout,
+    onTimeout: () {},
+  );
+
+  // مزامنة العملاء من ERPNext في الخلفية: تظهر القائمة المحلية فورًا
+  // ثم تتحدث عند وصول البيانات (ومؤشر التحميل إن لم يكن هناك شيء محفوظ بعد)
+  unawaited(customersController.syncFromApi());
 
   runApp(
     DebtsApp(
       customersController: customersController,
       detailsFactory: detailsFactory,
       languageController: languageController,
+      invoiceRepository: InvoiceRepository(dbHelper),
     ),
   );
 
@@ -58,12 +78,14 @@ class DebtsApp extends StatelessWidget {
   final CustomersController customersController;
   final CustomerDetailsControllerFactory detailsFactory;
   final LanguageController languageController;
+  final InvoiceRepository invoiceRepository;
 
   const DebtsApp({
     super.key,
     required this.customersController,
     required this.detailsFactory,
     required this.languageController,
+    required this.invoiceRepository,
   });
 
   @override
@@ -77,6 +99,8 @@ class DebtsApp extends StatelessWidget {
         ),
         // ينشئ متحكمًا جديدًا لكل عميل يُفتح
         Provider<CustomerDetailsControllerFactory>.value(value: detailsFactory),
+        // مستودع الفواتير: تأخذه شاشة التفاصيل لإنشاء متحكم فواتير لكل عميل
+        Provider<InvoiceRepository>.value(value: invoiceRepository),
         // اللغة الحالية (عربي/إنجليزي)
         ChangeNotifierProvider<LanguageController>.value(
           value: languageController,
@@ -108,7 +132,6 @@ class DebtsApp extends StatelessWidget {
     );
   }
 }
-
 
 /// عند تغيّر اللغة نعيد بناء كل الشاشات المفتوحة،
 /// لأن النصوص تُقرأ من AppStrings (وليس من InheritedWidget).

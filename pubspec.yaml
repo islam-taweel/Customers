@@ -17,6 +17,9 @@ dependencies:
   flutter_native_splash: ^2.4.8
   url_launcher: ^6.3.2
   shared_preferences: ^2.3.0
+  http: ^1.2.2
+  pdf: ^3.11.0
+  printing: ^5.13.0
   flutter_localizations:
     sdk: flutter
   intl: any
