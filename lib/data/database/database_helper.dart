@@ -7,7 +7,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
   static const _dbName = 'debts.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
 
   static const tableCustomers = 'customers';
   static const tableOperations = 'operations';
@@ -81,6 +81,12 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE $tableCustomers ADD COLUMN erpId TEXT');
       await _createCustomerErpIdIndex(db);
     }
+    if (oldVersion < 5) {
+      // الإصدار 5: فاتورة الطلبية تُحفظ محليًا مع رقم الطلبية وأصنافها
+      await db.execute('ALTER TABLE $tableInvoices ADD COLUMN orderId TEXT');
+      await db.execute('ALTER TABLE $tableInvoices ADD COLUMN deliveryDate TEXT');
+      await db.execute('ALTER TABLE $tableInvoices ADD COLUMN itemsJson TEXT');
+    }
   }
 
   /// فهرس فريد على erpId: لا يتكرر عميل ERPNext أبدًا، والقيم الفارغة (العملاء
@@ -115,6 +121,9 @@ class DatabaseHelper {
         customerPhone TEXT NOT NULL,
         amount REAL NOT NULL CHECK (amount > 0),
         createdAt TEXT NOT NULL,
+        orderId TEXT,
+        deliveryDate TEXT,
+        itemsJson TEXT,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');

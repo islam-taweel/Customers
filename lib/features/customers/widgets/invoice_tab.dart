@@ -5,6 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
+import '../../../data/models/sales_invoice.dart';
 import '../controllers/customer_details_controller.dart';
 import '../controllers/customer_invoices_controller.dart';
 import '../screens/invoice_details_screen.dart';
@@ -32,11 +33,20 @@ class InvoiceTab extends StatelessWidget {
 class _InvoicesView extends StatelessWidget {
   const _InvoicesView();
 
-  void _openInvoice(BuildContext context, String invoiceName) {
+  void _openInvoice(
+    BuildContext context,
+    CustomerInvoicesController list,
+    SalesInvoice invoice,
+  ) {
     final details = context.read<CustomerDetailsController>();
+    final local = invoice.isLocal ? list.localDetail(invoice.name) : null;
     Navigator.push(
       context,
-      InvoiceDetailsScreen.route(details.openInvoice(invoiceName)),
+      InvoiceDetailsScreen.route(
+        local != null
+            ? details.openLocalInvoice(local)
+            : details.openInvoice(invoice.name),
+      ),
     );
   }
 
@@ -63,7 +73,8 @@ class _InvoicesView extends StatelessWidget {
       return ErrorView(message: controller.error!, onRetry: controller.load);
     }
 
-    if (!controller.matched) {
+    // لا عميل مطابق في ERPNext وليس هناك فواتير محلية أيضًا
+    if (!controller.matched && controller.invoices.isEmpty) {
       return EmptyView(
         icon: Icons.link_off,
         title: AppStrings.invoicesNoMatchTitle,
@@ -86,7 +97,7 @@ class _InvoicesView extends StatelessWidget {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) => SalesInvoiceTile(
         invoice: invoices[i],
-        onTap: () => _openInvoice(context, invoices[i].name),
+        onTap: () => _openInvoice(context, controller, invoices[i]),
       ),
     );
   }

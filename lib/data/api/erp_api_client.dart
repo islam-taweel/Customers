@@ -120,16 +120,43 @@ class ErpApiClient {
     return Map<String, dynamic>.from(data);
   }
 
-  Future<Map<String, dynamic>> _get(Uri uri) async {
+  /// ينشئ مستندًا جديدًا (POST /api/resource/{doctype}) ويعيد المستند المحفوظ
+  /// كما ردّ به الخادم (مثلًا data.name = رقم الطلبية).
+  Future<Map<String, dynamic>> postDoc(
+    String doctype,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = _uri([doctype]);
+    final decoded = await _send(
+      uri,
+      () => _client.post(
+        uri,
+        headers: {..._headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ),
+    );
+    final data = decoded['data'];
+    if (data is! Map) {
+      throw const ErpApiException(ErpErrorType.badResponse);
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<Map<String, dynamic>> _get(Uri uri) =>
+      _send(uri, () => _client.get(uri, headers: _headers));
+
+  /// ينفّذ الطلب ويحوّل الأخطاء إلى [ErpApiException] (مشترك بين GET و POST).
+  Future<Map<String, dynamic>> _send(
+    Uri uri,
+    Future<http.Response> Function() call,
+  ) async {
     if (!ErpConfig.hasCredentials) {
       throw const ErpApiException(ErpErrorType.missingCredentials);
     }
 
     final http.Response response;
     try {
-      response = await _client
-          .get(uri, headers: _headers)
-          .timeout(ErpConfig.requestTimeout);
+      response = await call().timeout(ErpConfig.requestTimeout);
     } on TimeoutException {
       throw const ErpApiException(ErpErrorType.network, detail: 'timeout');
     } on SocketException catch (e) {
@@ -151,7 +178,7 @@ class ErpApiClient {
       throw ErpApiException(
         ErpErrorType.server,
         statusCode: status,
-        detail: body.length > 200 ? body.substring(0, 200) : body,
+        detail: _friendlyDetail(body),
       );
     }
 
@@ -163,5 +190,35 @@ class ErpApiClient {
       throw ErpApiException(ErpErrorType.badResponse, detail: e.message);
     }
     throw const ErpApiException(ErpErrorType.badResponse);
+  }
+
+  /// يستخرج رسالة مقروءة من ردّ خطأ ERPNext (_server_messages أو exception)
+  /// ليعرف المستخدم أي حقل ناقص، وإلا يعيد بداية النص كما هو.
+  String _friendlyDetail(String body) {
+    String strip(String html) => html
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    try {
+      final json = jsonDecode(body);
+      if (json is Map) {
+        final raw = json['_server_messages'];
+        if (raw is String) {
+          final list = jsonDecode(raw) as List;
+          final messages = [
+            for (final m in list)
+              strip((jsonDecode(m as String) as Map)['message']?.toString() ?? ''),
+          ].where((m) => m.isNotEmpty);
+          if (messages.isNotEmpty) return messages.join(' | ');
+        }
+        final exception = json['exception'];
+        if (exception is String && exception.isNotEmpty) {
+          return strip(exception);
+        }
+      }
+    } catch (_) {
+      // الردّ ليس JSON بالصيغة المتوقعة: نعرض بدايته كما هي
+    }
+    return body.length > 300 ? body.substring(0, 300) : body;
   }
 }

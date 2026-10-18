@@ -21,6 +21,9 @@ class SalesInvoice {
   final double outstandingAmount;
   final String status;
 
+  /// true = فاتورة طلبية محفوظة على الهاتف (وليست من ERPNext)
+  final bool isLocal;
+
   const SalesInvoice({
     required this.name,
     required this.customer,
@@ -30,6 +33,7 @@ class SalesInvoice {
     required this.grandTotal,
     required this.outstandingAmount,
     required this.status,
+    this.isLocal = false,
   });
 
   factory SalesInvoice.fromJson(Map<String, dynamic> json) {

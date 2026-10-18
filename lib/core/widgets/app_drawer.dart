@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../constants/app_strings.dart';
 import '../localization/language_controller.dart';
+import '../../features/order/controllers/order_controller.dart';
+import '../../features/order/screens/new_order_screen.dart';
 
 /// القائمة الجانبية: الشعار بالأعلى، زر لوحة التحكم، ومبدّل اللغة بالأسفل.
 class AppDrawer extends StatelessWidget {
@@ -15,6 +17,14 @@ class AppDrawer extends StatelessWidget {
     navigator.pop(); // إغلاق القائمة
     // لوحة التحكم = شاشة العملاء (أول شاشة في التطبيق)
     navigator.popUntil((route) => route.isFirst);
+  }
+
+  void _openOrders(BuildContext context) {
+    final navigator = Navigator.of(context);
+    // متحكم جديد لكل طلبية: تبدأ دائمًا من الخطوة الأولى
+    final controller = context.read<OrderControllerFactory>().create();
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(NewOrderScreen.route(controller));
   }
 
   void _changeLanguage(BuildContext context, AppLanguage language) {
@@ -68,9 +78,22 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
+            // 3) طلبيات العملاء (Stepper: العميل ← الأصناف ← الفاتورة)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: Text(AppStrings.customerOrders),
+                onTap: () => _openOrders(context),
+              ),
+            ),
+
             const Spacer(),
 
-            // 3) زرّان متلاصقان للتبديل بين العربية والإنجليزية
+            // 4) زرّان متلاصقان للتبديل بين العربية والإنجليزية
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),

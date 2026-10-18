@@ -17,11 +17,13 @@ import 'data/repositories/customer_repository.dart';
 import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
 import 'data/repositories/erp_invoice_repository.dart';
+import 'data/repositories/erp_order_repository.dart';
 import 'data/repositories/invoice_repository.dart';
 import 'data/repositories/operation_repository.dart';
 import 'features/customers/controllers/customer_details_controller.dart';
 import 'features/customers/controllers/customers_controller.dart';
 import 'features/customers/screens/customer_screen.dart';
+import 'features/order/controllers/order_controller.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -41,12 +43,22 @@ Future<void> main() async {
     // أسماء العملاء وهواتفهم من ERPNext (الديون تبقى محلية)
     ErpCustomerRepository(erpApi),
   );
+  final invoiceRepository = InvoiceRepository(dbHelper);
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
     customerRepository,
     const WhatsAppLauncher(),
     // فواتير ERPNext فقط، مع نسخة محلية في قاعدة البيانات للعمل دون إنترنت
     ErpInvoiceRepository(erpApi, ErpCacheStore(dbHelper)),
+    // فواتير الطلبيات المحفوظة محليًا تظهر مع فواتير ERPNext
+    invoiceRepository,
+  );
+
+  // طلبيات العملاء: العملاء والأصناف والأسعار والمخزون وإنشاء الطلبية من ERPNext
+  final orderFactory = OrderControllerFactory(
+    ErpOrderRepository(erpApi),
+    ErpCustomerRepository(erpApi),
+    invoiceRepository,
   );
 
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
@@ -66,7 +78,8 @@ Future<void> main() async {
       customersController: customersController,
       detailsFactory: detailsFactory,
       languageController: languageController,
-      invoiceRepository: InvoiceRepository(dbHelper),
+      invoiceRepository: invoiceRepository,
+      orderFactory: orderFactory,
     ),
   );
 
@@ -79,6 +92,7 @@ class DebtsApp extends StatelessWidget {
   final CustomerDetailsControllerFactory detailsFactory;
   final LanguageController languageController;
   final InvoiceRepository invoiceRepository;
+  final OrderControllerFactory orderFactory;
 
   const DebtsApp({
     super.key,
@@ -86,6 +100,7 @@ class DebtsApp extends StatelessWidget {
     required this.detailsFactory,
     required this.languageController,
     required this.invoiceRepository,
+    required this.orderFactory,
   });
 
   @override
@@ -101,6 +116,8 @@ class DebtsApp extends StatelessWidget {
         Provider<CustomerDetailsControllerFactory>.value(value: detailsFactory),
         // مستودع الفواتير: تأخذه شاشة التفاصيل لإنشاء متحكم فواتير لكل عميل
         Provider<InvoiceRepository>.value(value: invoiceRepository),
+        // ينشئ متحكم طلبية جديدة كلما فُتحت شاشة «طلبيات العملاء»
+        Provider<OrderControllerFactory>.value(value: orderFactory),
         // اللغة الحالية (عربي/إنجليزي)
         ChangeNotifierProvider<LanguageController>.value(
           value: languageController,

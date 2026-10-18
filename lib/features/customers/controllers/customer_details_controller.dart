@@ -10,6 +10,8 @@ import '../../../data/models/customer.dart';
 import '../../../data/models/operation.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../../data/repositories/erp_invoice_repository.dart';
+import '../../../data/repositories/invoice_repository.dart';
+import '../../../data/models/sales_invoice.dart';
 import '../../../data/repositories/operation_repository.dart';
 import 'customer_invoices_controller.dart';
 import 'invoice_details_controller.dart';
@@ -23,6 +25,7 @@ class CustomerDetailsController extends ChangeNotifier {
     this._customerRepository,
     this._whatsAppLauncher,
     this._erpInvoiceRepository,
+    this._invoiceRepository,
     this._customer,
   ) : assert(_customer.id != null, 'يجب أن يكون للعميل id');
 
@@ -32,6 +35,9 @@ class CustomerDetailsController extends ChangeNotifier {
 
   /// فواتير ERPNext فقط (العملاء والديون تبقى في قاعدة البيانات المحلية)
   final ErpInvoiceRepository _erpInvoiceRepository;
+
+  /// فواتير الطلبيات المحفوظة على الهاتف
+  final InvoiceRepository _invoiceRepository;
 
   // ───────────────────────── الحالة ─────────────────────────
 
@@ -152,7 +158,19 @@ class CustomerDetailsController extends ChangeNotifier {
 
   /// متحكم قائمة فواتير هذا العميل (تبويب الفاتورة)، فلا تحتاج الواجهة أن تعرف الـ repository.
   CustomerInvoicesController createInvoicesController() {
-    return CustomerInvoicesController(_erpInvoiceRepository, _customer);
+    return CustomerInvoicesController(
+      _erpInvoiceRepository,
+      _invoiceRepository,
+      _customer,
+    );
+  }
+
+  /// متحكم شاشة تفاصيل فاتورة محفوظة محليًا (طلبية): لا يطلب شيئًا من الشبكة.
+  InvoiceDetailsController openLocalInvoice(SalesInvoiceDetail detail) {
+    return InvoiceDetailsController.local(
+      detail,
+      customerPhone: _customer.phone,
+    );
   }
 
   /// متحكم شاشة تفاصيل فاتورة معيّنة.
@@ -250,12 +268,14 @@ class CustomerDetailsControllerFactory {
     this._customerRepository,
     this._whatsAppLauncher,
     this._erpInvoiceRepository,
+    this._invoiceRepository,
   );
 
   final OperationRepository _operationRepository;
   final CustomerRepository _customerRepository;
   final WhatsAppLauncher _whatsAppLauncher;
   final ErpInvoiceRepository _erpInvoiceRepository;
+  final InvoiceRepository _invoiceRepository;
 
   CustomerDetailsController create(Customer customer) {
     return CustomerDetailsController(
@@ -263,6 +283,7 @@ class CustomerDetailsControllerFactory {
       _customerRepository,
       _whatsAppLauncher,
       _erpInvoiceRepository,
+      _invoiceRepository,
       customer,
     );
   }

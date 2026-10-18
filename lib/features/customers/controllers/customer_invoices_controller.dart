@@ -7,20 +7,31 @@ import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/customer.dart';
+import '../../../data/models/invoice.dart';
 import '../../../data/models/sales_invoice.dart';
 import '../../../data/repositories/erp_invoice_repository.dart';
+import '../../../data/repositories/invoice_repository.dart';
 
 /// فواتير عميل واحد من ERPNext (تبويب «الفاتورة»). يُنشأ عند فتح التبويب ويُتلف عند مغادرته.
 ///
 /// يعمل دون إنترنت: يعرض أولًا النسخة المحفوظة على الهاتف (إن وُجدت) ثم يحاول تحديثها
 /// من ERPNext. إن فشل التحديث تبقى النسخة المحفوظة ظاهرة مع [notice] يشرح السبب.
 class CustomerInvoicesController extends ChangeNotifier {
-  CustomerInvoicesController(this._repository, this._customer);
+  CustomerInvoicesController(
+    this._repository,
+    this._localRepository,
+    this._customer,
+  );
 
   final ErpInvoiceRepository _repository;
+  final InvoiceRepository _localRepository;
   final Customer _customer;
 
-  final List<SalesInvoice> _invoices = [];
+  /// فواتير ERPNext (المحفوظة أو المجلوبة)
+  final List<SalesInvoice> _erpInvoices = [];
+
+  /// فواتير الطلبيات المحفوظة على الهاتف لهذا العميل
+  List<Invoice> _localInvoices = [];
 
   /// true فقط حين لا توجد بيانات نعرضها بعد (لا نسخة محفوظة والجلب جارٍ)
   bool _isLoading = true;
@@ -40,8 +51,34 @@ class CustomerInvoicesController extends ChangeNotifier {
   int _requestId = 0;
   bool _disposed = false;
 
-  /// من الأحدث إلى الأقدم
-  List<SalesInvoice> get invoices => UnmodifiableListView(_invoices);
+  /// المحلية + فواتير ERPNext معًا، من الأحدث إلى الأقدم
+  List<SalesInvoice> get invoices {
+    final all = <SalesInvoice>[
+      for (final i in _localInvoices) i.toListEntry(),
+      ..._erpInvoices,
+    ]..sort((a, b) {
+        final byDate = b.postingDate.compareTo(a.postingDate);
+        return byDate != 0 ? byDate : b.name.compareTo(a.name);
+      });
+    return UnmodifiableListView(all);
+  }
+
+  /// تفاصيل فاتورة محلية بحسب رقمها المعروض (null إن لم تكن محلية)
+  SalesInvoiceDetail? localDetail(String name) {
+    for (final i in _localInvoices) {
+      if (i.displayName == name) return i.toDetail();
+    }
+    return null;
+  }
+
+  Future<void> _loadLocal() async {
+    try {
+      _localInvoices = await _localRepository.getInvoices(_customer.id!);
+    } catch (e) {
+      debugPrint('CustomerInvoicesController._loadLocal failed: $e');
+      _localInvoices = [];
+    }
+  }
   bool get isLoading => _isLoading;
   bool get isRefreshing => _isRefreshing;
   bool get matched => _matched;
@@ -54,7 +91,8 @@ class CustomerInvoicesController extends ChangeNotifier {
     _error = null;
     _notice = null;
 
-    // 1) المحفوظ على الهاتف يظهر فورًا
+    // 1) المحفوظ على الهاتف يظهر فورًا (فواتير الطلبيات + نسخة ERPNext)
+    await _loadLocal();
     final cached = await _repository.readCachedInvoices(_customer);
     if (_isStale(requestId)) return;
 
@@ -62,7 +100,7 @@ class CustomerInvoicesController extends ChangeNotifier {
       _apply(cached);
       _isLoading = false;
     } else {
-      _isLoading = true;
+      _isLoading = _localInvoices.isEmpty;
     }
     _isRefreshing = true;
     _notify();
@@ -86,6 +124,11 @@ class CustomerInvoicesController extends ChangeNotifier {
                 describeError(e, fallback: AppStrings.loadInvoicesError),
                 when,
               );
+      } else if (_localInvoices.isNotEmpty) {
+        // لا نسخة من ERPNext، لكن الفواتير المحلية تُعرض مع تنبيه
+        _notice = isOffline
+            ? AppStrings.offlineNoCache
+            : describeError(e, fallback: AppStrings.loadInvoicesError);
       } else {
         _error = isOffline
             ? AppStrings.offlineNoCache
@@ -100,7 +143,7 @@ class CustomerInvoicesController extends ChangeNotifier {
 
   void _apply(InvoicesResult result) {
     _matched = result.matched;
-    _invoices
+    _erpInvoices
       ..clear()
       ..addAll(result.invoices);
   }

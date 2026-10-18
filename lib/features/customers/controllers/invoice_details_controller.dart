@@ -14,9 +14,18 @@ class InvoiceDetailsController extends ChangeNotifier {
     this._repository,
     this.invoiceName, {
     required this.customerPhone,
-  });
+  }) : _isLoading = true;
 
-  final ErpInvoiceRepository _repository;
+  /// فاتورة محفوظة على الهاتف (طلبية): التفاصيل جاهزة ولا تُجلب من ERPNext
+  InvoiceDetailsController.local(
+    SalesInvoiceDetail detail, {
+    required this.customerPhone,
+  })  : _repository = null,
+        invoiceName = detail.name,
+        _detail = detail,
+        _isLoading = false;
+
+  final ErpInvoiceRepository? _repository;
 
   /// رقم الفاتورة كما جاء من القائمة تمامًا (مثل ACC-SINV-2026-00004)
   final String invoiceName;
@@ -25,7 +34,7 @@ class InvoiceDetailsController extends ChangeNotifier {
   final String customerPhone;
 
   SalesInvoiceDetail? _detail;
-  bool _isLoading = true;
+  bool _isLoading;
   String? _error;
   String? _notice;
   int _requestId = 0;
@@ -40,12 +49,17 @@ class InvoiceDetailsController extends ChangeNotifier {
 
   /// التحميل الأول (ويُستخدم أيضًا لإعادة المحاولة بعد خطأ).
   Future<void> load() async {
+    final repository = _repository;
+    if (repository == null) {
+      _notify();
+      return;
+    }
     final requestId = ++_requestId;
     _error = null;
     _notice = null;
 
     // 1) المحفوظ على الهاتف يظهر فورًا
-    final cached = await _repository.readCachedInvoiceDetail(invoiceName);
+    final cached = await repository.readCachedInvoiceDetail(invoiceName);
     if (_isStale(requestId)) return;
 
     if (cached != null) {
@@ -58,7 +72,7 @@ class InvoiceDetailsController extends ChangeNotifier {
 
     // 2) ثم التحديث من ERPNext
     try {
-      final fresh = await _repository.fetchInvoiceDetail(invoiceName);
+      final fresh = await repository.fetchInvoiceDetail(invoiceName);
       if (_isStale(requestId)) return;
       _detail = fresh.detail;
     } catch (e) {

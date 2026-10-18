@@ -17,6 +17,7 @@ class AppStrings {
 
   // ───────── القائمة الجانبية ─────────
   static String get dashboard => _t('لوحة التحكم', 'Dashboard');
+  static String get customerOrders => _t('طلبيات العملاء', 'Customer orders');
 
   // ───────── شاشة العملاء ─────────
   static String get customers => _t('العملاء', 'Customers');
@@ -240,6 +241,7 @@ class AppStrings {
 
   /// حالة الفاتورة في ERPNext بلغة التطبيق (الحالة غير المعروفة تُعرض كما هي)
   static String invoiceStatus(String status) => switch (status) {
+        'Draft' => _t('طلبية (مسودة)', 'Order (draft)'),
         'Paid' => _t('مدفوعة', 'Paid'),
         'Unpaid' => _t('غير مدفوعة', 'Unpaid'),
         'Overdue' => _t('متأخرة', 'Overdue'),
@@ -247,6 +249,129 @@ class AppStrings {
         'Return' => _t('مرتجع', 'Return'),
         'Credit Note Issued' => _t('أُصدر لها إشعار دائن', 'Credit note issued'),
         _ => status,
+      };
+
+  // ───────── طلبيات العملاء ─────────
+  static String get newOrderTitle => _t('طلبية جديدة', 'New order');
+  static String get stepCustomer => _t('العميل', 'Customer');
+  static String get stepItems => _t('الأصناف', 'Items');
+  static String get stepInvoice => _t('الفاتورة', 'Invoice');
+  static String get next => _t('التالي', 'Next');
+  static String get back => _t('رجوع', 'Back');
+  static String get chooseCustomer =>
+      _t('اختر العميل', 'Choose the customer');
+  static String get chooseCustomerHint => _t(
+        'اختر عميلًا واحدًا ثم اضغط «التالي».',
+        'Pick one customer, then tap “Next”.',
+      );
+  static String get orderCustomersEmpty =>
+      _t('لا يوجد عملاء في ERPNext', 'No customers in ERPNext');
+  static String orderFor(String name) =>
+      _t('طلبية لـ $name', 'Order for $name');
+  static String get chooseGroupHint =>
+      _t('اختر مجموعة لعرض أصنافها', 'Choose a group to see its items');
+  static String get loadingGroups =>
+      _t('جاري تحميل المجموعات...', 'Loading groups...');
+  static String get loadingItems =>
+      _t('جاري تحميل الأصناف...', 'Loading items...');
+  static String get loadGroupsError => _t(
+        'تعذّر تحميل مجموعات الأصناف. حاول مرة أخرى.',
+        'Could not load item groups. Please try again.',
+      );
+  static String get loadItemsError => _t(
+        'تعذّر تحميل الأصناف. حاول مرة أخرى.',
+        'Could not load the items. Please try again.',
+      );
+  static String get noGroupsTitle =>
+      _t('لا توجد مجموعات أصناف', 'No item groups');
+  static String get noItemsTitle =>
+      _t('لا توجد أصناف في هذه المجموعة', 'No items in this group');
+  static String get noItemsMessage => _t(
+        'لا توجد أصناف مفعّلة وقابلة للبيع هنا.',
+        'There are no enabled sales items here.',
+      );
+  static String get itemPrice => _t('السعر', 'Price');
+  static String get itemStock => _t('المتبقي في المخزن', 'Stock left');
+  static String get quantity => _t('الكمية', 'Quantity');
+  static String get lineTotal => _t('إجمالي الصنف', 'Item total');
+  static String get loadingPricing =>
+      _t('جاري جلب السعر والمخزون...', 'Fetching price and stock...');
+  static String get loadPricingError => _t(
+        'تعذّر جلب السعر والمخزون.',
+        'Could not fetch price and stock.',
+      );
+  static String get noPriceTitle =>
+      _t('لا يوجد سعر لهذا الصنف', 'No price is set for this item');
+  static String get noPriceMessage => _t(
+        'لا يمكن إضافته للطلبية قبل تحديد سعره في «Standard Selling».',
+        'It cannot be ordered until a price is set in “Standard Selling”.',
+      );
+  static String get outOfStock => _t('نفد المخزون', 'Out of stock');
+  static String get outOfStockMessage => _t(
+        'لا توجد كمية متاحة من هذا الصنف في المستودع.',
+        'There is no available quantity of this item in the warehouse.',
+      );
+  static String afterOrder(String qty) =>
+      _t('بعد طلبك: $qty', 'After your order: $qty');
+  static String maxAvailable(String qty) =>
+      _t('المتاح فقط $qty', 'Only $qty available');
+  static String selectedItemsCount(int n) =>
+      _t('$n أصناف مختارة', '$n items selected');
+  static String get orderTotal => _t('إجمالي الطلبية', 'Order total');
+  static String get invoiceHeading => _t('فاتورة الزبون', 'Customer invoice');
+  static String get invoiceLinesEmpty =>
+      _t('لم تختر أي صنف بعد', 'No items selected yet');
+  static String get unitPrice => _t('سعر الوحدة', 'Unit price');
+  static String get removeItem => _t('إزالة الصنف', 'Remove item');
+  static String get deliveryDate => _t('تاريخ التسليم', 'Delivery date');
+  static String get orderDate => _t('تاريخ الطلبية', 'Order date');
+  static String get savedAsDraft => _t(
+        'ستُحفظ الطلبية كمسودة في ERPNext.',
+        'The order will be saved as a draft in ERPNext.',
+      );
+  static String get submitOrder => _t('إرسال الطلبية', 'Send order');
+  static String get submittingOrder => _t('جاري الإرسال...', 'Sending...');
+  static String get orderCreateFailed =>
+      _t('تعذّر إنشاء الطلبية', 'Could not create the order');
+  static String get orderCreatedTitle =>
+      _t('تم إنشاء الطلبية', 'Order created');
+  static String get orderNumber => _t('رقم الطلبية', 'Order number');
+  static String get orderCreatedNote => _t(
+        'حُفظت كمسودة، ويمكنك مراجعتها واعتمادها من ERPNext.',
+        'Saved as a draft. You can review and submit it in ERPNext.',
+      );
+  static String get invoiceSavedNote => _t(
+        'تم حفظ الفاتورة في سجل العميل.',
+        'The invoice was saved to the customer record.',
+      );
+  static String get invoiceNotSavedNote => _t(
+        'تم إنشاء الطلبية، لكن تعذّر حفظ الفاتورة محليًا (تأكد أن العميل تمت مزامنته).',
+        'Order created, but the invoice could not be saved locally (make sure the customer is synced).',
+      );
+  static String get newOrderAgain => _t('طلبية جديدة', 'New order');
+  static String get close => _t('إغلاق', 'Close');
+  static String get copied => _t('تم نسخ الرقم', 'Number copied');
+  static String get leaveOrderTitle =>
+      _t('إلغاء الطلبية؟', 'Discard this order?');
+  static String get leaveOrderMessage => _t(
+        'الأصناف التي اخترتها لن تُحفظ.',
+        'The items you selected will not be saved.',
+      );
+  static String get keepEditing => _t('متابعة التعديل', 'Keep editing');
+  static String get discard => _t('إلغاء الطلبية', 'Discard');
+
+  /// أسماء مجموعات الأصناف بلغة التطبيق (غير المعروفة تُعرض كما هي)
+  static String itemGroupName(String group) => switch (group) {
+        'Consumable' => _t('مستهلكات', 'Consumable'),
+        'Electrical' => _t('كهربائيات', 'Electrical'),
+        'Hand Tools' => _t('عدد يدوية', 'Hand Tools'),
+        'Plumbing' => _t('سباكة', 'Plumbing'),
+        'Power Tools' => _t('عدد كهربائية', 'Power Tools'),
+        'Products' => _t('منتجات', 'Products'),
+        'Raw Material' => _t('مواد خام', 'Raw Material'),
+        'Services' => _t('خدمات', 'Services'),
+        'Sub Assemblies' => _t('تجميعات فرعية', 'Sub Assemblies'),
+        _ => group,
       };
 
   // ───────── الوقت ─────────

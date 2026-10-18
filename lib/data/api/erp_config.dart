@@ -34,4 +34,19 @@ class ErpConfig {
   /// حقل رابط العميل في جدول Dynamic Link (جدول فرعي داخل Contact).
   /// الأقواس المائلة (backticks) هي صيغة Frappe لحقول الجداول الفرعية.
   static const String contactLinkField = '`tabDynamic Link`.link_name';
+
+  // ───────── طلبيات العملاء (Sales Order) ─────────
+
+  /// الشركة التي تُنشأ لها الطلبية
+  static const String company = 'Ramallah Tools Co.';
+
+  /// قائمة الأسعار المستخدمة للبيع (السعر يُقرأ منها، لا من standard_rate)
+  static const String sellingPriceList = 'Standard Selling';
+
+  /// عملة قائمة الأسعار، وسعر تحويلها إلى عملة الشركة
+  static const String priceListCurrency = 'ILS';
+  static const num priceListConversionRate = 1;
+
+  /// المستودع الذي يُقرأ منه المخزون وتُسحب منه الأصناف
+  static const String warehouse = 'Main Warehouse - RTC';
 }
