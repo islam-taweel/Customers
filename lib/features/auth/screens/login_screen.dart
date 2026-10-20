@@ -23,7 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _formKey = GlobalKey<FormState>();
   // اسم الموقع المحفوظ (أو الافتراضي): الخادم واحد لكل العملاء ولكل عميل موقعه
-  final _siteController = TextEditingController(text: ErpConfig.hostHeader);
+  // حقل واحد: اسم الموقع أو عنوان الخادم (يفسّره ErpConfig.parseTarget)
+  final _siteController = TextEditingController(text: ErpConfig.currentInput);
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordFocus = FocusNode();
@@ -44,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthController>();
     // يجب ضبط الموقع قبل الدخول: ترويسة Host تحدد أي موقع يتصل به الطلب
-    await ErpConfig.setSite(_siteController.text);
+    await ErpConfig.setTarget(_siteController.text);
     await auth.login(_emailController.text, _passwordController.text);
 
     TextInput.finishAutofillContext(shouldSave: auth.isAuthenticated);
@@ -177,10 +178,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         scheme,
                         label: AppStrings.siteLabel,
                         icon: Icons.dns_outlined,
-                      ).copyWith(helperText: AppStrings.siteHelper),
+                      ).copyWith(
+                        helperText: AppStrings.siteHelper,
+                        helperMaxLines: 3,
+                      ),
                       validator: (value) =>
-                          ErpConfig.normalizeSite(value ?? '').isEmpty
-                              ? AppStrings.siteRequired
+                          ErpConfig.parseTarget(value ?? '') == null
+                              ? AppStrings.siteInvalid
                               : null,
                     ),
                     const SizedBox(height: 14),

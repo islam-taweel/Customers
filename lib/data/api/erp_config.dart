@@ -8,56 +8,118 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ErpConfig {
   ErpConfig._();
 
-  /// عنوان الخادم. من محاكي أندرويد استخدم http://10.0.2.2
-  static const String baseUrl = String.fromEnvironment(
+  /// الخادم الافتراضي: يُستخدم حين يُدخل المستخدم «اسم موقع» فقط.
+  /// من محاكي أندرويد استخدم http://10.0.2.2
+  static const String _defaultServer = String.fromEnvironment(
     'ERP_BASE_URL',
     defaultValue: 'http://192.168.1.130',
   );
 
-  /// اسم الموقع الافتراضي (قبل أن يدخل المستخدم اسم موقعه)
+  /// اسم الموقع الافتراضي قبل أن يدخل المستخدم شيئًا
   static const String _defaultSite = String.fromEnvironment(
     'ERP_HOST',
     defaultValue: 'erp.local',
   );
 
+  static const String _serverKey = 'erp_server_url';
   static const String _siteKey = 'erp_site_name';
 
+  static String _server = _defaultServer;
   static String _site = _defaultSite;
 
-  /// قيمة ترويسة Host = اسم موقع المستخدم في ERPNext.
-  /// عنوان الخادم ثابت، واسم الموقع هو ما يختلف من عميل لآخر،
-  /// فيُدخله المستخدم في شاشة الدخول ويُحفظ على جهازه.
-  static String get hostHeader => _site;
+  /// عنوان الخادم الحالي
+  static String get baseUrl => _server;
 
-  /// يقرأ اسم الموقع المحفوظ. يُستدعى مرة عند بدء التطبيق قبل أول طلب.
+  /// ما يظهر في حقل الدخول: اسم الموقع إن وُجد، وإلا عنوان الخادم.
+  static String get currentInput => _site.isNotEmpty ? _site : _server;
+
+  /// قيمة ترويسة Host. اسم الموقع إن أُدخل، وإلا مضيف عنوان الخادم نفسه
+  /// (مواقع يطابق اسمها نطاقها أو عنوانها).
+  static String get hostHeader {
+    if (_site.isNotEmpty) return _site;
+    final uri = Uri.tryParse(_server);
+    if (uri == null || uri.host.isEmpty) return _server;
+    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  }
+
+  /// يقرأ المحفوظ عند بدء التطبيق، قبل أول طلب.
   static Future<void> loadSite() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_siteKey);
-      if (saved != null && saved.trim().isNotEmpty) _site = saved.trim();
+      final site = prefs.getString(_siteKey);
+      final server = prefs.getString(_serverKey);
+      if (site != null || server != null) {
+        _site = (site ?? '').trim();
+        final s = (server ?? '').trim();
+        if (s.isNotEmpty) _server = s;
+      }
     } catch (e) {
       debugPrint('ErpConfig.loadSite failed: $e');
     }
   }
 
-  /// يضبط اسم الموقع (بعد تنظيفه) ويحفظه. يُستدعى قبل تسجيل الدخول.
-  static Future<void> setSite(String raw) async {
-    final site = normalizeSite(raw);
-    if (site.isEmpty) return;
-    _site = site;
+  static final RegExp _scheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
+  static final RegExp _ipv4 = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$');
+
+  /// يفسّر ما كتبه المستخدم في الحقل الواحد:
+  ///  • عنوان خادم: فيه http:// أو https://، أو رقم IP، أو منفذ (:8000)، أو localhost
+  ///    ← الخادم هو هذا العنوان، واسم الموقع يُؤخذ من مضيفه.
+  ///  • غير ذلك (مثل erp.local أو client1) ← اسم موقع على الخادم الافتراضي.
+  /// يعيد null إن كان المُدخل فارغًا أو غير صالح.
+  static ({String server, String site})? parseTarget(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty || s.contains(RegExp(r'\s'))) return null;
+
+    final hostPart = s.replaceFirst(_scheme, '').split('/').first;
+    final hostOnly = hostPart.split(':').first.toLowerCase();
+    final isAddress = _scheme.hasMatch(s) ||
+        _ipv4.hasMatch(hostOnly) ||
+        hostPart.contains(':') ||
+        hostOnly == 'localhost';
+
+    if (isAddress) {
+      final server = normalizeServer(s);
+      return server == null ? null : (server: server, site: '');
+    }
+    final site = normalizeSite(s);
+    return site.isEmpty ? null : (server: _defaultServer, site: site);
+  }
+
+  /// يضبط الهدف (خادم + موقع) من مُدخل المستخدم ويحفظه. قبل تسجيل الدخول.
+  static Future<void> setTarget(String raw) async {
+    final target = parseTarget(raw);
+    if (target == null) return;
+    _server = target.server;
+    _site = target.site;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_siteKey, site);
+      await prefs.setString(_serverKey, _server);
+      await prefs.setString(_siteKey, _site);
     } catch (e) {
-      debugPrint('ErpConfig.setSite failed: $e');
+      debugPrint('ErpConfig.setTarget failed: $e');
     }
   }
 
-  /// يحذف ما قد يلصقه المستخدم بالخطأ: http:// أو https:// أو مسارًا بعد الاسم
-  /// أو مسافات. «https://shop.example.com/app» ← «shop.example.com».
-  static String normalizeSite(String raw) {
+  /// scheme://host[:port] نظيف. بلا بروتوكول: IP وlocalhost و.local ← http،
+  /// وغيرها ← https. يعيد null إن لم يكن صالحًا.
+  static String? normalizeServer(String raw) {
     var s = raw.trim();
-    s = s.replaceFirst(RegExp(r'^[a-zA-Z]+://'), '');
+    if (s.isEmpty) return null;
+    if (!_scheme.hasMatch(s)) {
+      final host = s.split('/').first.split(':').first.toLowerCase();
+      final isLocal =
+          _ipv4.hasMatch(host) || host == 'localhost' || host.endsWith('.local');
+      s = '${isLocal ? 'http' : 'https'}://$s';
+    }
+    final uri = Uri.tryParse(s);
+    if (uri == null || uri.host.isEmpty) return null;
+    if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  }
+
+  /// يحذف المسافات وأي بروتوكول أو مسار قد يلصقه المستخدم بالخطأ.
+  static String normalizeSite(String raw) {
+    var s = raw.trim().replaceFirst(_scheme, '');
     final slash = s.indexOf('/');
     if (slash >= 0) s = s.substring(0, slash);
     return s.trim();

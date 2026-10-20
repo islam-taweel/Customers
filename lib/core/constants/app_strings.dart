@@ -456,17 +456,17 @@ class AppStrings {
   // ───────── تسجيل الدخول ─────────
   static String get loginTitle => _t('تسجيل الدخول', 'Sign in');
   static String get loginSubtitle => _t(
-        'أدخل بيانات حسابك في ERPNext للمتابعة',
-        'Enter your ERPNext account details to continue',
+         '',
+        '',
       );
   static String get emailLabel => _t('البريد الإلكتروني', 'Email');
-  static String get siteLabel => _t('اسم الموقع', 'Site name');
+  static String get siteLabel => _t('اسم الموقع أو عنوان الخادم', 'Site name or server address');
   static String get siteHelper => _t(
-        'الاسم الذي زوّدك به مزوّد الخدمة',
-        'The name given to you by your service provider',
+        '',
+        '',
       );
-  static String get siteRequired =>
-      _t('الرجاء إدخال اسم الموقع', 'Please enter the site name');
+  static String get siteInvalid =>
+      _t('الرجاء إدخال اسم موقع أو عنوان صالح', 'Enter a valid site name or address');
   static String get passwordLabel => _t('كلمة المرور', 'Password');
   static String get emailRequired =>
       _t('الرجاء إدخال البريد الإلكتروني', 'Please enter your email');
