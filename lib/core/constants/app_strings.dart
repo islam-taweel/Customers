@@ -1,3 +1,5 @@
+import '../../data/models/sync_models.dart';
+
 /// كل النصوص الظاهرة للمستخدم في مكان واحد، بالعربية والإنجليزية.
 /// اللغة الحالية يضبطها [LanguageController] عبر [isArabic].
 class AppStrings {
@@ -18,6 +20,7 @@ class AppStrings {
   // ───────── القائمة الجانبية ─────────
   static String get dashboard => _t('لوحة التحكم', 'Dashboard');
   static String get customerOrders => _t('طلبيات العملاء', 'Customer orders');
+  static String get settings => _t('الإعدادات', 'Settings');
 
   // ───────── شاشة العملاء ─────────
   static String get customers => _t('العملاء', 'Customers');
@@ -179,13 +182,13 @@ class AppStrings {
       _t('تعذّر إنشاء ملف PDF', 'Could not create the PDF file');
 
   // ───────── ERPNext (الفواتير فقط) ─────────
-  static String get erpMissingCredentials => _t(
-        'لم تُضبط مفاتيح ERPNext. شغّل التطبيق مع --dart-define-from-file=env.json (راجع env.example.json).',
-        'ERPNext keys are not set. Run the app with --dart-define-from-file=env.json (see env.example.json).',
+  static String get erpSessionExpired => _t(
+        'انتهت جلسة الدخول. سجّل الدخول من جديد.',
+        'Your session has expired. Please sign in again.',
       );
-  static String get erpUnauthorized => _t(
-        'رفض ERPNext مفاتيح الدخول. تأكد من صحة API key و secret وصلاحياتهما.',
-        'ERPNext rejected the API keys. Check the key, the secret and their permissions.',
+  static String get erpForbidden => _t(
+        'ليس لديك صلاحية لهذا الإجراء.',
+        "You don't have permission for this.",
       );
   static String get erpNetworkError => _t(
         'تعذّر الاتصال بـ ERPNext. تأكد أنك على نفس شبكة Wi-Fi وأن عنوان الخادم صحيح.',
@@ -248,6 +251,7 @@ class AppStrings {
         'Partly Paid' => _t('مدفوعة جزئيًا', 'Partly paid'),
         'Return' => _t('مرتجع', 'Return'),
         'Credit Note Issued' => _t('أُصدر لها إشعار دائن', 'Credit note issued'),
+        'Pending Upload' => _t('بانتظار الرفع', 'Waiting to upload'),
         _ => status,
       };
 
@@ -373,6 +377,132 @@ class AppStrings {
         'Sub Assemblies' => _t('تجميعات فرعية', 'Sub Assemblies'),
         _ => group,
       };
+
+  // ───────── طلبية دون اتصال ─────────
+  static String get orderSavedOfflineTitle =>
+      _t('تم حفظ الطلبية على الجهاز', 'Order saved on this device');
+  static String get orderWaitingUpload =>
+      _t('بانتظار الرفع إلى ERPNext', 'Waiting to upload to ERPNext');
+  static String get orderSavedOfflineNote => _t(
+        'لا يوجد اتصال بـ ERPNext الآن. ستُرفع الطلبية تلقائيًا عند عودة الاتصال، ويمكنك متابعتها من الإعدادات.',
+        'ERPNext is not reachable right now. The order will upload automatically when the connection returns; you can follow it in Settings.',
+      );
+  static String get orderOfflineSaveFailed => _t(
+        'تعذّر حفظ الطلبية على الجهاز',
+        'Could not save the order on this device',
+      );
+
+  // ───────── الإعدادات والمزامنة ─────────
+  static String get syncCustomersTitle =>
+      _t('مزامنة العملاء', 'Customers sync');
+  static String get syncCustomersDesc => _t(
+        'جلب أسماء العملاء وهواتفهم من ERPNext وحفظها على الجهاز.',
+        'Fetch customer names and phones from ERPNext and keep them on this device.',
+      );
+  static String get syncItemsTitle => _t('مزامنة الأصناف', 'Items sync');
+  static String get syncItemsDesc => _t(
+        'جلب المجموعات والأصناف وأسعارها ومخزونها لإنشاء الطلبيات دون إنترنت.',
+        'Fetch groups, items, prices and stock so orders can be created offline.',
+      );
+  static String get syncInvoicesTitle =>
+      _t('مزامنة الفواتير', 'Invoices sync');
+  static String get syncInvoicesDesc => _t(
+        'رفع الطلبيات المحفوظة على الجهاز إلى ERPNext، ثم جلب فواتير العملاء وحفظها.',
+        'Upload the orders saved on this device to ERPNext, then fetch and keep customer invoices.',
+      );
+  static String get syncNow => _t('مزامنة الآن', 'Sync now');
+  static String get syncRunning => _t('جارٍ المزامنة...', 'Syncing...');
+  static String get neverSynced =>
+      _t('لم تتم المزامنة بعد', 'Not synced yet');
+  static String lastSynced(String when) =>
+      _t('آخر مزامنة: $when', 'Last sync: $when');
+  static String syncedCustomers(int n) => _t('$n عميل', '$n customers');
+  static String syncedItems(int items, int groups) =>
+      _t('$items صنف في $groups مجموعة', '$items items in $groups groups');
+  static String syncedInvoices(int n) => _t('$n فاتورة', '$n invoices');
+  static String get syncFailed => _t(
+        'تعذّرت المزامنة. حاول مرة أخرى.',
+        'Sync failed. Please try again.',
+      );
+  static String get syncCustomersFirst => _t(
+        'زامن العملاء أولًا ليرتبط كل عميل بـ ERPNext.',
+        'Sync customers first so each customer is linked to ERPNext.',
+      );
+  static String get autoUploadNote => _t(
+        'الطلبيات المنشأة دون اتصال تُرفع تلقائيًا عند عودة الاتصال.',
+        'Orders created offline upload automatically when the connection returns.',
+      );
+  static String pendingOrdersCount(int n) =>
+      _t('طلبيات بانتظار الرفع: $n', 'Orders waiting to upload: $n');
+  static String failedOrdersCount(int n) => _t(
+        'طلبيات رفضها الخادم: $n (اضغط «مزامنة الآن» لإعادة المحاولة)',
+        'Orders rejected by the server: $n (tap “Sync now” to retry)',
+      );
+
+  static String syncStep(SyncStep step) => switch (step) {
+        SyncStep.customers => _t('جلب العملاء...', 'Fetching customers...'),
+        SyncStep.groups => _t('جلب المجموعات...', 'Fetching groups...'),
+        SyncStep.items => _t('جلب الأصناف...', 'Fetching items...'),
+        SyncStep.prices => _t('جلب الأسعار...', 'Fetching prices...'),
+        SyncStep.stock => _t('جلب المخزون...', 'Fetching stock...'),
+        SyncStep.saving => _t('الحفظ على الجهاز...', 'Saving to device...'),
+        SyncStep.uploadingOrders =>
+          _t('رفع الطلبيات المحفوظة...', 'Uploading saved orders...'),
+        SyncStep.invoicesList => _t('جلب الفواتير...', 'Fetching invoices...'),
+        SyncStep.invoiceDetails =>
+          _t('جلب تفاصيل أحدث الفواتير...', 'Fetching latest invoice details...'),
+      };
+
+  // ───────── تسجيل الدخول ─────────
+  static String get loginTitle => _t('تسجيل الدخول', 'Sign in');
+  static String get loginSubtitle => _t(
+        'أدخل بيانات حسابك في ERPNext للمتابعة',
+        'Enter your ERPNext account details to continue',
+      );
+  static String get emailLabel => _t('البريد الإلكتروني', 'Email');
+  static String get siteLabel => _t('اسم الموقع', 'Site name');
+  static String get siteHelper => _t(
+        'الاسم الذي زوّدك به مزوّد الخدمة',
+        'The name given to you by your service provider',
+      );
+  static String get siteRequired =>
+      _t('الرجاء إدخال اسم الموقع', 'Please enter the site name');
+  static String get passwordLabel => _t('كلمة المرور', 'Password');
+  static String get emailRequired =>
+      _t('الرجاء إدخال البريد الإلكتروني', 'Please enter your email');
+  static String get passwordRequired =>
+      _t('الرجاء إدخال كلمة المرور', 'Please enter your password');
+  static String get loginButton => _t('دخول', 'Sign in');
+  static String get loggingIn => _t('جارٍ تسجيل الدخول...', 'Signing in...');
+  static String get loginInvalid => _t(
+        'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+        'Incorrect email or password.',
+      );
+  static String get loginNetworkError => _t(
+        'تعذّر الاتصال بالخادم. تأكد من الاتصال وحاول مرة أخرى.',
+        'Could not reach the server. Check your connection and try again.',
+      );
+  static String get loginServerError => _t(
+        'ردّ الخادم بخطأ غير متوقع. حاول لاحقًا.',
+        'The server returned an unexpected error. Please try again later.',
+      );
+  static String get loginLockWarning => _t(
+        'تنبيه: تكرار المحاولات الخاطئة قد يقفل الحساب مؤقتًا.',
+        'Note: repeated failed attempts may temporarily lock the account.',
+      );
+  static String get sessionExpiredNotice => _t(
+        'انتهت جلستك. سجّل الدخول من جديد للمتابعة.',
+        'Your session has expired. Sign in again to continue.',
+      );
+  static String get showPassword => _t('إظهار كلمة المرور', 'Show password');
+  static String get hidePassword => _t('إخفاء كلمة المرور', 'Hide password');
+  static String get logout => _t('تسجيل الخروج', 'Sign out');
+  static String get logoutConfirmTitle =>
+      _t('تسجيل الخروج', 'Sign out');
+  static String get logoutConfirmMessage => _t(
+        'هل تريد تسجيل الخروج من حسابك؟ الطلبيات المحفوظة على الجهاز تبقى وتُرفع عند الدخول مرة أخرى.',
+        'Do you want to sign out? Orders saved on this device are kept and uploaded after you sign in again.',
+      );
 
   // ───────── الوقت ─────────
   static String get am => _t('ص', 'AM');

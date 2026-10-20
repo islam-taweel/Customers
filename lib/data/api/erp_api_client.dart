@@ -6,14 +6,15 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'erp_config.dart';
+import 'session_store.dart';
 
 /// أنواع الأخطاء التي تفرّق بينها الواجهة لتعرض رسالة مناسبة لكل نوع.
 enum ErpErrorType {
-  /// لم تُمرَّر مفاتيح API وقت التشغيل
-  missingCredentials,
+  /// لا توجد جلسة دخول أو انتهت: يجب تسجيل الدخول من جديد
+  sessionExpired,
 
-  /// رفض الخادم المفاتيح (401 / 403)
-  unauthorized,
+  /// الجلسة سليمة لكن المستخدم لا يملك صلاحية هذا الإجراء
+  forbidden,
 
   /// المورد غير موجود (404)
   notFound,
@@ -43,15 +44,61 @@ class ErpApiException implements Exception {
 /// يتكلم مع ERPNext REST API: يضيف الترويسات المطلوبة ويحوّل الأخطاء إلى
 /// [ErpApiException]. لا يعرف شيئًا عن نماذج التطبيق ولا الواجهة.
 class ErpApiClient {
-  ErpApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ErpApiClient({required SessionStore session, http.Client? client})
+      : _session = session,
+        _client = client ?? http.Client();
 
+  final SessionStore _session;
   final http.Client _client;
+
+  /// يُستدعى حين نتأكد أن الجلسة انتهت (بعد حذف الكوكي): يعيد التطبيق لشاشة الدخول.
+  VoidCallback? onSessionExpired;
+
+  /// فحص «هل الجلسة منتهية؟» الجاري حاليًا. الطلبات المتوازية التي رُفضت معًا
+  /// تشاركه بدل أن يرسل كل منها فحصًا مستقلًا.
+  Future<bool>? _sessionCheck;
+
+  /// وقت آخر فشل في الوصول للخادم. يُستخدم لتجاوز الانتظار (المهلة 10 ثوانٍ)
+  /// وقراءة النسخة المحلية مباشرة بينما الخادم غير متاح.
+  DateTime? _lastNetworkFailure;
+
+  static const Duration _unreachableWindow = Duration(seconds: 30);
+
+  bool get recentlyUnreachable {
+    final at = _lastNetworkFailure;
+    return at != null && DateTime.now().difference(at) < _unreachableWindow;
+  }
+
+  /// فحص سريع لتوفر الخادم (/api/method/ping لا يحتاج مفاتيح).
+  /// true = ردّ الخادم، false = تعذّر الوصول إليه.
+  Future<bool> ping() async {
+    final uri = Uri.parse(ErpConfig.baseUrl).replace(
+      pathSegments: ['api', 'method', 'ping'],
+    );
+    try {
+      final response = await _client
+          .get(uri, headers: {'Host': ErpConfig.hostHeader})
+          .timeout(const Duration(seconds: 5));
+      _lastNetworkFailure = null;
+      return response.statusCode < 500;
+    } on TimeoutException {
+      _lastNetworkFailure = DateTime.now();
+      return false;
+    } on SocketException {
+      _lastNetworkFailure = DateTime.now();
+      return false;
+    } on http.ClientException {
+      _lastNetworkFailure = DateTime.now();
+      return false;
+    }
+  }
 
   /// حد أمان لحلقة جلب الصفحات حتى لا تدور بلا نهاية عند خلل في الخادم
   static const int _maxPages = 500;
 
-  Map<String, String> get _headers => {
-        'Authorization': 'token ${ErpConfig.apiKey}:${ErpConfig.apiSecret}',
+  /// كل طلب بعد الدخول يحمل كوكي الجلسة وترويسة Host (لا مفاتيح API).
+  Map<String, String> _headers(String sid) => {
+        'Cookie': 'sid=$sid',
         'Host': ErpConfig.hostHeader,
         'Accept': 'application/json',
       };
@@ -129,9 +176,9 @@ class ErpApiClient {
     final uri = _uri([doctype]);
     final decoded = await _send(
       uri,
-      () => _client.post(
+      (headers) => _client.post(
         uri,
-        headers: {..._headers, 'Content-Type': 'application/json'},
+        headers: {...headers, 'Content-Type': 'application/json'},
         body: jsonEncode(body),
       ),
     );
@@ -143,31 +190,36 @@ class ErpApiClient {
   }
 
   Future<Map<String, dynamic>> _get(Uri uri) =>
-      _send(uri, () => _client.get(uri, headers: _headers));
+      _send(uri, (headers) => _client.get(uri, headers: headers));
 
   /// ينفّذ الطلب ويحوّل الأخطاء إلى [ErpApiException] (مشترك بين GET و POST).
   Future<Map<String, dynamic>> _send(
     Uri uri,
-    Future<http.Response> Function() call,
+    Future<http.Response> Function(Map<String, String> headers) call,
   ) async {
-    if (!ErpConfig.hasCredentials) {
-      throw const ErpApiException(ErpErrorType.missingCredentials);
+    final sid = _session.sid;
+    if (sid == null || sid.isEmpty) {
+      throw const ErpApiException(ErpErrorType.sessionExpired);
     }
 
     final http.Response response;
     try {
-      response = await call().timeout(ErpConfig.requestTimeout);
+      response = await call(_headers(sid)).timeout(ErpConfig.requestTimeout);
     } on TimeoutException {
+      _lastNetworkFailure = DateTime.now();
       throw const ErpApiException(ErpErrorType.network, detail: 'timeout');
     } on SocketException catch (e) {
+      _lastNetworkFailure = DateTime.now();
       throw ErpApiException(ErpErrorType.network, detail: e.message);
     } on http.ClientException catch (e) {
+      _lastNetworkFailure = DateTime.now();
       throw ErpApiException(ErpErrorType.network, detail: e.message);
     }
+    _lastNetworkFailure = null;
 
     final status = response.statusCode;
     if (status == 401 || status == 403) {
-      throw ErpApiException(ErpErrorType.unauthorized, statusCode: status);
+      throw await _denied(status, sid);
     }
     if (status == 404) {
       throw ErpApiException(ErpErrorType.notFound, statusCode: status);
@@ -190,6 +242,43 @@ class ErpApiClient {
       throw ErpApiException(ErpErrorType.badResponse, detail: e.message);
     }
     throw const ErpApiException(ErpErrorType.badResponse);
+  }
+
+  /// 403 يعني إما انتهاء الجلسة وإما عدم وجود صلاحية لهذا الإجراء، ولا يفرّق
+  /// بينهما الرمز نفسه (ولا حقل session_expired في الرد). نسأل الخادم من هو المستخدم:
+  /// Guest أو فشل السؤال = الجلسة انتهت، فنحذف الكوكي ونعود لشاشة الدخول.
+  /// اسم مستخدم = مشكلة صلاحية حقيقية.
+  Future<ErpApiException> _denied(int status, String sid) async {
+    final expired = await (_sessionCheck ??=
+        _isSessionExpired(sid).whenComplete(() => _sessionCheck = null));
+
+    if (!expired) {
+      return ErpApiException(ErpErrorType.forbidden, statusCode: status);
+    }
+    // لا نحذف جلسة أحدث إن سجّل المستخدم دخوله من جديد أثناء الفحص
+    if (_session.sid == sid) {
+      await _session.clear();
+      onSessionExpired?.call();
+    }
+    return ErpApiException(ErpErrorType.sessionExpired, statusCode: status);
+  }
+
+  Future<bool> _isSessionExpired(String sid) async {
+    try {
+      final uri = Uri.parse(ErpConfig.baseUrl).replace(
+        pathSegments: ['api', 'method', 'frappe.auth.get_logged_user'],
+      );
+      final response = await _client
+          .get(uri, headers: _headers(sid))
+          .timeout(ErpConfig.requestTimeout);
+      if (response.statusCode != 200) return true;
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final user = body is Map ? body['message']?.toString() ?? '' : '';
+      return user.isEmpty || user == 'Guest';
+    } catch (_) {
+      return true;
+    }
   }
 
   /// يستخرج رسالة مقروءة من ردّ خطأ ERPNext (_server_messages أو exception)

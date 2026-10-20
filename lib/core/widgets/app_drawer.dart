@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../constants/app_strings.dart';
 import '../localization/language_controller.dart';
+import '../../features/auth/controllers/auth_controller.dart';
 import '../../features/order/controllers/order_controller.dart';
 import '../../features/order/screens/new_order_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
 
 /// القائمة الجانبية: الشعار بالأعلى، زر لوحة التحكم، ومبدّل اللغة بالأسفل.
 class AppDrawer extends StatelessWidget {
@@ -27,6 +29,38 @@ class AppDrawer extends StatelessWidget {
     navigator.push(NewOrderScreen.route(controller));
   }
 
+  void _openSettings(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(SettingsScreen.route());
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppStrings.logoutConfirmTitle),
+        content: Text(AppStrings.logoutConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppStrings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppStrings.logout),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final auth = context.read<AuthController>();
+    Navigator.of(context).pop(); // إغلاق القائمة
+    // بوابة التطبيق تنقل المستخدم إلى شاشة الدخول فور تغيّر الحالة
+    await auth.logout();
+  }
+
   void _changeLanguage(BuildContext context, AppLanguage language) {
     final controller = context.read<LanguageController>();
     if (controller.language == language) return;
@@ -41,6 +75,8 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = context.watch<LanguageController>().language;
+    final fullName = context.watch<AuthController>().fullName;
+    final errorColor = Theme.of(context).colorScheme.error;
 
     return Drawer(
       child: SafeArea(
@@ -91,9 +127,41 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
+            // 4) الإعدادات: مزامنة العملاء والأصناف والفواتير
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.settings_outlined),
+                title: Text(AppStrings.settings),
+                onTap: () => _openSettings(context),
+              ),
+            ),
+
             const Spacer(),
 
-            // 4) زرّان متلاصقان للتبديل بين العربية والإنجليزية
+            // تسجيل الخروج: اسم المستخدم الحالي تحت العنوان
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: Icon(Icons.logout, color: errorColor),
+                title: Text(
+                  AppStrings.logout,
+                  style: TextStyle(color: errorColor),
+                ),
+                subtitle: (fullName == null || fullName.isEmpty)
+                    ? null
+                    : Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () => _confirmLogout(context),
+              ),
+            ),
+
+            // 5) زرّان متلاصقان للتبديل بين العربية والإنجليزية
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),

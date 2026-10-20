@@ -7,12 +7,16 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
   static const _dbName = 'debts.db';
-  static const _dbVersion = 5;
+  static const _dbVersion = 6;
 
   static const tableCustomers = 'customers';
   static const tableOperations = 'operations';
   static const tableInvoices = 'invoices';
   static const tableErpCache = 'erp_cache';
+  static const tableCatalogGroups = 'catalog_groups';
+  static const tableCatalogItems = 'catalog_items';
+  static const tableCatalogPricing = 'catalog_pricing';
+  static const tablePendingOrders = 'pending_orders';
 
   Database? _db;
 
@@ -65,6 +69,8 @@ class DatabaseHelper {
 
     await _createInvoicesTable(db);
     await _createErpCacheTable(db);
+    await _createCatalogTables(db);
+    await _createPendingOrdersTable(db);
   }
 
   /// ترقية قاعدة بيانات موجودة على الجهاز دون فقدان بياناتها:
@@ -87,6 +93,14 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE $tableInvoices ADD COLUMN deliveryDate TEXT');
       await db.execute('ALTER TABLE $tableInvoices ADD COLUMN itemsJson TEXT');
     }
+    if (oldVersion < 6) {
+      // الإصدار 6: كتالوج محلي (أصناف/أسعار/مخزون) + طلبيات تنتظر الرفع للعمل دون إنترنت
+      await db.execute(
+        'ALTER TABLE $tableInvoices ADD COLUMN pendingUpload INTEGER NOT NULL DEFAULT 0',
+      );
+      await _createCatalogTables(db);
+      await _createPendingOrdersTable(db);
+    }
   }
 
   /// فهرس فريد على erpId: لا يتكرر عميل ERPNext أبدًا، والقيم الفارغة (العملاء
@@ -95,6 +109,54 @@ class DatabaseHelper {
     await db.execute(
       'CREATE UNIQUE INDEX idx_customers_erp_id ON $tableCustomers (erpId)',
     );
+  }
+
+  /// نسخة محلية من كتالوج ERPNext: مجموعات الأصناف، الأصناف، وسعر كل صنف ومخزونه.
+  Future<void> _createCatalogTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tableCatalogGroups (
+        name TEXT PRIMARY KEY
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE $tableCatalogItems (
+        code TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        uom TEXT NOT NULL,
+        itemGroup TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX idx_catalog_items_group ON $tableCatalogItems (itemGroup)',
+    );
+    await db.execute('''
+      CREATE TABLE $tableCatalogPricing (
+        itemCode TEXT PRIMARY KEY,
+        rate REAL,
+        available REAL NOT NULL,
+        savedAt TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// طلبيات أُنشئت دون اتصال وتنتظر الرفع إلى ERPNext (تُرفع تلقائيًا لاحقًا).
+  Future<void> _createPendingOrdersTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablePendingOrders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customerErpId TEXT NOT NULL,
+        customerName TEXT NOT NULL,
+        transactionDate TEXT NOT NULL,
+        deliveryDate TEXT NOT NULL,
+        linesJson TEXT NOT NULL,
+        total REAL NOT NULL,
+        createdAt TEXT NOT NULL,
+        invoiceId INTEGER,
+        status TEXT NOT NULL DEFAULT 'pending',
+        lastError TEXT,
+        erpOrderId TEXT
+      )
+    ''');
   }
 
   /// نسخة محلية من ردود ERPNext (قوائم الفواتير وتفاصيلها) لتُعرض عند انقطاع الإنترنت.
@@ -124,6 +186,7 @@ class DatabaseHelper {
         orderId TEXT,
         deliveryDate TEXT,
         itemsJson TEXT,
+        pendingUpload INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');

@@ -259,6 +259,40 @@ class CustomerRepository {
     });
   }
 
+  /// العملاء المرتبطون بـ ERPNext (لهم erpId) كما حُفظوا محليًا آخر مرة.
+  /// تُستخدم قائمة بدل الإنترنت عند إنشاء طلبية دون اتصال.
+  Future<List<ErpCustomer>> getErpCustomers() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _customers,
+      columns: ['name', 'phone', 'erpId'],
+      where: "erpId IS NOT NULL AND erpId != ''",
+      orderBy: 'name COLLATE NOCASE',
+    );
+    return [
+      for (final row in rows)
+        ErpCustomer(
+          id: row['erpId'] as String,
+          name: row['name'] as String,
+          phone: (row['phone'] as String?) ?? '',
+        ),
+    ];
+  }
+
+  /// ربط كل عميل محلي برقمه في ERPNext (للمزامنة الكاملة للفواتير).
+  Future<List<({int id, String erpId})>> getErpLinks() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _customers,
+      columns: ['id', 'erpId'],
+      where: "erpId IS NOT NULL AND erpId != ''",
+    );
+    return [
+      for (final row in rows)
+        (id: row['id'] as int, erpId: row['erpId'] as String),
+    ];
+  }
+
   /// آخر 9 أرقام من الهاتف، فتتطابق الصيغ المحلية والدولية (null إن قصر الرقم).
   String? _phoneKey(String raw) {
     final digits = normalizeDigits(raw).replaceAll(RegExp(r'[^0-9]'), '');

@@ -1,40 +1,62 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/services/sync_service.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/erp_customer.dart';
+import '../../../data/models/invoice.dart' as local;
 import '../../../data/models/order_models.dart';
+import '../../../data/models/pending_order.dart';
 import '../../../data/repositories/erp_customer_repository.dart';
 import '../../../data/repositories/erp_order_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
+import '../../../data/repositories/pending_order_repository.dart';
 
 /// خطوات الطلبية. [done] بعد نجاح الإرسال.
 enum OrderStep { customer, items, invoice, done }
 
 /// ينشئ متحكمًا جديدًا لكل طلبية تُفتح (نفس نمط CustomerDetailsControllerFactory).
 class OrderControllerFactory {
-  OrderControllerFactory(this._orders, this._customers, this._invoices);
+  OrderControllerFactory(
+    this._orders,
+    this._customers,
+    this._invoices,
+    this._pending,
+    this._sync,
+  );
 
   final ErpOrderRepository _orders;
   final ErpCustomerRepository _customers;
   final InvoiceRepository _invoices;
+  final PendingOrderRepository _pending;
+  final SyncService _sync;
 
-  OrderController create() => OrderController(_orders, _customers, _invoices);
+  OrderController create() =>
+      OrderController(_orders, _customers, _invoices, _pending, _sync);
 }
 
 /// حالة شاشة «طلبية جديدة» كلها: العميل المختار، المجموعات والأصناف، السلة،
 /// والإرسال. الواجهة تقرأ منه فقط وتستدعي دوالّه.
 class OrderController extends ChangeNotifier {
-  OrderController(this._orders, this._customerRepo, this._invoiceRepo) {
+  OrderController(
+    this._orders,
+    this._customerRepo,
+    this._invoiceRepo,
+    this._pendingRepo,
+    this._sync,
+  ) {
     loadCustomers();
   }
 
   final ErpOrderRepository _orders;
   final ErpCustomerRepository _customerRepo;
   final InvoiceRepository _invoiceRepo;
+  final PendingOrderRepository _pendingRepo;
+  final SyncService _sync;
 
   bool _disposed = false;
 
@@ -75,7 +97,8 @@ class OrderController extends ChangeNotifier {
     _customersError = null;
     _notify();
     try {
-      final list = await _customerRepo.fetchCustomers();
+      // من ERPNext، وعند انقطاع الاتصال من العملاء المحفوظين على الجهاز
+      final list = await _customerRepo.fetchCustomersOrLocal();
       list.sort((a, b) => a.name.compareTo(b.name));
       _customers
         ..clear()
@@ -320,6 +343,10 @@ class OrderController extends ChangeNotifier {
   bool _invoiceSaved = true;
   bool get invoiceSaved => _invoiceSaved;
 
+  /// true = لا اتصال بالخادم: حُفظت الطلبية على الجهاز وستُرفع تلقائيًا لاحقًا
+  bool _savedOffline = false;
+  bool get savedOffline => _savedOffline;
+
   Future<void> submit() async {
     final customer = _customer;
     if (_submitting || customer == null || _cart.isEmpty) return;
@@ -352,19 +379,81 @@ class OrderController extends ChangeNotifier {
       }
       _step = OrderStep.done;
     } catch (e) {
-      debugPrint('OrderController.submit: $e');
-      final base = describeError(e, fallback: AppStrings.orderCreateFailed);
-      // رسالة ERPNext الفعلية (مثل حقل ناقص) تساعد على معرفة السبب
-      final detail = e is ErpApiException && e.type == ErpErrorType.server
-          ? e.detail
-          : null;
-      _submitError = detail == null || detail.isEmpty
-          ? base
-          : '${AppStrings.orderCreateFailed}\n$detail';
+      if (e is ErpApiException && e.type == ErpErrorType.network) {
+        // لا اتصال بالخادم: نحفظ الطلبية محليًا لترفع تلقائيًا عند عودة الاتصال
+        debugPrint('OrderController.submit offline: $e');
+        await _saveOffline(customer);
+      } else {
+        debugPrint('OrderController.submit: $e');
+        final base = describeError(e, fallback: AppStrings.orderCreateFailed);
+        // رسالة ERPNext الفعلية (مثل حقل ناقص) تساعد على معرفة السبب
+        final detail = e is ErpApiException && e.type == ErpErrorType.server
+            ? e.detail
+            : null;
+        _submitError = detail == null || detail.isEmpty
+            ? base
+            : '${AppStrings.orderCreateFailed}\n$detail';
+      }
     } finally {
       _submitting = false;
       _notify();
     }
+  }
+
+  /// يحفظ الطلبية وفاتورتها على الجهاز (بحالة «بانتظار الرفع») ثم يطلب من خدمة
+  /// المزامنة رفعها حين يتوفر الخادم. فشل الحفظ المحلي يظهر كخطأ عادي.
+  Future<void> _saveOffline(ErpCustomer customer) async {
+    final lines = _cart.values.toList();
+    final total = lines.fold<double>(0, (sum, l) => sum + l.total);
+    try {
+      local.Invoice? invoice;
+      try {
+        invoice = await _invoiceRepo.saveOrderInvoice(
+          customer: customer,
+          order: CreatedOrder(id: '', total: total, itemCount: lines.length),
+          lines: lines,
+          deliveryDate: _deliveryDate,
+        );
+        _invoiceSaved = invoice != null;
+      } catch (e) {
+        debugPrint('OrderController.saveOfflineInvoice: $e');
+        _invoiceSaved = false;
+      }
+
+      await _pendingRepo.add(
+        PendingOrder(
+          customerErpId: customer.id,
+          customerName: customer.name,
+          transactionDate: _isoDate(DateTime.now()),
+          deliveryDate: _isoDate(_deliveryDate),
+          lines: [
+            for (final l in lines)
+              PendingOrderLine(
+                code: l.item.code,
+                name: l.item.name,
+                qty: l.qty,
+                rate: l.rate,
+              ),
+          ],
+          total: total,
+          createdAt: DateTime.now(),
+          invoiceId: invoice?.id,
+        ),
+      );
+
+      _created = CreatedOrder(id: '', total: total, itemCount: lines.length);
+      _savedOffline = true;
+      _step = OrderStep.done;
+      unawaited(_sync.onPendingChanged());
+    } catch (e) {
+      debugPrint('OrderController._saveOffline: $e');
+      _submitError = AppStrings.orderOfflineSaveFailed;
+    }
+  }
+
+  static String _isoDate(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
   void clearSubmitError() {
@@ -381,6 +470,7 @@ class OrderController extends ChangeNotifier {
     _cart.clear();
     _created = null;
     _invoiceSaved = true;
+    _savedOffline = false;
     _submitError = null;
     _group = null;
     _deliveryDate = _today();

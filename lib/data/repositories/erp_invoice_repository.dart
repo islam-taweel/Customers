@@ -8,6 +8,7 @@ import '../api/erp_api_client.dart';
 import '../api/erp_config.dart';
 import '../models/customer.dart';
 import '../models/sales_invoice.dart';
+import '../models/sync_models.dart';
 import 'erp_cache_store.dart';
 
 /// دليل عملاء ERPNext: يربط رقم الهاتف أو الاسم برقم العميل في ERPNext.
@@ -83,7 +84,9 @@ class ErpInvoiceRepository {
 
   // ───────────────────────── قائمة الفواتير ─────────────────────────
 
-  String _invoicesKey(Customer customer) => 'invoices:${customer.id}';
+  String _invoicesKey(Customer customer) => _invoicesKeyForId(customer.id);
+
+  String _invoicesKeyForId(int? localCustomerId) => 'invoices:$localCustomerId';
 
   /// المحفوظ محليًا من آخر مرة نجح فيها الجلب (null إن لم يُحفظ شيء بعد).
   Future<InvoicesResult?> readCachedInvoices(Customer customer) async {
@@ -151,6 +154,70 @@ class ErpInvoiceRepository {
         final byDate = b.postingDate.compareTo(a.postingDate);
         return byDate != 0 ? byDate : b.name.compareTo(a.name);
       });
+  }
+
+  // ───────────────────────── مزامنة كل الفواتير ─────────────────────────
+
+  /// عدد أحدث الفواتير التي تُجلب تفاصيلها (بأصنافها) أثناء المزامنة الكاملة
+  static const int _syncDetailCount = 40;
+
+  /// يجلب فواتير كل العملاء المرتبطين بـ ERPNext بطلب مقسّم على صفحات واحد،
+  /// ويحفظ قائمة كل عميل محليًا (نفس مفاتيح الجلب الفردي)، ثم تفاصيل أحدث الفواتير.
+  /// الارتباط بـ erpId (دقيق) وليس بالهاتف أو الاسم.
+  Future<({int customers, int invoices})> syncAll(
+    List<({int id, String erpId})> links, {
+    void Function(double progress, SyncStep step)? onProgress,
+  }) async {
+    onProgress?.call(0.05, SyncStep.invoicesList);
+    final rows = await _api.getAll(
+      'Sales Invoice',
+      fields: _invoiceFields,
+      filters: [
+        ['docstatus', '=', 1],
+      ],
+    );
+
+    final byCustomer = <String, List<Map<String, dynamic>>>{};
+    for (final row in rows) {
+      final id = row['customer']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      byCustomer.putIfAbsent(id, () => []).add(row);
+    }
+
+    onProgress?.call(0.35, SyncStep.saving);
+    await _cache.writeAll({
+      for (final link in links)
+        _invoicesKeyForId(link.id): jsonEncode({
+          'matched': true,
+          'rows': byCustomer[link.erpId] ?? const <Object>[],
+        }),
+    });
+    _memoryCache.clear();
+
+    // تفاصيل أحدث الفواتير لتُفتح دون إنترنت. فشلها لا يُفشل المزامنة
+    // (قوائم الفواتير حُفظت أصلًا)، فنتوقف عند أول خطأ.
+    final linked = {for (final l in links) l.erpId};
+    final recent = _parseInvoices([
+      for (final row in rows)
+        if (linked.contains(row['customer']?.toString())) row,
+    ]).take(_syncDetailCount).toList();
+
+    for (var i = 0; i < recent.length; i++) {
+      onProgress?.call(0.4 + 0.6 * (i / recent.length), SyncStep.invoiceDetails);
+      try {
+        if (await _cache.read(_detailKey(recent[i].name)) != null) continue;
+        await fetchInvoiceDetail(recent[i].name);
+      } catch (e) {
+        debugPrint('تعذّر جلب تفاصيل ${recent[i].name} أثناء المزامنة: $e');
+        break;
+      }
+    }
+
+    final total = links.fold<int>(
+      0,
+      (sum, l) => sum + (byCustomer[l.erpId]?.length ?? 0),
+    );
+    return (customers: links.length, invoices: total);
   }
 
   // ───────────────────────── تفاصيل فاتورة ─────────────────────────

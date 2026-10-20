@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// إعدادات الاتصال بـ ERPNext.
 ///
-/// القيم تُمرَّر وقت التشغيل عبر `--dart-define` (أو `--dart-define-from-file=env.json`)،
-/// فلا تُكتب المفاتيح داخل الكود ولا تصل إلى GitHub.
+/// عنوان الخادم يُمرَّر وقت التشغيل عبر `--dart-define` (أو `--dart-define-from-file=env.json`).
+/// لا توجد مفاتيح API: كل مستخدم يدخل بحسابه في ERPNext ويحمل جلسته الخاصة (كوكي sid).
 class ErpConfig {
   ErpConfig._();
 
@@ -11,16 +14,54 @@ class ErpConfig {
     defaultValue: 'http://192.168.1.130',
   );
 
-  /// قيمة ترويسة Host المطلوبة (الموقع في ERPNext)
-  static const String hostHeader = String.fromEnvironment(
+  /// اسم الموقع الافتراضي (قبل أن يدخل المستخدم اسم موقعه)
+  static const String _defaultSite = String.fromEnvironment(
     'ERP_HOST',
     defaultValue: 'erp.local',
   );
 
-  static const String apiKey = String.fromEnvironment('ERP_API_KEY');
-  static const String apiSecret = String.fromEnvironment('ERP_API_SECRET');
+  static const String _siteKey = 'erp_site_name';
 
-  static bool get hasCredentials => apiKey.isNotEmpty && apiSecret.isNotEmpty;
+  static String _site = _defaultSite;
+
+  /// قيمة ترويسة Host = اسم موقع المستخدم في ERPNext.
+  /// عنوان الخادم ثابت، واسم الموقع هو ما يختلف من عميل لآخر،
+  /// فيُدخله المستخدم في شاشة الدخول ويُحفظ على جهازه.
+  static String get hostHeader => _site;
+
+  /// يقرأ اسم الموقع المحفوظ. يُستدعى مرة عند بدء التطبيق قبل أول طلب.
+  static Future<void> loadSite() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_siteKey);
+      if (saved != null && saved.trim().isNotEmpty) _site = saved.trim();
+    } catch (e) {
+      debugPrint('ErpConfig.loadSite failed: $e');
+    }
+  }
+
+  /// يضبط اسم الموقع (بعد تنظيفه) ويحفظه. يُستدعى قبل تسجيل الدخول.
+  static Future<void> setSite(String raw) async {
+    final site = normalizeSite(raw);
+    if (site.isEmpty) return;
+    _site = site;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_siteKey, site);
+    } catch (e) {
+      debugPrint('ErpConfig.setSite failed: $e');
+    }
+  }
+
+  /// يحذف ما قد يلصقه المستخدم بالخطأ: http:// أو https:// أو مسارًا بعد الاسم
+  /// أو مسافات. «https://shop.example.com/app» ← «shop.example.com».
+  static String normalizeSite(String raw) {
+    var s = raw.trim();
+    s = s.replaceFirst(RegExp(r'^[a-zA-Z]+://'), '');
+    final slash = s.indexOf('/');
+    if (slash >= 0) s = s.substring(0, slash);
+    return s.trim();
+  }
 
   /// حجم الصفحة الواحدة في كل طلب (limit_page_length)
   static const int pageSize = 100;

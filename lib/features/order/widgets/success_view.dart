@@ -18,6 +18,7 @@ class SuccessView extends StatelessWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final offline = c.savedOffline;
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
@@ -50,7 +51,9 @@ class SuccessView extends StatelessWidget {
                         ],
                       ),
                       child: Icon(
-                        Icons.check_rounded,
+                        offline
+                            ? Icons.cloud_upload_outlined
+                            : Icons.check_rounded,
                         size: 70,
                         color: scheme.onPrimary,
                       ),
@@ -58,7 +61,10 @@ class SuccessView extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    AppStrings.orderCreatedTitle,
+                    offline
+                        ? AppStrings.orderSavedOfflineTitle
+                        : AppStrings.orderCreatedTitle,
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
@@ -81,7 +87,26 @@ class SuccessView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        InkWell(
+                        if (offline)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              AppStrings.orderWaitingUpload,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: scheme.onSecondaryContainer,
+                              ),
+                            ),
+                          )
+                        else
+                          InkWell(
                           borderRadius: BorderRadius.circular(12),
                           onTap: () {
                             Clipboard.setData(ClipboardData(text: order.id));
@@ -153,7 +178,9 @@ class SuccessView extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    AppStrings.orderCreatedNote,
+                    offline
+                        ? AppStrings.orderSavedOfflineNote
+                        : AppStrings.orderCreatedNote,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,

@@ -5,6 +5,7 @@ import '../../core/utils/formatters.dart';
 import '../api/erp_api_client.dart';
 import '../api/erp_config.dart';
 import '../models/erp_customer.dart';
+import 'customer_repository.dart';
 
 /// يجلب **أسماء العملاء وأرقام هواتفهم** من ERPNext فقط. لا يعرف شيئًا عن الديون
 /// (ليست موجودة في الـ API) ولا عن قاعدة البيانات المحلية.
@@ -12,9 +13,31 @@ import '../models/erp_customer.dart';
 /// الاسم من جدول Customer، والهاتف من جدول Contact المرتبط بالعميل
 /// (mobile_no أولًا ثم phone)، وهي الطريقة نفسها التي يعتمد عليها مستودع الفواتير.
 class ErpCustomerRepository {
-  ErpCustomerRepository(this._api);
+  ErpCustomerRepository(this._api, [this._local]);
 
   final ErpApiClient _api;
+
+  /// القاعدة المحلية: مصدر العملاء عند انقطاع الاتصال (اختياري)
+  final CustomerRepository? _local;
+
+  /// للطلبيات: من ERPNext إن أمكن، وإلا العملاء المحفوظون محليًا (دون إنترنت).
+  /// أخطاء غير الاتصال (مفاتيح مرفوضة...) تُرمى كما هي.
+  Future<List<ErpCustomer>> fetchCustomersOrLocal() async {
+    final local = _local;
+    if (local != null && _api.recentlyUnreachable) {
+      final saved = await local.getErpCustomers();
+      if (saved.isNotEmpty) return saved;
+    }
+    try {
+      return await fetchCustomers();
+    } on ErpApiException catch (e) {
+      if (e.type == ErpErrorType.network && local != null) {
+        final saved = await local.getErpCustomers();
+        if (saved.isNotEmpty) return saved;
+      }
+      rethrow;
+    }
+  }
 
   /// يرمي [ErpApiException] عند فشل الاتصال أو رفض المفاتيح.
   Future<List<ErpCustomer>> fetchCustomers() async {

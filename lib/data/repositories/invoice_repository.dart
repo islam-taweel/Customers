@@ -36,6 +36,9 @@ class InvoiceRepository {
 
   /// يحفظ فاتورة طلبية أُنشئت للتو في ERPNext، ويربطها بالعميل المحلي (عبر erpId).
   /// يعيد null إن لم يوجد عميل محلي مرتبط بهذا العميل (لم تتم مزامنته بعد).
+  ///
+  /// إن كان [order].id فارغًا فالطلبية أُنشئت دون اتصال: تُحفظ الفاتورة بحالة
+  /// «بانتظار الرفع» وتُربط برقم الطلبية لاحقًا عبر [markOrderInvoiceSynced].
   Future<Invoice?> saveOrderInvoice({
     required ErpCustomer customer,
     required CreatedOrder order,
@@ -55,13 +58,16 @@ class InvoiceRepository {
     final local = rows.first;
 
     // لا نكرر حفظ نفس الطلبية (مثلًا لو أُعيدت المحاولة)
-    final existing = await db.query(
-      _invoices,
-      where: 'orderId = ?',
-      whereArgs: [order.id],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) return Invoice.fromMap(existing.first);
+    final offline = order.id.isEmpty;
+    if (!offline) {
+      final existing = await db.query(
+        _invoices,
+        where: 'orderId = ?',
+        whereArgs: [order.id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return Invoice.fromMap(existing.first);
+    }
 
     String two(int n) => n.toString().padLeft(2, '0');
     final invoice = Invoice(
@@ -70,7 +76,8 @@ class InvoiceRepository {
       customerPhone: (local['phone'] as String?) ?? customer.phone,
       amount: order.total,
       createdAt: DateTime.now(),
-      orderId: order.id,
+      orderId: offline ? null : order.id,
+      pendingUpload: offline,
       deliveryDate:
           '${deliveryDate.year}-${two(deliveryDate.month)}-${two(deliveryDate.day)}',
       itemsJson: jsonEncode([
@@ -79,5 +86,16 @@ class InvoiceRepository {
       ]),
     );
     return addInvoice(invoice);
+  }
+
+  /// بعد رفع طلبية محفوظة دون اتصال: تحمل فاتورتها المحلية رقم الطلبية في ERPNext.
+  Future<void> markOrderInvoiceSynced(int invoiceId, String orderId) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'orderId': orderId, 'pendingUpload': 0},
+      where: 'id = ?',
+      whereArgs: [invoiceId],
+    );
   }
 }

@@ -22,6 +22,9 @@ class Invoice {
   /// أصناف الفاتورة كنص JSON: [{code, name, qty, rate}]
   final String? itemsJson;
 
+  /// true = أُنشئت دون اتصال وطلبيتها لم تُرفع إلى ERPNext بعد
+  final bool pendingUpload;
+
   const Invoice({
     this.id,
     required this.customerId,
@@ -32,6 +35,7 @@ class Invoice {
     this.orderId,
     this.deliveryDate,
     this.itemsJson,
+    this.pendingUpload = false,
   });
 
   /// رقم الفاتورة مشتق من الـ id المتسلسل، مثال: INV-00012
@@ -48,6 +52,7 @@ class Invoice {
       'orderId': orderId,
       'deliveryDate': deliveryDate,
       'itemsJson': itemsJson,
+      'pendingUpload': pendingUpload ? 1 : 0,
     };
   }
 
@@ -62,6 +67,7 @@ class Invoice {
       orderId: map['orderId'] as String?,
       deliveryDate: map['deliveryDate'] as String?,
       itemsJson: map['itemsJson'] as String?,
+      pendingUpload: (map['pendingUpload'] as num?)?.toInt() == 1,
     );
   }
 
@@ -98,6 +104,9 @@ class Invoice {
     }
   }
 
+  /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»
+  String get _status => pendingUpload ? 'Pending Upload' : 'Draft';
+
   /// صف في قائمة فواتير العميل
   SalesInvoice toListEntry() => SalesInvoice(
         name: displayName,
@@ -107,7 +116,7 @@ class Invoice {
         dueDate: deliveryDate,
         grandTotal: amount,
         outstandingAmount: 0,
-        status: 'Draft',
+        status: _status,
         isLocal: true,
       );
 
@@ -120,7 +129,7 @@ class Invoice {
         grandTotal: amount,
         totalTaxesAndCharges: 0,
         outstandingAmount: 0,
-        status: 'Draft',
+        status: _status,
         currency: '',
         items: items,
       );
@@ -136,6 +145,7 @@ class Invoice {
       orderId: orderId,
       deliveryDate: deliveryDate,
       itemsJson: itemsJson,
+      pendingUpload: pendingUpload,
     );
   }
 }

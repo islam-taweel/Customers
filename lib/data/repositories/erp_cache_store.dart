@@ -33,6 +33,24 @@ class ErpCacheStore {
     }
   }
 
+  /// كتابة عدة مفاتيح في معاملة واحدة (المزامنة الكاملة). على عكس [write]
+  /// يرمي الخطأ، فلا تُعرض مزامنة فاشلة على أنها ناجحة.
+  Future<void> writeAll(Map<String, String> entries) async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      entries.forEach((key, json) {
+        batch.insert(
+          _table,
+          {'cacheKey': key, 'json': json, 'savedAt': now},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      });
+      await batch.commit(noResult: true);
+    });
+  }
+
   Future<void> write(String key, String json) async {
     try {
       final db = await _dbHelper.database;
