@@ -7,7 +7,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
   static const _dbName = 'debts.db';
-  static const _dbVersion = 6;
+  static const _dbVersion = 8;
 
   static const tableCustomers = 'customers';
   static const tableOperations = 'operations';
@@ -59,6 +59,9 @@ class DatabaseHelper {
         type TEXT NOT NULL CHECK (type IN ('debt', 'payment')),
         note TEXT,
         date TEXT NOT NULL,
+        currency TEXT,
+        modeOfPayment TEXT,
+        paymentEntry TEXT,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');
@@ -100,6 +103,22 @@ class DatabaseHelper {
       );
       await _createCatalogTables(db);
       await _createPendingOrdersTable(db);
+    }
+    if (oldVersion < 7) {
+      // الإصدار 7: فصل المسودات عن الفواتير المعتمدة (submitted)
+      await db.execute(
+        'ALTER TABLE $tableInvoices ADD COLUMN submitted INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 8) {
+      // الإصدار 8: عملة كل عملية، وطريقة الدفع ورقم Payment Entry للدفعات
+      await db.execute('ALTER TABLE $tableOperations ADD COLUMN currency TEXT');
+      await db.execute(
+        'ALTER TABLE $tableOperations ADD COLUMN modeOfPayment TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE $tableOperations ADD COLUMN paymentEntry TEXT',
+      );
     }
   }
 
@@ -187,6 +206,7 @@ class DatabaseHelper {
         deliveryDate TEXT,
         itemsJson TEXT,
         pendingUpload INTEGER NOT NULL DEFAULT 0,
+        submitted INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');

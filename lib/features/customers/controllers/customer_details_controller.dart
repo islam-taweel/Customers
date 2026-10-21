@@ -4,16 +4,26 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/whatsapp_launcher.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
 import '../../../data/models/customer.dart';
 import '../../../data/models/operation.dart';
 import '../../../data/repositories/customer_repository.dart';
+import '../../../data/models/invoice.dart';
+import '../../../data/repositories/erp_draft_repository.dart';
+import '../../../data/repositories/erp_lookup_repository.dart';
+import '../../../data/repositories/erp_payment_repository.dart';
 import '../../../data/repositories/erp_invoice_repository.dart';
+import '../../../data/repositories/pending_order_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../../data/models/sales_invoice.dart';
 import '../../../data/repositories/operation_repository.dart';
+import '../../../data/repositories/outstanding_repository.dart';
 import 'customer_invoices_controller.dart';
+import 'draft_invoice_controller.dart';
 import 'invoice_details_controller.dart';
 
 /// حالة ومنطق عميل واحد: بياناته ورصيده وعملياته، وتعديل بياناته، وإضافة دين أو دفعة.
@@ -26,6 +36,10 @@ class CustomerDetailsController extends ChangeNotifier {
     this._whatsAppLauncher,
     this._erpInvoiceRepository,
     this._invoiceRepository,
+    this._draftRepository,
+    this._pendingRepository,
+    this._lookupRepository,
+    this._paymentRepository,
     this._customer,
   ) : assert(_customer.id != null, 'يجب أن يكون للعميل id');
 
@@ -39,19 +53,40 @@ class CustomerDetailsController extends ChangeNotifier {
   /// فواتير الطلبيات المحفوظة على الهاتف
   final InvoiceRepository _invoiceRepository;
 
+  /// تعديل المسودات وحذفها واعتمادها في ERPNext
+  final ErpDraftRepository _draftRepository;
+
+  /// الطلبيات المنتظرة للرفع (مسودات أُنشئت دون اتصال)
+  final PendingOrderRepository _pendingRepository;
+
+  /// العملات وطرق الدفع من ERPNext
+  final ErpLookupRepository _lookupRepository;
+
+  /// تسجيل الدفعة كـ Payment Entry في ERPNext
+  final ErpPaymentRepository _paymentRepository;
+
   // ───────────────────────── الحالة ─────────────────────────
 
   /// بيانات العميل (تتغير بعد التعديل، فتتحدث الشاشات التي تعرضها تلقائيًا)
   Customer _customer;
 
   final List<Operation> _operations = [];
-  double _balance = 0;
+
+  /// رصيد العميل المحلي لكل عملة (لا تُجمع العملات ولا تُحوَّل)
+  List<CurrencyAmount> _balances = const [];
 
   /// تبدأ true وتصبح false بعد انتهاء التحميل الأول
   bool _isLoading = true;
 
   /// رسالة الخطأ (null = لا يوجد خطأ)
   String? _error;
+
+  /// العملات وطرق الدفع المحمّلة من ERPNext (تُحمَّل عند فتح نافذة الدين/الدفعة)
+  List<String> _currencies = const [];
+  List<String> _modesOfPayment = const [];
+
+  /// سبب فشل آخر عملية حفظ (null = لا يوجد)، لتعرضه الواجهة
+  String? _saveError;
 
   bool _isSaving = false; // حفظ دين/دفعة
   bool _isSavingCustomer = false; // حفظ تعديل بيانات العميل
@@ -64,7 +99,24 @@ class CustomerDetailsController extends ChangeNotifier {
 
   /// العمليات من الأحدث إلى الأقدم
   List<Operation> get operations => UnmodifiableListView(_operations);
-  double get balance => _balance;
+
+  /// رصيد كل عملة على حدة، والفارغة = الحساب مسدد
+  List<CurrencyAmount> get balances => UnmodifiableListView(_balances);
+
+  /// هل على العميل مبلغ مستحق بأي عملة؟
+  bool get hasDebt => _balances.any((b) => b.amount > 0);
+
+
+  /// العملات المتاحة (عند تعذّر التحميل: عملة الشركة الافتراضية فقط)
+  List<String> get currencies => UnmodifiableListView(
+        _currencies.isEmpty ? [ErpConfig.priceListCurrency] : _currencies,
+      );
+
+  List<String> get modesOfPayment => UnmodifiableListView(_modesOfPayment);
+
+  /// سبب فشل آخر حفظ، أو null
+  String? get saveError => _saveError;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -111,6 +163,27 @@ class CustomerDetailsController extends ChangeNotifier {
 
     _isLoading = false;
     _notify();
+  }
+
+  /// تحميل العملات وطرق الدفع قبل فتح نافذة الدين/الدفعة.
+  /// فشل أحدهما لا يمنع الآخر، ولا يمنع فتح النافذة.
+  Future<void> loadLookups() async {
+    if (_currencies.isNotEmpty && _modesOfPayment.isNotEmpty) return;
+    final results = await Future.wait([
+      _safeList(_lookupRepository.fetchCurrencies),
+      _safeList(_lookupRepository.fetchModesOfPayment),
+    ]);
+    if (results[0].isNotEmpty) _currencies = results[0];
+    if (results[1].isNotEmpty) _modesOfPayment = results[1];
+  }
+
+  Future<List<String>> _safeList(Future<List<String>> Function() load) async {
+    try {
+      return await load();
+    } catch (e) {
+      debugPrint('CustomerDetailsController.loadLookups failed: $e');
+      return const [];
+    }
   }
 
   // ───────────────────────── تعديل بيانات العميل ─────────────────────────
@@ -165,11 +238,23 @@ class CustomerDetailsController extends ChangeNotifier {
     );
   }
 
-  /// متحكم شاشة تفاصيل فاتورة محفوظة محليًا (طلبية): لا يطلب شيئًا من الشبكة.
+  /// متحكم شاشة فاتورة معتمدة محفوظة محليًا (طلبية Sales Order): التفاصيل جاهزة
+  /// دون شبكة، وملف PDF يُطلب من ERPNext.
   InvoiceDetailsController openLocalInvoice(SalesInvoiceDetail detail) {
     return InvoiceDetailsController.local(
+      _erpInvoiceRepository,
       detail,
       customerPhone: _customer.phone,
+    );
+  }
+
+  /// متحكم مسودة واحدة (عرض/تعديل/حذف/اعتماد).
+  DraftInvoiceController openDraft(Invoice invoice) {
+    return DraftInvoiceController(
+      _invoiceRepository,
+      _pendingRepository,
+      _draftRepository,
+      invoice,
     );
   }
 
@@ -188,11 +273,15 @@ class CustomerDetailsController extends ChangeNotifier {
   /// لا ترمي استثناءات: النتيجة [WhatsAppResult] تُترجم في الواجهة إلى رسالة للمستخدم.
   Future<WhatsAppResult> sendWhatsAppReminder() async {
     // لا معنى للتذكير إن لم يكن على العميل دين (والزر مخفي أصلًا في هذه الحالة)
-    if (_balance <= 0) return WhatsAppResult.noDebt;
+    if (!hasDebt) return WhatsAppResult.noDebt;
 
     final message = AppStrings.whatsappDebtMessage(
       _customer.name,
-      formatAmount(_balance),
+      // مبلغ لكل عملة عليه فيها دين: «100 ₪ و 30 USD»
+      [
+        for (final b in _balances)
+          if (b.amount > 0) formatAmount(b.amount, currency: b.currency),
+      ].join(AppStrings.isArabic ? ' و ' : ' and '),
     );
     return _whatsAppLauncher.send(localPhone: _customer.phone, message: message);
   }
@@ -201,28 +290,63 @@ class CustomerDetailsController extends ChangeNotifier {
 
   /// حفظ دين أو دفعة جديدة ثم تحديث الرصيد والسجل. تُرجع true عند النجاح.
   /// التاريخ يُسجَّل هنا بوقت الجهاز الحالي، فالواجهة لا تحدده.
+  ///
+  /// الدفعة لعميل مرتبط بـ ERPNext تُسجَّل أولًا كـ Payment Entry (بالعملة وطريقة
+  /// الدفع المختارتين)، ولا تُحفظ محليًا إلا إن نجح ذلك، فلا يختلف الرصيد المحلي
+  /// عن ERPNext. وعند الفشل يُوضَّح السبب في [saveError].
   Future<bool> addOperation({
     required OperationType type,
     required double amount,
+    required String currency,
+    String? modeOfPayment,
     String? note,
   }) async {
     if (!amount.isFinite || amount <= 0 || _isSaving) return false;
     _isSaving = true;
+    _saveError = null;
 
     final trimmedNote = note?.trim();
+    final cleanNote =
+        (trimmedNote == null || trimmedNote.isEmpty) ? null : trimmedNote;
+    final isPayment = type == OperationType.payment;
+    final mode = isPayment ? modeOfPayment : null;
+    final now = DateTime.now();
 
     try {
+      String? paymentEntry;
+      if (isPayment) {
+        final erpId = await _customerRepository.getErpId(_customerId);
+        if (erpId != null) {
+          if (mode == null || mode.isEmpty) {
+            _saveError = AppStrings.modeOfPaymentRequired;
+            return false;
+          }
+          paymentEntry = await _paymentRepository.createPaymentEntry(
+            customerErpId: erpId,
+            amount: amount,
+            currency: currency,
+            modeOfPayment: mode,
+            date: now,
+            note: cleanNote,
+          );
+        }
+      }
+
       await _operationRepository.addOperation(
         Operation(
           customerId: _customerId,
           amount: amount,
           type: type,
-          note: (trimmedNote == null || trimmedNote.isEmpty) ? null : trimmedNote,
-          date: DateTime.now(),
+          note: cleanNote,
+          date: now,
+          currency: currency,
+          modeOfPayment: mode,
+          paymentEntry: paymentEntry,
         ),
       );
     } catch (e) {
       debugPrint('CustomerDetailsController.addOperation failed: $e');
+      _saveError = _describeSaveError(e);
       return false;
     } finally {
       _isSaving = false;
@@ -234,17 +358,30 @@ class CustomerDetailsController extends ChangeNotifier {
 
   // ───────────────────────── داخلي ─────────────────────────
 
-  Future<({List<Operation> operations, double balance})> _fetch() async {
-    final operations = await _operationRepository.getOperations(_customerId);
-    final balance = await _operationRepository.getBalance(_customerId);
-    return (operations: operations, balance: balance);
+  /// رسالة سبب الفشل: تفاصيل ERPNext (حقل ناقص مثلًا) إن وُجدت، وإلا الرسالة العامة.
+  String _describeSaveError(Object e) {
+    if (e is ErpApiException &&
+        e.type == ErpErrorType.server &&
+        (e.detail ?? '').isNotEmpty) {
+      return e.detail!;
+    }
+    return describeError(e, fallback: AppStrings.operationSaveFailed);
   }
 
-  void _apply(({List<Operation> operations, double balance}) data) {
+  Future<({List<Operation> operations, List<CurrencyAmount> balances})>
+      _fetch() async {
+    final operations = await _operationRepository.getOperations(_customerId);
+    final balances = await _operationRepository.getBalances(_customerId);
+    return (operations: operations, balances: balances);
+  }
+
+  void _apply(
+    ({List<Operation> operations, List<CurrencyAmount> balances}) data,
+  ) {
     _operations
       ..clear()
       ..addAll(data.operations);
-    _balance = data.balance;
+    _balances = data.balances;
   }
 
   bool _isStale(int requestId) => _disposed || requestId != _requestId;
@@ -269,6 +406,10 @@ class CustomerDetailsControllerFactory {
     this._whatsAppLauncher,
     this._erpInvoiceRepository,
     this._invoiceRepository,
+    this._draftRepository,
+    this._pendingRepository,
+    this._lookupRepository,
+    this._paymentRepository,
   );
 
   final OperationRepository _operationRepository;
@@ -276,6 +417,10 @@ class CustomerDetailsControllerFactory {
   final WhatsAppLauncher _whatsAppLauncher;
   final ErpInvoiceRepository _erpInvoiceRepository;
   final InvoiceRepository _invoiceRepository;
+  final ErpDraftRepository _draftRepository;
+  final PendingOrderRepository _pendingRepository;
+  final ErpLookupRepository _lookupRepository;
+  final ErpPaymentRepository _paymentRepository;
 
   CustomerDetailsController create(Customer customer) {
     return CustomerDetailsController(
@@ -284,6 +429,10 @@ class CustomerDetailsControllerFactory {
       _whatsAppLauncher,
       _erpInvoiceRepository,
       _invoiceRepository,
+      _draftRepository,
+      _pendingRepository,
+      _lookupRepository,
+      _paymentRepository,
       customer,
     );
   }

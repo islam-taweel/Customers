@@ -16,11 +16,19 @@ import '../../../data/models/customer_with_balance.dart';
 import '../../../data/models/deleted_customer.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../../data/repositories/erp_customer_repository.dart';
+import '../../../data/repositories/outstanding_repository.dart';
 
 /// حالة ومنطق شاشة العملاء. لا يعرف شيئًا عن الواجهة ولا عن SQL،
 /// وكل وصوله للبيانات يمر عبر [CustomerRepository].
 class CustomersController extends ChangeNotifier {
-  CustomersController(this._repository, this._erpCustomers);
+  CustomersController(
+    this._repository,
+    this._erpCustomers,
+    this._outstandingRepository,
+  );
+
+  /// إجمالي المستحق على العملاء من ERPNext (بطاقة أعلى شاشة العملاء)
+  final OutstandingRepository _outstandingRepository;
 
   final CustomerRepository _repository;
 
@@ -67,6 +75,37 @@ class CustomersController extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get error => _error;
   double get totalDebts => _totalDebts;
+
+  /// إجمالي المستحق من ERPNext لكل عملة (null = لم يُجلب بعد أو تعذّر)
+  List<CurrencyAmount>? get totalOutstanding => _totalOutstanding;
+
+  List<CurrencyAmount>? _totalOutstanding;
+
+  /// مستحق كل عميل من ERPNext (المفتاح رقم العميل في ERPNext)
+  Map<String, List<CurrencyAmount>>? _outstandingByCustomer;
+
+  /// مستحق عميل واحد لكل عملة. null = لم يُجلب بعد، أو عميل محلي غير مرتبط بـ ERPNext.
+  /// قائمة فارغة = لا مستحق عليه.
+  List<CurrencyAmount>? outstandingFor(String? erpId) {
+    final all = _outstandingByCustomer;
+    if (all == null || erpId == null) return null;
+    return all[erpId] ?? const [];
+  }
+
+  /// يجلب إجمالي المستحق ومستحق كل عميل من ERPNext. فشله يُبقي آخر قيمة معروفة.
+  Future<void> loadTotalOutstanding() async {
+    final results = await Future.wait<Object?>([
+      _outstandingRepository.fetchTotal(),
+      _outstandingRepository.fetchByCustomer(),
+    ]);
+    if (_disposed) return;
+    final total = results[0] as List<CurrencyAmount>?;
+    final byCustomer = results[1] as Map<String, List<CurrencyAmount>>?;
+    if (total == null && byCustomer == null) return;
+    if (total != null) _totalOutstanding = total;
+    if (byCustomer != null) _outstandingByCustomer = byCustomer;
+    _notify();
+  }
   String get query => _query;
   CustomerSortOption get sort => _sort;
 
@@ -234,6 +273,7 @@ class CustomersController extends ChangeNotifier {
     _isLoading = false;
     _isMoreLoading = false;
     _notify();
+    unawaited(loadTotalOutstanding());
   }
 
   /// إعادة المحاولة بعد خطأ: جلب العملاء من ERPNext إن كانت القائمة فارغة، وإلا تحديث.

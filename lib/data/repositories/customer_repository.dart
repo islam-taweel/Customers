@@ -1,5 +1,6 @@
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/formatters.dart';
+import '../api/erp_config.dart';
 import '../database/database_helper.dart';
 import '../models/customer.dart';
 import '../models/customer_sort_option.dart';
@@ -68,11 +69,13 @@ class CustomerRepository {
       ..add(offset);
 
     final rows = await db.rawQuery('''
-      SELECT c.id, c.name, c.phone,
+      SELECT c.id, c.name, c.phone, c.erpId,
              COALESCE((
                SELECT SUM(CASE WHEN o.type = 'debt' THEN o.amount ELSE -o.amount END)
                FROM $_operations o
                WHERE o.customerId = c.id
+                 AND COALESCE(NULLIF(o.currency, ''), '${ErpConfig.priceListCurrency}')
+                     = '${ErpConfig.priceListCurrency}'
              ), 0) AS balance
       FROM $_customers c
       $where
@@ -277,6 +280,21 @@ class CustomerRepository {
           phone: (row['phone'] as String?) ?? '',
         ),
     ];
+  }
+
+  /// رقم العميل في ERPNext (null إن كان عميلًا محليًا غير مرتبط بعد).
+  Future<String?> getErpId(int customerId) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _customers,
+      columns: ['erpId'],
+      where: 'id = ?',
+      whereArgs: [customerId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final erpId = rows.first['erpId'] as String?;
+    return (erpId == null || erpId.isEmpty) ? null : erpId;
   }
 
   /// ربط كل عميل محلي برقمه في ERPNext (للمزامنة الكاملة للفواتير).

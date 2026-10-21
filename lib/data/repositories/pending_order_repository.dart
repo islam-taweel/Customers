@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../database/database_helper.dart';
 import '../models/pending_order.dart';
 
@@ -40,6 +42,46 @@ class PendingOrderRepository {
       if (row['status'] == PendingOrder.statusFailed) failed = n;
     }
     return (pending: pending, failed: failed);
+  }
+
+  /// الطلبية المعلّقة المرتبطة بفاتورة محلية (null إن رُفعت أو حُذفت).
+  Future<PendingOrder?> findOpenByInvoice(int invoiceId) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _table,
+      where: 'invoiceId = ? AND status != ?',
+      whereArgs: [invoiceId, PendingOrder.statusSynced],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : PendingOrder.fromMap(rows.first);
+  }
+
+  /// تعديل مسودة لم تُرفع بعد: تُرفع لاحقًا بالمحتوى الجديد. وتعود للانتظار
+  /// إن كانت قد رُفضت من الخادم، لتُعاد محاولتها بعد التصحيح.
+  Future<void> updateContent(
+    int id, {
+    required List<PendingOrderLine> lines,
+    required double total,
+    required String deliveryDate,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _table,
+      {
+        'linesJson': jsonEncode([for (final l in lines) l.toJson()]),
+        'total': total,
+        'deliveryDate': deliveryDate,
+        'status': PendingOrder.statusPending,
+        'lastError': null,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> delete(int id) async {
+    final db = await _dbHelper.database;
+    await db.delete(_table, where: 'id = ?', whereArgs: [id]);
   }
 
   /// بعد نجاح الرفع نحتفظ بالصف (حالة synced) مدة قصيرة بدل حذفه فورًا، فلا تُرفع

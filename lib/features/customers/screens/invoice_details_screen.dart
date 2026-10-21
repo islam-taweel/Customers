@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -13,8 +16,10 @@ import '../widgets/invoice_card.dart';
 import '../widgets/offline_banner.dart';
 import 'invoice_pdf_screen.dart';
 
-/// تفاصيل فاتورة واحدة من ERPNext (عند الضغط عليها): رقمها واسم العميل وهاتفه
-/// والمبلغ وأصنافها، مع زر عرضها كملف PDF.
+/// تفاصيل فاتورة معتمدة (عند الضغط عليها): رقمها واسم العميل وهاتفه والمبلغ
+/// وأصنافها، مع زرّين: عرضها كملف PDF وطباعتها.
+/// الملف هو PDF الرسمي من ERPNext (download_pdf)، وعند تعذّره (دون اتصال مثلًا)
+/// نولّد ملفًا من الفاتورة المعروضة على الشاشة.
 class InvoiceDetailsScreen extends StatelessWidget {
   const InvoiceDetailsScreen({super.key});
 
@@ -52,6 +57,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
       detail: detail,
       customerPhone: controller.customerPhone,
       notice: controller.notice,
+      fetchServerPdf: controller.downloadServerPdf,
     );
   }
 }
@@ -64,9 +70,13 @@ class _InvoiceView extends StatefulWidget {
   /// تنبيه «غير متصل، تُعرض بيانات محفوظة» (null = البيانات محدّثة)
   final String? notice;
 
+  /// يطلب ملف PDF الرسمي من ERPNext
+  final Future<Uint8List> Function() fetchServerPdf;
+
   const _InvoiceView({
     required this.detail,
     required this.customerPhone,
+    required this.fetchServerPdf,
     this.notice,
   });
 
@@ -83,6 +93,33 @@ class _InvoiceViewState extends State<_InvoiceView> {
   String get _fileName =>
       'invoice-${widget.detail.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}.pdf';
 
+  /// PDF الرسمي من ERPNext، وإلا ملف مولَّد من الفاتورة المعروضة.
+  Future<Uint8List> _pdfBytes() async {
+    try {
+      return await widget.fetchServerPdf();
+    } catch (e) {
+      debugPrint('download_pdf failed, using local capture: $e');
+      return InvoicePdfService.fromBoundary(_invoiceKey);
+    }
+  }
+
+  Future<void> _print() async {
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final pdf = await _pdfBytes();
+      await Printing.layoutPdf(onLayout: (_) async => pdf, name: _fileName);
+    } catch (e) {
+      debugPrint('invoice print failed: $e');
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppStrings.invoicePdfFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _openPdf() async {
     if (_busy) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -90,7 +127,7 @@ class _InvoiceViewState extends State<_InvoiceView> {
     setState(() => _busy = true);
 
     try {
-      final pdf = await InvoicePdfService.fromBoundary(_invoiceKey);
+      final pdf = await _pdfBytes();
       if (!mounted) return;
       await navigator.push(
         InvoicePdfScreen.route(bytes: pdf, fileName: _fileName),
@@ -141,19 +178,36 @@ class _InvoiceViewState extends State<_InvoiceView> {
                 ),
               ),
               const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _busy ? null : _openPdf,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.picture_as_pdf_outlined),
-                label: Text(AppStrings.viewInvoicePdf),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _openPdf,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.picture_as_pdf_outlined),
+                      label: Text(AppStrings.viewInvoicePdf),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _print,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.print_outlined),
+                      label: Text(AppStrings.printInvoice),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

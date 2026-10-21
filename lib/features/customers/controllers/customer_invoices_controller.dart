@@ -51,16 +51,34 @@ class CustomerInvoicesController extends ChangeNotifier {
   int _requestId = 0;
   bool _disposed = false;
 
-  /// المحلية + فواتير ERPNext معًا، من الأحدث إلى الأقدم
-  List<SalesInvoice> get invoices {
+  /// true بعد قراءة الفواتير المحلية (المسودات لا تنتظر الشبكة)
+  bool _localLoaded = false;
+  bool get localLoaded => _localLoaded;
+
+  /// المسودات (تبويب «مسودة»): فواتير الطلبيات المحلية غير المعتمدة، الأحدث أولًا
+  List<Invoice> get drafts => UnmodifiableListView([
+        for (final i in _localInvoices)
+          if (!i.submitted) i,
+      ]);
+
+  /// المعتمدة (تبويب «معتمدة»): طلبيات اعتُمدت من التطبيق + فواتير ERPNext،
+  /// من الأحدث إلى الأقدم
+  List<SalesInvoice> get submitted {
     final all = <SalesInvoice>[
-      for (final i in _localInvoices) i.toListEntry(),
+      for (final i in _localInvoices)
+        if (i.submitted) i.toListEntry(),
       ..._erpInvoices,
     ]..sort((a, b) {
         final byDate = b.postingDate.compareTo(a.postingDate);
         return byDate != 0 ? byDate : b.name.compareTo(a.name);
       });
     return UnmodifiableListView(all);
+  }
+
+  /// بعد تعديل مسودة أو حذفها أو اعتمادها: إعادة قراءة المحلي فقط.
+  Future<void> reloadLocal() async {
+    await _loadLocal();
+    _notify();
   }
 
   /// تفاصيل فاتورة محلية بحسب رقمها المعروض (null إن لم تكن محلية)
@@ -78,7 +96,9 @@ class CustomerInvoicesController extends ChangeNotifier {
       debugPrint('CustomerInvoicesController._loadLocal failed: $e');
       _localInvoices = [];
     }
+    _localLoaded = true;
   }
+
   bool get isLoading => _isLoading;
   bool get isRefreshing => _isRefreshing;
   bool get matched => _matched;
@@ -93,6 +113,8 @@ class CustomerInvoicesController extends ChangeNotifier {
 
     // 1) المحفوظ على الهاتف يظهر فورًا (فواتير الطلبيات + نسخة ERPNext)
     await _loadLocal();
+    if (_isStale(requestId)) return;
+    _notify(); // المسودات تظهر فورًا دون انتظار نسخة ERPNext
     final cached = await _repository.readCachedInvoices(_customer);
     if (_isStale(requestId)) return;
 

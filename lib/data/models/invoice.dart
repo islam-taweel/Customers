@@ -25,6 +25,9 @@ class Invoice {
   /// true = أُنشئت دون اتصال وطلبيتها لم تُرفع إلى ERPNext بعد
   final bool pendingUpload;
 
+  /// true = اعتُمدت (Submitted) في ERPNext؛ false = مسودة (Draft) تقبل التعديل والحذف
+  final bool submitted;
+
   const Invoice({
     this.id,
     required this.customerId,
@@ -36,6 +39,7 @@ class Invoice {
     this.deliveryDate,
     this.itemsJson,
     this.pendingUpload = false,
+    this.submitted = false,
   });
 
   /// رقم الفاتورة مشتق من الـ id المتسلسل، مثال: INV-00012
@@ -53,6 +57,7 @@ class Invoice {
       'deliveryDate': deliveryDate,
       'itemsJson': itemsJson,
       'pendingUpload': pendingUpload ? 1 : 0,
+      'submitted': submitted ? 1 : 0,
     };
   }
 
@@ -68,6 +73,7 @@ class Invoice {
       deliveryDate: map['deliveryDate'] as String?,
       itemsJson: map['itemsJson'] as String?,
       pendingUpload: (map['pendingUpload'] as num?)?.toInt() == 1,
+      submitted: (map['submitted'] as num?)?.toInt() == 1,
     );
   }
 
@@ -104,8 +110,12 @@ class Invoice {
     }
   }
 
-  /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»
-  String get _status => pendingUpload ? 'Pending Upload' : 'Draft';
+  /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»، ثم «معتمدة»
+  String get _status => submitted
+      ? 'Submitted'
+      : pendingUpload
+          ? 'Pending Upload'
+          : 'Draft';
 
   /// صف في قائمة فواتير العميل
   SalesInvoice toListEntry() => SalesInvoice(
@@ -134,18 +144,25 @@ class Invoice {
         items: items,
       );
 
-  Invoice copyWith({int? id}) {
+  Invoice copyWith({
+    int? id,
+    double? amount,
+    String? deliveryDate,
+    String? itemsJson,
+    bool? submitted,
+  }) {
     return Invoice(
       id: id ?? this.id,
       customerId: customerId,
       customerName: customerName,
       customerPhone: customerPhone,
-      amount: amount,
+      amount: amount ?? this.amount,
       createdAt: createdAt,
       orderId: orderId,
-      deliveryDate: deliveryDate,
-      itemsJson: itemsJson,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      itemsJson: itemsJson ?? this.itemsJson,
       pendingUpload: pendingUpload,
+      submitted: submitted ?? this.submitted,
     );
   }
 }

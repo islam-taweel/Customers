@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../data/models/customer_with_balance.dart';
+import '../../../data/repositories/outstanding_repository.dart';
 import 'customer_tile.dart';
 
 /// بطاقة عميل يمكن سحبها من أي جانب لحذفها.
@@ -13,6 +14,9 @@ import 'customer_tile.dart';
 /// - [onDelete] يُستدعى بعد الموافقة وانتهاء حركة السحب.
 class DismissibleCustomerTile extends StatelessWidget {
   final CustomerWithBalance item;
+
+  /// مستحق العميل من ERPNext لكل عملة (null = غير متاح)
+  final List<CurrencyAmount>? outstanding;
   final VoidCallback onTap;
   final Future<bool> Function() confirmDelete;
   final VoidCallback onDelete;
@@ -20,6 +24,7 @@ class DismissibleCustomerTile extends StatelessWidget {
   const DismissibleCustomerTile({
     super.key,
     required this.item,
+    required this.outstanding,
     required this.onTap,
     required this.confirmDelete,
     required this.onDelete,
@@ -35,7 +40,7 @@ class DismissibleCustomerTile extends StatelessWidget {
           const _DeleteBackground(alignment: AlignmentDirectional.centerEnd),
       confirmDismiss: (_) => confirmDelete(),
       onDismissed: (_) => onDelete(),
-      child: CustomerTile(item: item, onTap: onTap),
+      child: CustomerTile(item: item, outstanding: outstanding, onTap: onTap),
     );
   }
 }

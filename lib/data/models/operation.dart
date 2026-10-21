@@ -22,6 +22,15 @@ class Operation {
   final String? note;
   final DateTime date;
 
+  /// رمز العملة (USD, ILS...) كما في ERPNext. null للعمليات القديمة قبل إضافة العملات.
+  final String? currency;
+
+  /// طريقة الدفع (Mode of Payment) للدفعات فقط.
+  final String? modeOfPayment;
+
+  /// رقم مستند Payment Entry في ERPNext إن سُجّلت الدفعة هناك.
+  final String? paymentEntry;
+
   Operation({
     this.id,
     required this.customerId,
@@ -29,6 +38,9 @@ class Operation {
     required this.type,
     this.note,
     DateTime? date,
+    this.currency,
+    this.modeOfPayment,
+    this.paymentEntry,
   }) : date = date ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -39,6 +51,9 @@ class Operation {
       'type': type.value,
       'note': note,
       'date': date.toIso8601String(),
+      'currency': currency,
+      'modeOfPayment': modeOfPayment,
+      'paymentEntry': paymentEntry,
     };
   }
 
@@ -50,6 +65,9 @@ class Operation {
       type: OperationType.fromString(map['type'] as String),
       note: map['note'] as String?,
       date: DateTime.parse(map['date'] as String),
+      currency: map['currency'] as String?,
+      modeOfPayment: map['modeOfPayment'] as String?,
+      paymentEntry: map['paymentEntry'] as String?,
     );
   }
 
@@ -60,6 +78,9 @@ class Operation {
     OperationType? type,
     String? note,
     DateTime? date,
+    String? currency,
+    String? modeOfPayment,
+    String? paymentEntry,
   }) {
     return Operation(
       id: id ?? this.id,
@@ -68,6 +89,9 @@ class Operation {
       type: type ?? this.type,
       note: note ?? this.note,
       date: date ?? this.date,
+      currency: currency ?? this.currency,
+      modeOfPayment: modeOfPayment ?? this.modeOfPayment,
+      paymentEntry: paymentEntry ?? this.paymentEntry,
     );
   }
 

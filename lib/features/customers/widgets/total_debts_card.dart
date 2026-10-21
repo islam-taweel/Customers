@@ -3,18 +3,25 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/outstanding_repository.dart';
 
-/// بطاقة إجمالي الديون في أعلى شاشة العملاء.
+/// بطاقة إجمالي الديون في أعلى شاشة العملاء: قيمة API الـ total outstanding من
+/// ERPNext فقط، سطر لكل عملة (لا تُجمع العملات معًا).
+/// [amounts] = null قبل وصول الرد أو عند تعذّره، فتظهر شرطة بدل رقم.
 class TotalDebtsCard extends StatelessWidget {
-  final double total;
+  final List<CurrencyAmount>? amounts;
 
-  const TotalDebtsCard({super.key, required this.total});
+  const TotalDebtsCard({super.key, required this.amounts});
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('build: TotalDebtsCard');
-
     final scheme = Theme.of(context).colorScheme;
+    final list = amounts;
+    final style = TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+      color: scheme.onPrimaryContainer,
+    );
 
     return Card(
       margin: const EdgeInsets.all(AppConstants.pagePadding),
@@ -31,20 +38,25 @@ class TotalDebtsCard extends StatelessWidget {
             Expanded(
               child: Text(
                 AppStrings.totalDebts,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: scheme.onPrimaryContainer,
-                ),
+                style: TextStyle(fontSize: 16, color: scheme.onPrimaryContainer),
               ),
             ),
-            Text(
-              formatAmount(total),
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: scheme.onPrimaryContainer,
+            if (list == null)
+              Text('—', style: style)
+            else if (list.isEmpty)
+              Text(formatAmount(0), style: style, textDirection: TextDirection.ltr)
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final row in list)
+                    Text(
+                      formatSignedAmount(row.amount, currency: row.currency),
+                      style: style,
+                      textDirection: TextDirection.ltr,
+                    ),
+                ],
               ),
-            ),
           ],
         ),
       ),

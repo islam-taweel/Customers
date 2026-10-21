@@ -147,6 +147,10 @@ class AppStrings {
       _t('للعميل رصيد عندك', 'Customer has credit with you');
   static String get balanceSettledLong =>
       _t('الحساب مسدد', 'Account settled');
+  static String get balancesPerCurrencyNote => _t(
+        'كل عملة تُحسب على حدة ولا تُحوَّل إلى أخرى',
+        'Each currency is calculated separately, with no conversion',
+      );
 
   // ───────── العمليات (شاشة التفاصيل) ─────────
   static String get addDebt => _t('إضافة دين', 'Add debt');
@@ -170,9 +174,103 @@ class AppStrings {
   static String get operationSaveFailed =>
       _t('تعذّر حفظ العملية', 'Could not save the transaction');
 
+  // ───────── العملة وطريقة الدفع (Payment Entry) ─────────
+  static String get currency => _t('العملة', 'Currency');
+  static String get modeOfPayment => _t('طريقة الدفع', 'Mode of payment');
+  static String get currencyRequired =>
+      _t('اختر العملة', 'Select a currency');
+  static String get modeOfPaymentRequired =>
+      _t('اختر طريقة الدفع', 'Select a mode of payment');
+  static String get modesOfPaymentUnavailable => _t(
+        'تعذّر تحميل طرق الدفع من ERPNext. تحقق من الاتصال ثم أعد فتح النافذة.',
+        'Could not load modes of payment from ERPNext. Check the connection and reopen this dialog.',
+      );
+  static String get paymentCustomerAccountMissing => _t(
+        'لم يُعثر على حساب العميل المدين في ERPNext',
+        'The customer’s receivable account was not found in ERPNext',
+      );
+  static String paymentModeAccountMissing(String mode) => _t(
+        'لا يوجد حساب لطريقة الدفع «$mode» للشركة في ERPNext',
+        'Mode of payment “$mode” has no account for the company in ERPNext',
+      );
+  static String exchangeRateMissing(String from, String to) => _t(
+        'لا يوجد سعر صرف من $from إلى $to في ERPNext',
+        'No exchange rate from $from to $to in ERPNext',
+      );
+  static String paymentNoAccountForCurrency(String currency) => _t(
+        'لا يوجد حساب نقدي أو بنكي بعملة $currency للشركة في ERPNext',
+        'No cash or bank account in $currency exists for the company in ERPNext',
+      );
+  static String get invoicesOutstandingTitle =>
+      _t('مستحق الفواتير', 'Invoice outstanding');
+  static String get accountBalance => _t('رصيد الحساب', 'Account balance');
+  static String get noInvoiceOutstanding =>
+      _t('لا مبالغ مستحقة في الفواتير', 'No outstanding invoices');
+  static String get accountBalanceHint => _t(
+        'يشمل الدفعات غير المربوطة بفواتير',
+        'Includes payments not linked to invoices',
+      );
+  static String paymentEntryRef(String name) =>
+      _t('سند الدفع: $name', 'Payment Entry: $name');
+
   // ───────── الفاتورة ─────────
   static String get tabOperations => _t('العمليات', 'Transactions');
   static String get tabInvoice => _t('الفاتورة', 'Invoice');
+
+  // ───────── شاشتا العمليات والفواتير (من تفاصيل العميل) ─────────
+  static String get invoicesTitle => _t('الفواتير', 'Invoices');
+  static String get invoicesButtonHint =>
+      _t('المسودات والفواتير المعتمدة', 'Drafts and submitted invoices');
+  static String operationsCount(int n) =>
+      _t('$n عملية مسجّلة', '$n recorded transactions');
+  static String get tabDraft => _t('مسودة', 'Draft');
+  static String get tabSubmitted => _t('معتمدة', 'Submitted');
+  static String get draftsEmptyTitle => _t('لا توجد مسودات', 'No drafts');
+  static String get draftsEmptyMessage => _t(
+        'الطلبيات التي تنشئها لهذا العميل تظهر هنا كمسودات إلى أن تعتمدها.',
+        'Orders you create for this customer appear here as drafts until you submit them.',
+      );
+  static String get draftEdit => _t('تعديل', 'Edit');
+  static String get draftSubmit => _t('اعتماد الفاتورة', 'Submit invoice');
+  static String get editDraftTitle => _t('تعديل المسودة', 'Edit draft');
+  static String get draftNeedsUploadNote => _t(
+        'هذه المسودة لم تُرفع إلى ERPNext بعد. ستُرفع تلقائيًا عند عودة الاتصال، ثم يمكنك اعتمادها.',
+        'This draft has not been uploaded to ERPNext yet. It uploads automatically when the connection returns, then you can submit it.',
+      );
+  static String get draftDeleteTitle => _t('حذف المسودة؟', 'Delete draft?');
+  static String get draftDeleteMessage => _t(
+        'ستُحذف هذه المسودة نهائيًا، ولا يمكن التراجع عن ذلك.',
+        'This draft will be permanently deleted. This cannot be undone.',
+      );
+  static String get draftSubmitTitle =>
+      _t('اعتماد الفاتورة؟', 'Submit this invoice?');
+  static String get draftSubmitMessage => _t(
+        'بعد الاعتماد تنتقل إلى تبويب «معتمدة» ولا يمكن تعديلها أو حذفها.',
+        'After submitting it moves to the “Submitted” tab and can no longer be edited or deleted.',
+      );
+  static String get draftDeleted => _t('تم حذف المسودة', 'Draft deleted');
+  static String get draftSubmitted =>
+      _t('تم اعتماد الفاتورة', 'Invoice submitted');
+  static String get draftUpdated => _t('تم حفظ التعديلات', 'Changes saved');
+  static String get draftNeedsConnection => _t(
+        'لا يوجد اتصال بـ ERPNext. هذا الإجراء يحتاج اتصالًا.',
+        'ERPNext is not reachable. This action needs a connection.',
+      );
+  static String get draftSaveFailed =>
+      _t('تعذّر حفظ التعديلات', 'Could not save the changes');
+  static String get draftDeleteFailed =>
+      _t('تعذّر حذف المسودة', 'Could not delete the draft');
+  static String get draftSubmitFailed =>
+      _t('تعذّر اعتماد الفاتورة', 'Could not submit the invoice');
+  static String get draftStateChanged => _t(
+        'تغيّرت حالة هذه المسودة. ارجع إلى القائمة وافتحها من جديد.',
+        'This draft changed. Go back to the list and open it again.',
+      );
+  static String get draftNoItems => _t(
+        'يجب أن تبقى في المسودة صنف واحد على الأقل. لإلغائها احذفها.',
+        'A draft needs at least one item. To cancel it, delete it.',
+      );
+  static String get printInvoice => _t('طباعة', 'Print');
   static String get invoiceTitle => _t('فاتورة', 'Invoice');
   static String get invoiceNumber => _t('رقم الفاتورة', 'Invoice no.');
   static String get invoiceCustomer => _t('اسم العميل', 'Customer name');
@@ -252,6 +350,7 @@ class AppStrings {
         'Return' => _t('مرتجع', 'Return'),
         'Credit Note Issued' => _t('أُصدر لها إشعار دائن', 'Credit note issued'),
         'Pending Upload' => _t('بانتظار الرفع', 'Waiting to upload'),
+        'Submitted' => _t('معتمدة', 'Submitted'),
         _ => status,
       };
 

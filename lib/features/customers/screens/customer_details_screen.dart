@@ -2,22 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/services/whatsapp_launcher.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/customer.dart';
-import '../../../data/models/operation.dart';
 import '../controllers/customer_details_controller.dart';
-import '../widgets/balance_card.dart';
-import '../widgets/invoice_tab.dart';
-import '../widgets/operation_dialog.dart';
-import '../widgets/operation_tile.dart';
+import 'customer_invoices_screen.dart';
+import 'customer_operations_screen.dart';
 import 'edit_customer_screen.dart';
 
+/// تفاصيل العميل: بطاقة الرصيد وزرّان ينقلان إلى شاشة «العمليات» وشاشة «الفواتير».
 /// واجهة فقط: تقرأ من [CustomerDetailsController] وتستدعي دوالَه.
-/// لا SQL ولا DatabaseHelper ولا setState.
 class CustomerDetailsScreen extends StatelessWidget {
   const CustomerDetailsScreen({super.key});
 
@@ -27,32 +21,6 @@ class CustomerDetailsScreen extends StatelessWidget {
       builder: (_) => ChangeNotifierProvider<CustomerDetailsController>(
         create: (_) => controller..load(),
         child: const CustomerDetailsScreen(),
-      ),
-    );
-  }
-
-  Future<void> _addOperation(BuildContext context, OperationType type) async {
-    final controller = context.read<CustomerDetailsController>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    final input = await OperationDialog.show(context, type);
-    if (input == null) return;
-
-    final ok = await controller.addOperation(
-      type: type,
-      amount: input.amount,
-      note: input.note,
-    );
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          !ok
-              ? AppStrings.operationSaveFailed
-              : type == OperationType.debt
-                  ? AppStrings.debtAdded
-                  : AppStrings.paymentAdded,
-        ),
       ),
     );
   }
@@ -74,60 +42,22 @@ class CustomerDetailsScreen extends StatelessWidget {
     );
   }
 
-  /// يفتح واتساب برسالة جاهزة. عند التعذر تُعرض رسالة عربية واضحة بدل توقف التطبيق.
-  Future<void> _sendWhatsApp(BuildContext context) async {
-    final controller = context.read<CustomerDetailsController>();
-
-    final result = await controller.sendWhatsAppReminder();
-
-    // أثناء الانتظار قد يغادر المستخدم الشاشة، فلا نستخدم context بعدها
-    if (!context.mounted) return;
-
-    final errorMessage = _whatsAppErrorMessage(result);
-    if (errorMessage == null) return; // فُتح واتساب بنجاح
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(errorMessage)),
-    );
-  }
-
-  /// رسالة الخطأ المناسبة لنتيجة فتح واتساب، أو null إن فُتح بنجاح.
-  String? _whatsAppErrorMessage(WhatsAppResult result) {
-    return switch (result) {
-      WhatsAppResult.opened => null,
-      WhatsAppResult.notInstalled => AppStrings.whatsappNotInstalled,
-      WhatsAppResult.invalidPhone => AppStrings.whatsappInvalidPhone,
-      WhatsAppResult.noDebt => AppStrings.whatsappNoDebt,
-      WhatsAppResult.failed => AppStrings.whatsappFailed,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CustomerDetailsController>();
 
-    // تبويبان: العمليات (الصفحة الأصلية) والفاتورة
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(controller.customer.name),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: AppStrings.editCustomer,
-              onPressed: () => _editCustomer(context),
-            ),
-          ],
-          bottom: TabBar(
-            tabs: [
-              Tab(text: AppStrings.tabOperations),
-              Tab(text: AppStrings.tabInvoice),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(controller.customer.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: AppStrings.editCustomer,
+            onPressed: () => _editCustomer(context),
           ),
-        ),
-        body: _buildBody(context, controller),
+        ],
       ),
+      body: _buildBody(context, controller),
     );
   }
 
@@ -135,104 +65,103 @@ class CustomerDetailsScreen extends StatelessWidget {
     if (controller.isLoading) return const LoadingView();
 
     if (controller.error != null) {
-      return ErrorView(
-        message: controller.error!,
-        onRetry: controller.load,
-      );
+      return ErrorView(message: controller.error!, onRetry: controller.load);
     }
 
-    return TabBarView(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
-        _buildOperationsTab(context, controller),
-        const InvoiceTab(),
+        const SizedBox(height: 8),
+        _NavButton(
+          icon: Icons.swap_vert_rounded,
+          title: AppStrings.tabOperations,
+          subtitle: AppStrings.operationsCount(controller.operations.length),
+          onTap: () => Navigator.push(
+            context,
+            CustomerOperationsScreen.route(controller),
+          ),
+        ),
+        _NavButton(
+          icon: Icons.receipt_long_outlined,
+          title: AppStrings.invoicesTitle,
+          subtitle: AppStrings.invoicesButtonHint,
+          onTap: () => Navigator.push(
+            context,
+            CustomerInvoicesScreen.route(controller),
+          ),
+        ),
       ],
     );
   }
+}
 
-  /// التبويب الأول: الصفحة الأصلية (الرصيد، إضافة دين/دفعة، واتساب، سجل العمليات)
-  Widget _buildOperationsTab(
-    BuildContext context,
-    CustomerDetailsController controller,
-  ) {
-    final operations = controller.operations;
+/// زر كبير ينقل إلى شاشة فرعية: أيقونة وعنوان ووصف قصير.
+class _NavButton extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
-    return Column(
-      children: [
-        BalanceCard(customer: controller.customer, balance: controller.balance),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _addOperation(context, OperationType.debt),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.debt,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+  const _NavButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  icon: const Icon(Icons.add),
-                  label: Text(AppStrings.addDebt),
+                  child: Icon(icon, color: scheme.onPrimaryContainer),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _addOperation(context, OperationType.payment),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.payment,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(AppStrings.addPayment),
                 ),
-              ),
-            ],
-          ),
-        ),
-        // زر واتساب: يظهر فقط إذا كان على العميل مبلغ مستحق (الرصيد أكبر من صفر)
-        if (controller.balance > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => _sendWhatsApp(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.whatsapp,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.chat_outlined),
-                label: Text(AppStrings.whatsappButton),
-              ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              AppStrings.operationsLog,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
         ),
-        const Divider(height: 1),
-        Expanded(
-          child: operations.isEmpty
-              ? EmptyView(
-                  icon: Icons.receipt_long_outlined,
-                  title: AppStrings.noOperationsTitle,
-                  message: AppStrings.noOperationsMessage,
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: operations.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) => OperationTile(operation: operations[i]),
-                ),
-        ),
-      ],
+      ),
     );
   }
 }

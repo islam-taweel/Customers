@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
@@ -155,6 +156,13 @@ class ErpInvoiceRepository {
         return byDate != 0 ? byDate : b.name.compareTo(a.name);
       });
   }
+
+  // ───────────────────────── ملف PDF من الخادم ─────────────────────────
+
+  /// ملف PDF للمستند من ERPNext (download_pdf). [doctype] هو Sales Invoice لفواتير
+  /// ERPNext، وSales Order للطلبيات المعتمدة من التطبيق.
+  Future<Uint8List> downloadPdf(String doctype, String name) =>
+      _api.downloadPdf(doctype, name);
 
   // ───────────────────────── مزامنة كل الفواتير ─────────────────────────
 

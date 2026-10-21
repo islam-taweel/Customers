@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -117,12 +118,14 @@ class ErpApiClient {
     String doctype, {
     required List<String> fields,
     List<List<Object>>? filters,
+    String? groupBy,
     int limitStart = 0,
     int limitPageLength = ErpConfig.pageSize,
   }) async {
     final uri = _uri([doctype], {
       'fields': jsonEncode(fields),
       if (filters != null) 'filters': jsonEncode(filters),
+      if (groupBy != null) 'group_by': groupBy,
       'limit_start': '$limitStart',
       'limit_page_length': '$limitPageLength',
     });
@@ -140,6 +143,7 @@ class ErpApiClient {
     String doctype, {
     required List<String> fields,
     List<List<Object>>? filters,
+    String? groupBy,
   }) async {
     final all = <Map<String, dynamic>>[];
     var start = 0;
@@ -149,6 +153,7 @@ class ErpApiClient {
         doctype,
         fields: fields,
         filters: filters,
+        groupBy: groupBy,
         limitStart: start,
       );
       all.addAll(rows);
@@ -189,11 +194,116 @@ class ErpApiClient {
     return Map<String, dynamic>.from(data);
   }
 
+  /// يعدّل مستندًا موجودًا (PUT /api/resource/{doctype}/{name}). الحقول المرسلة فقط
+  /// تتغير، وحقل الجدول (مثل items) يُستبدل كله بالقائمة المرسلة.
+  Future<Map<String, dynamic>> putDoc(
+    String doctype,
+    String name,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = _uri([doctype, name]);
+    final decoded = await _send(
+      uri,
+      (headers) => _client.put(
+        uri,
+        headers: {...headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ),
+    );
+    final data = decoded['data'];
+    if (data is! Map) {
+      throw const ErpApiException(ErpErrorType.badResponse);
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  /// يحذف مستندًا (DELETE /api/resource/{doctype}/{name}). مسموح للمسودات فقط.
+  Future<void> deleteDoc(String doctype, String name) async {
+    final uri = _uri([doctype, name]);
+    await _send(uri, (headers) => _client.delete(uri, headers: headers));
+  }
+
+  /// يستدعي دالة في الخادم (POST /api/method/{method}) ويعيد الرد كاملًا.
+  Future<Map<String, dynamic>> postMethod(
+    String method,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = Uri.parse(ErpConfig.baseUrl).replace(
+      pathSegments: ['api', 'method', ...method.split('/')],
+    );
+    return _send(
+      uri,
+      (headers) => _client.post(
+        uri,
+        headers: {...headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ),
+    );
+  }
+
+  /// يستدعي دالة في الخادم بطلب GET (GET /api/method/{method}?...) ويعيد الرد كاملًا.
+  /// مثل: جلب تفاصيل طرف في Payment Entry أو سعر الصرف أو API الرصيد المستحق.
+  Future<Map<String, dynamic>> getMethod(
+    String method, [
+    Map<String, String>? query,
+  ]) {
+    final uri = Uri.parse(ErpConfig.baseUrl).replace(
+      pathSegments: ['api', 'method', ...method.split('/')],
+      queryParameters: query,
+    );
+    return _get(uri);
+  }
+
+  /// ملف PDF لمستند عبر frappe.utils.print_format.download_pdf (قالب الطباعة
+  /// الافتراضي في ERPNext). يرمي [ErpApiException] إن لم يصل ملف PDF سليم.
+  Future<Uint8List> downloadPdf(String doctype, String name) async {
+    final uri = Uri.parse(ErpConfig.baseUrl).replace(
+      pathSegments: [
+        'api',
+        'method',
+        'frappe.utils.print_format.download_pdf',
+      ],
+      queryParameters: {'doctype': doctype, 'name': name, 'no_letterhead': '0'},
+    );
+    final response = await _execute(
+      uri,
+      (headers) => _client.get(
+        uri,
+        headers: {...headers, 'Accept': 'application/pdf'},
+      ),
+    );
+    final bytes = response.bodyBytes;
+    // ملف PDF يبدأ بـ %PDF
+    final isPdf = bytes.length > 4 &&
+        bytes[0] == 0x25 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x44 &&
+        bytes[3] == 0x46;
+    if (!isPdf) throw const ErpApiException(ErpErrorType.badResponse);
+    return bytes;
+  }
+
   Future<Map<String, dynamic>> _get(Uri uri) =>
       _send(uri, (headers) => _client.get(uri, headers: headers));
 
-  /// ينفّذ الطلب ويحوّل الأخطاء إلى [ErpApiException] (مشترك بين GET و POST).
+  /// ينفّذ الطلب ويفكّ ردّ JSON (مشترك بين GET و POST و PUT و DELETE).
   Future<Map<String, dynamic>> _send(
+    Uri uri,
+    Future<http.Response> Function(Map<String, String> headers) call,
+  ) async {
+    final response = await _execute(uri, call);
+    try {
+      // نفك الترميز بأنفسنا بـ UTF-8 حتى تصل الأسماء العربية سليمة
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) return decoded;
+    } on FormatException catch (e) {
+      throw ErpApiException(ErpErrorType.badResponse, detail: e.message);
+    }
+    throw const ErpApiException(ErpErrorType.badResponse);
+  }
+
+  /// ينفّذ الطلب ويحوّل الأخطاء إلى [ErpApiException] ثم يعيد الردّ الناجح كما هو.
+  Future<http.Response> _execute(
     Uri uri,
     Future<http.Response> Function(Map<String, String> headers) call,
   ) async {
@@ -234,14 +344,7 @@ class ErpApiClient {
       );
     }
 
-    try {
-      // نفك الترميز بأنفسنا بـ UTF-8 حتى تصل الأسماء العربية سليمة
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (decoded is Map<String, dynamic>) return decoded;
-    } on FormatException catch (e) {
-      throw ErpApiException(ErpErrorType.badResponse, detail: e.message);
-    }
-    throw const ErpApiException(ErpErrorType.badResponse);
+    return response;
   }
 
   /// 403 يعني إما انتهاء الجلسة وإما عدم وجود صلاحية لهذا الإجراء، ولا يفرّق

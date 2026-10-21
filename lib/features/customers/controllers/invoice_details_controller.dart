@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -10,22 +12,34 @@ import '../../../data/repositories/erp_invoice_repository.dart';
 /// حالة شاشة تفاصيل فاتورة واحدة. يعرض النسخة المحفوظة على الهاتف فورًا (إن وُجدت)
 /// ثم يحدّثها من ERPNext، فتعمل الشاشة دون إنترنت للفواتير التي فُتحت أو جُلبت من قبل.
 class InvoiceDetailsController extends ChangeNotifier {
+  /// فاتورة مبيعات معتمدة من ERPNext (Sales Invoice)
   InvoiceDetailsController(
     this._repository,
     this.invoiceName, {
     required this.customerPhone,
-  }) : _isLoading = true;
+  })  : doctype = 'Sales Invoice',
+        _loadFromServer = true,
+        _isLoading = true;
 
-  /// فاتورة محفوظة على الهاتف (طلبية): التفاصيل جاهزة ولا تُجلب من ERPNext
+  /// طلبية اعتُمدت من التطبيق (Sales Order): التفاصيل جاهزة ولا تُجلب من ERPNext،
+  /// وملف PDF وحده يُطلب من الخادم.
   InvoiceDetailsController.local(
+    this._repository,
     SalesInvoiceDetail detail, {
     required this.customerPhone,
-  })  : _repository = null,
+  })  : doctype = 'Sales Order',
         invoiceName = detail.name,
+        _loadFromServer = false,
         _detail = detail,
         _isLoading = false;
 
-  final ErpInvoiceRepository? _repository;
+  final ErpInvoiceRepository _repository;
+
+  /// نوع المستند في ERPNext (لطلب ملف PDF الصحيح)
+  final String doctype;
+
+  /// false = التفاصيل محلية كاملة فلا نحدّثها من الشبكة
+  final bool _loadFromServer;
 
   /// رقم الفاتورة كما جاء من القائمة تمامًا (مثل ACC-SINV-2026-00004)
   final String invoiceName;
@@ -50,7 +64,7 @@ class InvoiceDetailsController extends ChangeNotifier {
   /// التحميل الأول (ويُستخدم أيضًا لإعادة المحاولة بعد خطأ).
   Future<void> load() async {
     final repository = _repository;
-    if (repository == null) {
+    if (!_loadFromServer) {
       _notify();
       return;
     }
@@ -98,6 +112,10 @@ class InvoiceDetailsController extends ChangeNotifier {
     _isLoading = false;
     _notify();
   }
+
+  /// ملف PDF الرسمي من ERPNext (download_pdf). يرمي [ErpApiException] إن تعذّر.
+  Future<Uint8List> downloadServerPdf() =>
+      _repository.downloadPdf(doctype, invoiceName);
 
   bool _isStale(int requestId) => _disposed || requestId != _requestId;
 

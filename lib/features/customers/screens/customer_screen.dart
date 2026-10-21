@@ -224,7 +224,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       ),
       body: Column(
         children: [
-          TotalDebtsCard(total: controller.totalDebts),
+          TotalDebtsCard(amounts: controller.totalOutstanding),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: TextField(
@@ -315,6 +315,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         final item = customers[i];
         return DismissibleCustomerTile(
           item: item,
+          outstanding: controller.outstandingFor(item.erpId),
           onTap: () => _openDetails(item.customer),
           confirmDelete: _confirmDelete,
           onDelete: () => _deleteCustomer(item),

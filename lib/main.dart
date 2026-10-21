@@ -21,7 +21,11 @@ import 'data/repositories/catalog_store.dart';
 import 'data/repositories/customer_repository.dart';
 import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
+import 'data/repositories/erp_draft_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
+import 'data/repositories/erp_lookup_repository.dart';
+import 'data/repositories/erp_payment_repository.dart';
+import 'data/repositories/outstanding_repository.dart';
 import 'data/repositories/erp_order_repository.dart';
 import 'data/repositories/invoice_repository.dart';
 import 'data/repositories/operation_repository.dart';
@@ -52,6 +56,7 @@ Future<void> main() async {
   await session.load();
   final authController = AuthController(ErpAuthService(session), session);
   final erpApi = ErpApiClient(session: session);
+  final outstandingRepository = OutstandingRepository(erpApi);
   // رفض الخادم الجلسة (انتهت): نعود إلى شاشة الدخول
   erpApi.onSessionExpired = authController.handleSessionExpired;
   // العملاء المحفوظون محليًا يُستخدمون عند انقطاع الاتصال (الطلبيات)
@@ -60,6 +65,8 @@ Future<void> main() async {
     customerRepository,
     // أسماء العملاء وهواتفهم من ERPNext (الديون تبقى محلية)
     erpCustomers,
+    // إجمالي المستحق على العملاء من ERPNext (بطاقة إجمالي الديون)
+    outstandingRepository,
   );
   final invoiceRepository = InvoiceRepository(dbHelper);
   final cacheStore = ErpCacheStore(dbHelper);
@@ -75,6 +82,14 @@ Future<void> main() async {
     erpInvoices,
     // فواتير الطلبيات المحفوظة محليًا تظهر مع فواتير ERPNext
     invoiceRepository,
+    // تعديل المسودات وحذفها واعتمادها في ERPNext
+    ErpDraftRepository(erpApi),
+    // المسودات التي أُنشئت دون اتصال ولم تُرفع بعد
+    pendingRepository,
+    // العملات وطرق الدفع من ERPNext (مع نسخة محلية)
+    ErpLookupRepository(erpApi, cacheStore),
+    // تسجيل الدفعة كـ Payment Entry في ERPNext
+    ErpPaymentRepository(erpApi),
   );
 
   // طلبيات العملاء: العملاء والأصناف والأسعار والمخزون وإنشاء الطلبية من ERPNext

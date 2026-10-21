@@ -17,6 +17,9 @@ class OperationTile extends StatelessWidget {
     final color = isDebt ? AppColors.debt : AppColors.payment;
     final note = operation.note?.trim() ?? '';
     final hasNote = note.isNotEmpty;
+    final mode = operation.modeOfPayment?.trim() ?? '';
+    final hasMode = !isDebt && mode.isNotEmpty;
+    final hasEntry = (operation.paymentEntry ?? '').isNotEmpty;
 
     return ListTile(
       leading: CircleAvatar(
@@ -33,6 +36,16 @@ class OperationTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasMode) Text('${AppStrings.modeOfPayment}: $mode'),
+          if (hasEntry)
+            Text(
+              AppStrings.paymentEntryRef(operation.paymentEntry!),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textDirection: TextDirection.ltr,
+            ),
           if (hasNote) Text(note),
           Text(
             formatDateTime(operation.date),
@@ -43,9 +56,9 @@ class OperationTile extends StatelessWidget {
           ),
         ],
       ),
-      isThreeLine: hasNote,
+      isThreeLine: hasNote || hasMode || hasEntry,
       trailing: Text(
-        '${isDebt ? '+' : '-'} ${formatAmount(operation.amount)}',
+        '${isDebt ? '+' : '-'} ${formatAmount(operation.amount, currency: operation.currency)}',
         style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
         textDirection: TextDirection.ltr,
       ),

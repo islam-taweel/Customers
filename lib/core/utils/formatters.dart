@@ -2,7 +2,8 @@ import '../constants/app_constants.dart';
 import '../constants/app_strings.dart';
 
 /// تنسيق المبلغ مع فواصل الآلاف، مثال: 1,250.50 ₪
-String formatAmount(double value) {
+/// إن مُرّر [currency] (مثل USD) يظهر رمزه بدل ₪.
+String formatAmount(double value, {String? currency}) {
   final fixed = value.toStringAsFixed(2);
   final parts = fixed.split('.');
   final intPart = parts[0].replaceAllMapped(
@@ -10,7 +11,10 @@ String formatAmount(double value) {
     (_) => ',',
   );
   final decimals = parts[1] == '00' ? '' : '.${parts[1]}';
-  return '$intPart$decimals ${AppConstants.currencySymbol}';
+  final symbol = (currency == null || currency.isEmpty)
+      ? AppConstants.currencySymbol
+      : currency;
+  return '$intPart$decimals $symbol';
 }
 
 /// تنسيق التاريخ والوقت، مثال: 2026/10/10 - 3:45 م
@@ -44,5 +48,6 @@ double? parseAmount(String input) {
 }
 
 /// مبلغ بإشارة: السالب (مرتجع مثلًا) تظهر قبله علامة ناقص بدل أن يضيع في صيغة العملة.
-String formatSignedAmount(double value) =>
-    value < 0 ? '-${formatAmount(-value)}' : formatAmount(value);
+String formatSignedAmount(double value, {String? currency}) => value < 0
+    ? '-${formatAmount(-value, currency: currency)}'
+    : formatAmount(value, currency: currency);

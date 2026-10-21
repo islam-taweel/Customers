@@ -27,6 +27,50 @@ class InvoiceRepository {
     return rows.map(Invoice.fromMap).toList();
   }
 
+  /// فاتورة واحدة بآخر حالة لها في القاعدة (null إن حُذفت).
+  Future<Invoice?> getInvoice(int id) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _invoices,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : Invoice.fromMap(rows.first);
+  }
+
+  /// بعد تعديل مسودة: الأصناف والمبلغ وتاريخ التسليم.
+  Future<void> updateDraft(
+    int id, {
+    required String itemsJson,
+    required double amount,
+    required String deliveryDate,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'itemsJson': itemsJson, 'amount': amount, 'deliveryDate': deliveryDate},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteInvoice(int id) async {
+    final db = await _dbHelper.database;
+    await db.delete(_invoices, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// اعتماد المسودة: تنتقل من تبويب «مسودة» إلى «معتمدة».
+  Future<void> markSubmitted(int id) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'submitted': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   /// حفظ فاتورة جديدة. تُرجع نسخة منها وفيها الـ id (ومنه رقم الفاتورة).
   Future<Invoice> addInvoice(Invoice invoice) async {
     final db = await _dbHelper.database;
