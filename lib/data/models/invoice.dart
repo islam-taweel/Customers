@@ -28,6 +28,12 @@ class Invoice {
   /// true = اعتُمدت (Submitted) في ERPNext؛ false = مسودة (Draft) تقبل التعديل والحذف
   final bool submitted;
 
+  /// عملة الطلبية (null = الشيكل)
+  final String? currency;
+
+  /// ملاحظات كُتبت على الطلبية قبل إرسالها (null = لا ملاحظات)
+  final String? notes;
+
   const Invoice({
     this.id,
     required this.customerId,
@@ -40,6 +46,8 @@ class Invoice {
     this.itemsJson,
     this.pendingUpload = false,
     this.submitted = false,
+    this.currency,
+    this.notes,
   });
 
   /// رقم الفاتورة مشتق من الـ id المتسلسل، مثال: INV-00012
@@ -58,6 +66,8 @@ class Invoice {
       'itemsJson': itemsJson,
       'pendingUpload': pendingUpload ? 1 : 0,
       'submitted': submitted ? 1 : 0,
+      'currency': currency,
+      'notes': notes,
     };
   }
 
@@ -74,6 +84,8 @@ class Invoice {
       itemsJson: map['itemsJson'] as String?,
       pendingUpload: (map['pendingUpload'] as num?)?.toInt() == 1,
       submitted: (map['submitted'] as num?)?.toInt() == 1,
+      currency: map['currency'] as String?,
+      notes: map['notes'] as String?,
     );
   }
 
@@ -127,6 +139,7 @@ class Invoice {
         grandTotal: amount,
         outstandingAmount: 0,
         status: _status,
+        currency: currency ?? '',
         isLocal: true,
       );
 
@@ -140,7 +153,7 @@ class Invoice {
         totalTaxesAndCharges: 0,
         outstandingAmount: 0,
         status: _status,
-        currency: '',
+        currency: currency ?? '',
         items: items,
       );
 
@@ -163,6 +176,8 @@ class Invoice {
       itemsJson: itemsJson ?? this.itemsJson,
       pendingUpload: pendingUpload,
       submitted: submitted ?? this.submitted,
+      currency: currency,
+      notes: notes,
     );
   }
 }

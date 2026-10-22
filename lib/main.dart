@@ -61,15 +61,19 @@ Future<void> main() async {
   erpApi.onSessionExpired = authController.handleSessionExpired;
   // العملاء المحفوظون محليًا يُستخدمون عند انقطاع الاتصال (الطلبيات)
   final erpCustomers = ErpCustomerRepository(erpApi, customerRepository);
+  final cacheStore = ErpCacheStore(dbHelper);
+  // العملات وطرق الدفع من ERPNext (مع نسخة محلية)
+  final lookupRepository = ErpLookupRepository(erpApi, cacheStore);
   final customersController = CustomersController(
     customerRepository,
     // أسماء العملاء وهواتفهم من ERPNext (الديون تبقى محلية)
     erpCustomers,
     // إجمالي المستحق على العملاء من ERPNext (بطاقة إجمالي الديون)
     outstandingRepository,
+    // عملات ERPNext لاختيار عملة حساب العميل عند إضافته
+    lookupRepository: lookupRepository,
   );
   final invoiceRepository = InvoiceRepository(dbHelper);
-  final cacheStore = ErpCacheStore(dbHelper);
   final erpInvoices = ErpInvoiceRepository(erpApi, cacheStore);
   // كتالوج محلي (أصناف/أسعار/مخزون) وطلبيات تنتظر الرفع
   final erpOrders = ErpOrderRepository(erpApi, CatalogStore(dbHelper));
@@ -87,7 +91,7 @@ Future<void> main() async {
     // المسودات التي أُنشئت دون اتصال ولم تُرفع بعد
     pendingRepository,
     // العملات وطرق الدفع من ERPNext (مع نسخة محلية)
-    ErpLookupRepository(erpApi, cacheStore),
+    lookupRepository,
     // تسجيل الدفعة كـ Payment Entry في ERPNext
     ErpPaymentRepository(erpApi),
   );

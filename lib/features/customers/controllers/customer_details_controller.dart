@@ -196,6 +196,7 @@ class CustomerDetailsController extends ChangeNotifier {
   Future<Customer?> updateCustomer({
     required String name,
     required String phone,
+    required String? accountCurrency,
   }) async {
     if (_isSavingCustomer) return null;
 
@@ -212,11 +213,17 @@ class CustomerDetailsController extends ChangeNotifier {
     _notify();
 
     try {
-      final updated = _customer.copyWith(name: cleanName, phone: cleanPhone);
+      final updated = _customer.copyWith(
+        name: cleanName,
+        phone: cleanPhone,
+        accountCurrency: accountCurrency,
+      );
       final rows = await _customerRepository.updateCustomer(updated);
       if (rows == 0) return null; // العميل غير موجود
 
       _customer = updated;
+      // عملة التسوية قد تغيّرت: تُحسب من جديد عند أول دفعة أو معاينة
+      _settlementCurrency = null;
       return updated;
     } catch (e) {
       debugPrint('CustomerDetailsController.updateCustomer failed: $e');
@@ -286,6 +293,44 @@ class CustomerDetailsController extends ChangeNotifier {
     return _whatsAppLauncher.send(localPhone: _customer.phone, message: message);
   }
 
+  // ───────────────────────── معاينة التحويل ─────────────────────────
+
+  /// عملة حساب العميل التي اختارها المستخدم (null = غير محددة)
+  String? get accountCurrency {
+    final c = _customer.accountCurrency;
+    return (c == null || c.isEmpty) ? null : c;
+  }
+
+  /// عملة تسوية دفعات هذا العميل: التي اختارها لحسابه، وإن لم يحدد فعملة حسابه
+  /// في ERPNext، أو عملة الشركة إن لم يكن مرتبطًا. تُجلب مرة واحدة ثم تُحفظ.
+  String? _settlementCurrency;
+
+  /// تحويل العملة المختارة إلى عملة حساب العميل بسعر صرف ERPNext، لتعرضه نافذة
+  /// الدفعة قبل الحفظ. null = لا تحويل (نفس العملة) أو تعذّر جلب السعر.
+  Future<CurrencyConversion?> previewConversion(String currency) async {
+    try {
+      final target = _settlementCurrency ??= await _loadSettlementCurrency();
+      if (target == currency) return null;
+      final rate = await _paymentRepository.exchangeRate(
+        currency,
+        target,
+        DateTime.now(),
+      );
+      return CurrencyConversion(from: currency, to: target, rate: rate);
+    } catch (e) {
+      debugPrint('CustomerDetailsController.previewConversion failed: $e');
+      return null;
+    }
+  }
+
+  Future<String> _loadSettlementCurrency() async {
+    final chosen = accountCurrency;
+    if (chosen != null) return chosen;
+    final erpId = await _customerRepository.getErpId(_customerId);
+    if (erpId == null) return ErpConfig.priceListCurrency;
+    return _paymentRepository.accountCurrencyOf(erpId, DateTime.now());
+  }
+
   // ───────────────────────── إضافة عملية ─────────────────────────
 
   /// حفظ دين أو دفعة جديدة ثم تحديث الرصيد والسجل. تُرجع true عند النجاح.
@@ -314,14 +359,29 @@ class CustomerDetailsController extends ChangeNotifier {
 
     try {
       String? paymentEntry;
+      // الدفعة بعملة غير عملة حساب العميل: مبلغها بعد التحويل (يخفّض الدين فعلًا)
+      double? settledAmount;
+      String? settledCurrency;
+      final chosen = accountCurrency;
       if (isPayment) {
+        // عملة حساب العميل المختارة: يُحسب التحويل قبل أي كتابة في ERPNext، فإن لم
+        // يتوفر سعر الصرف يفشل الحفظ دون أن يترك أثرًا هناك
+        if (chosen != null && chosen != currency) {
+          final rate = await _paymentRepository.exchangeRate(
+            currency,
+            chosen,
+            now,
+          );
+          settledAmount = double.parse((amount * rate).toStringAsFixed(2));
+          settledCurrency = chosen;
+        }
         final erpId = await _customerRepository.getErpId(_customerId);
         if (erpId != null) {
           if (mode == null || mode.isEmpty) {
             _saveError = AppStrings.modeOfPaymentRequired;
             return false;
           }
-          paymentEntry = await _paymentRepository.createPaymentEntry(
+          final entry = await _paymentRepository.createPaymentEntry(
             customerErpId: erpId,
             amount: amount,
             currency: currency,
@@ -329,6 +389,26 @@ class CustomerDetailsController extends ChangeNotifier {
             date: now,
             note: cleanNote,
           );
+          paymentEntry = entry.name;
+          // عميل بلا عملة محددة: نحفظ محليًا ما حوّله ERPNext إلى عملة حسابه فيه
+          if (chosen == null && entry.accountCurrency != currency) {
+            settledAmount = entry.accountAmount;
+            settledCurrency = entry.accountCurrency;
+          }
+        } else if (chosen == null && currency != ErpConfig.priceListCurrency) {
+          // عميل محلي غير مرتبط بـ ERPNext: لا حساب له هناك، فنحوّل إلى عملة الشركة
+          // إن توفر سعر الصرف، وإلا تُحفظ بعملتها كما دُفعت
+          try {
+            final rate = await _paymentRepository.exchangeRate(
+              currency,
+              ErpConfig.priceListCurrency,
+              now,
+            );
+            settledAmount = double.parse((amount * rate).toStringAsFixed(2));
+            settledCurrency = ErpConfig.priceListCurrency;
+          } catch (e) {
+            debugPrint('CustomerDetailsController: تعذّر تحويل الدفعة: $e');
+          }
         }
       }
 
@@ -342,6 +422,8 @@ class CustomerDetailsController extends ChangeNotifier {
           currency: currency,
           modeOfPayment: mode,
           paymentEntry: paymentEntry,
+          settledAmount: settledAmount,
+          settledCurrency: settledCurrency,
         ),
       );
     } catch (e) {

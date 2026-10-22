@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/services/sync_service.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
 import '../../../data/models/erp_customer.dart';
 import '../../../data/models/invoice.dart' as local;
 import '../../../data/models/order_models.dart';
@@ -120,9 +121,92 @@ class OrderController extends ChangeNotifier {
     _notify();
   }
 
-  /// اختيار عميل واحد فقط: الضغط على عميل آخر يستبدل الأول.
+  /// اختيار عميل واحد فقط: الضغط على عميل آخر يستبدل الأول. تُحدَّد عملة الطلبية
+  /// من عملة حسابه، ويُجلب سعر صرفها من ERPNext (لا يُخمَّن) قبل المتابعة.
   void selectCustomer(ErpCustomer customer) {
     _customer = customer;
+    _notify();
+    unawaited(_loadRate());
+  }
+
+  // ───────── عملة الطلبية وسعر الصرف ─────────
+
+  /// سعر تحويل عملة الطلبية إلى الشيكل (1 للشيكل)، يُرسل غير مقرّب
+  double _conversionRate = 1;
+  double _priceFactor = 1;
+  bool _rateLoading = false;
+  String? _rateError;
+  int _rateRequest = 0;
+
+  /// رمز عملة الطلبية: عملة حساب العميل، وفارغة = الشيكل
+  String get _currencyCode {
+    final c = _customer?.currency ?? '';
+    return c.isEmpty ? ErpConfig.priceListCurrency : c;
+  }
+
+  /// عملة الطلبية للعرض (null = الشيكل، فيظهر رمزه ₪)
+  String? get orderCurrency {
+    final c = _currencyCode;
+    return c == ErpConfig.priceListCurrency ? null : c;
+  }
+
+  double get conversionRate => _conversionRate;
+
+  /// معامل تحويل أسعار قائمة الأسعار (ILS) إلى عملة الطلبية
+  double get priceFactor => _priceFactor;
+  bool get rateLoading => _rateLoading;
+  String? get rateError => _rateError;
+
+  void retryRate() => unawaited(_loadRate());
+
+  Future<void> _loadRate() async {
+    final request = ++_rateRequest;
+    final code = _currencyCode;
+    _rateError = null;
+
+    if (code == ErpConfig.priceListCurrency) {
+      _rateLoading = false;
+      _applyRate(1);
+      return;
+    }
+
+    _rateLoading = true;
+    _notify();
+    try {
+      final rate = await _orders.conversionRate(code);
+      if (request != _rateRequest) return;
+      _applyRate(rate);
+    } catch (e) {
+      if (request != _rateRequest) return;
+      debugPrint('OrderController._loadRate($code): $e');
+      _rateError = e is ErpApiException && e.type == ErpErrorType.network
+          ? AppStrings.orderRateNeedsConnection
+          : _serverDetail(e) ??
+              describeError(e, fallback: AppStrings.orderRateFailed);
+    } finally {
+      if (request == _rateRequest) {
+        _rateLoading = false;
+        _notify();
+      }
+    }
+  }
+
+  /// رسالة ERPNext الفعلية لخطأ الخادم (مثل غياب سعر الصرف)
+  static String? _serverDetail(Object e) {
+    if (e is ErpApiException && e.type == ErpErrorType.server) {
+      final d = e.detail ?? '';
+      return d.isEmpty ? null : d;
+    }
+    return null;
+  }
+
+  /// يطبّق السعر على السلة (الأصناف المختارة قبل تغيير العميل تتحول معه)
+  void _applyRate(double rate) {
+    _conversionRate = rate;
+    _priceFactor = 1 / rate;
+    for (final key in _cart.keys.toList()) {
+      _cart[key] = _cart[key]!.withPriceFactor(_priceFactor);
+    }
     _notify();
   }
 
@@ -257,7 +341,12 @@ class OrderController extends ChangeNotifier {
     if (qty <= 0) {
       _cart.remove(item.code);
     } else {
-      _cart[item.code] = CartLine(item: item, pricing: pricing, qty: qty);
+      _cart[item.code] = CartLine(
+        item: item,
+        pricing: pricing,
+        qty: qty,
+        priceFactor: _priceFactor,
+      );
     }
     _notify();
     return clamped;
@@ -291,9 +380,18 @@ class OrderController extends ChangeNotifier {
     _notify();
   }
 
+  /// ملاحظات الطلبية (اختيارية) تُكتب قبل الإرسال
+  String _notes = '';
+  String get notes => _notes;
+
+  /// لا نُشعر المستمعين عند كل حرف: الحقل يحتفظ بنصه بنفسه.
+  void setNotes(String value) => _notes = value;
+
   // ───────── التنقل بين الخطوات ─────────
   bool get canGoNext => switch (_step) {
-        OrderStep.customer => _customer != null,
+        // لا متابعة قبل معرفة سعر صرف عملة العميل (إن لم تكن الشيكل)
+        OrderStep.customer =>
+          _customer != null && !_rateLoading && _rateError == null,
         OrderStep.items => _cart.isNotEmpty,
         OrderStep.invoice => false,
         OrderStep.done => false,
@@ -360,6 +458,9 @@ class OrderController extends ChangeNotifier {
         customerId: customer.id,
         deliveryDate: _deliveryDate,
         lines: lines,
+        currency: _currencyCode,
+        conversionRate: _conversionRate,
+        notes: _notes,
       );
       _created = order;
 
@@ -371,6 +472,7 @@ class OrderController extends ChangeNotifier {
           order: order,
           lines: lines,
           deliveryDate: _deliveryDate,
+          notes: _notes,
         );
         _invoiceSaved = saved != null;
       } catch (e) {
@@ -403,6 +505,11 @@ class OrderController extends ChangeNotifier {
   /// يحفظ الطلبية وفاتورتها على الجهاز (بحالة «بانتظار الرفع») ثم يطلب من خدمة
   /// المزامنة رفعها حين يتوفر الخادم. فشل الحفظ المحلي يظهر كخطأ عادي.
   Future<void> _saveOffline(ErpCustomer customer) async {
+    // طلبية بعملة غير الشيكل تحتاج سعر صرف من الخادم وقت الإرسال، فلا تُحفظ دون اتصال
+    if (_currencyCode != ErpConfig.priceListCurrency) {
+      _submitError = AppStrings.orderOfflineNeedsConnection;
+      return;
+    }
     final lines = _cart.values.toList();
     final total = lines.fold<double>(0, (sum, l) => sum + l.total);
     try {
@@ -413,6 +520,7 @@ class OrderController extends ChangeNotifier {
           order: CreatedOrder(id: '', total: total, itemCount: lines.length),
           lines: lines,
           deliveryDate: _deliveryDate,
+          notes: _notes,
         );
         _invoiceSaved = invoice != null;
       } catch (e) {
@@ -438,6 +546,7 @@ class OrderController extends ChangeNotifier {
           total: total,
           createdAt: DateTime.now(),
           invoiceId: invoice?.id,
+          notes: _notes.trim().isEmpty ? null : _notes.trim(),
         ),
       );
 
@@ -472,8 +581,14 @@ class OrderController extends ChangeNotifier {
     _invoiceSaved = true;
     _savedOffline = false;
     _submitError = null;
+    _rateRequest++;
+    _rateLoading = false;
+    _rateError = null;
+    _conversionRate = 1;
+    _priceFactor = 1;
     _group = null;
     _deliveryDate = _today();
+    _notes = '';
     // السعر والمخزون تغيّرا على الأرجح بعد الطلبية، فنعيد جلبهما
     _pricing.clear();
     _pricingErrors.clear();

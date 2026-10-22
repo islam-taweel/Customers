@@ -68,11 +68,23 @@ class CustomerInvoicesController extends ChangeNotifier {
       for (final i in _localInvoices)
         if (i.submitted) i.toListEntry(),
       ..._erpInvoices,
-    ]..sort((a, b) {
-        final byDate = b.postingDate.compareTo(a.postingDate);
-        return byDate != 0 ? byDate : b.name.compareTo(a.name);
-      });
+    ]..sort(_newestFirst);
     return UnmodifiableListView(all);
+  }
+
+  /// كل الفواتير في قائمة واحدة (المسودات المحلية + المعتمدة + فواتير ERPNext)،
+  /// من الأحدث إلى الأقدم. يستخدمها [InvoiceTab] الذي يعرض قائمة واحدة.
+  List<SalesInvoice> get invoices {
+    final all = <SalesInvoice>[
+      for (final i in _localInvoices) i.toListEntry(),
+      ..._erpInvoices,
+    ]..sort(_newestFirst);
+    return UnmodifiableListView(all);
+  }
+
+  static int _newestFirst(SalesInvoice a, SalesInvoice b) {
+    final byDate = b.postingDate.compareTo(a.postingDate);
+    return byDate != 0 ? byDate : b.name.compareTo(a.name);
   }
 
   /// بعد تعديل مسودة أو حذفها أو اعتمادها: إعادة قراءة المحلي فقط.

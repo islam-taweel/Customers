@@ -25,17 +25,22 @@ class OperationRepository {
     return rows.map(Operation.fromMap).toList();
   }
 
-  /// رصيد العميل **لكل عملة على حدة** = مجموع الديون − مجموع الدفعات بتلك العملة
-  /// (موجب: مستحق على العميل، سالب: له رصيد). لا تُجمع العملات المختلفة معًا ولا
-  /// تُحوَّل: دين بالشيكل ودفعة بالدولار رصيدان منفصلان. العمليات القديمة بلا عملة
-  /// تُحسب بعملة الشركة. الأرصدة الصفرية (المسدَّدة) لا تُعاد، فالقائمة الفارغة = مسدد.
-  /// العملة الافتراضية أولًا ثم الباقي أبجديًا.
+  /// رصيد العميل **لكل عملة** = مجموع الديون − مجموع الدفعات (موجب: مستحق عليه،
+  /// سالب: له رصيد). الدفعة بعملة تختلف عن عملة حساب العميل تُخصم بمبلغها المحوَّل
+  /// (settledAmount بعملة settledCurrency) وفق سعر صرف ERPNext وقت الدفع، فتسدّد
+  /// الدين فعلًا. أما العملات التي لا تحويل بينها فتبقى أرصدة منفصلة.
+  /// العمليات القديمة بلا عملة تُحسب بعملة الشركة. الأرصدة الصفرية (المسدَّدة) لا
+  /// تُعاد، فالقائمة الفارغة = مسدد. العملة الافتراضية أولًا ثم الباقي أبجديًا.
   Future<List<CurrencyAmount>> getBalances(int customerId) async {
     final db = await _dbHelper.database;
     final base = ErpConfig.priceListCurrency;
     final rows = await db.rawQuery('''
-      SELECT COALESCE(NULLIF(currency, ''), ?) AS cur,
-             SUM(CASE WHEN type = 'debt' THEN amount ELSE -amount END) AS balance
+      SELECT COALESCE(NULLIF(
+               CASE WHEN type = 'payment' AND settledAmount IS NOT NULL
+                    THEN settledCurrency ELSE currency END, ''), ?) AS cur,
+             SUM(CASE WHEN type = 'debt' THEN amount
+                      WHEN settledAmount IS NOT NULL THEN -settledAmount
+                      ELSE -amount END) AS balance
       FROM $_operations
       WHERE customerId = ?
       GROUP BY cur

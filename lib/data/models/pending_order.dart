@@ -54,6 +54,9 @@ class PendingOrder {
   final String? lastError;
   final String? erpOrderId;
 
+  /// ملاحظات الطلبية (تُرسل مع الطلبية عند رفعها)
+  final String? notes;
+
   const PendingOrder({
     this.id,
     required this.customerErpId,
@@ -67,6 +70,7 @@ class PendingOrder {
     this.status = statusPending,
     this.lastError,
     this.erpOrderId,
+    this.notes,
   });
 
   Map<String, dynamic> toMap() => {
@@ -82,6 +86,7 @@ class PendingOrder {
         'status': status,
         'lastError': lastError,
         'erpOrderId': erpOrderId,
+        'notes': notes,
       };
 
   factory PendingOrder.fromMap(Map<String, dynamic> map) {
@@ -108,6 +113,7 @@ class PendingOrder {
       status: (map['status'] as String?) ?? statusPending,
       lastError: map['lastError'] as String?,
       erpOrderId: map['erpOrderId'] as String?,
+      notes: map['notes'] as String?,
     );
   }
 }

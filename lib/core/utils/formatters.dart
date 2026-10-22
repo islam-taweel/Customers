@@ -17,6 +17,10 @@ String formatAmount(double value, {String? currency}) {
   return '$intPart$decimals $symbol';
 }
 
+/// رمز العملة للعرض بعد [formatAmount]: null للشيكل أو الفارغة (فيظهر ₪)، وإلا الرمز نفسه.
+String? displayCurrency(String? currency) =>
+    (currency == null || currency.isEmpty || currency == 'ILS') ? null : currency;
+
 /// تنسيق التاريخ والوقت، مثال: 2026/10/10 - 3:45 م
 String formatDateTime(DateTime d) {
   String two(int n) => n.toString().padLeft(2, '0');

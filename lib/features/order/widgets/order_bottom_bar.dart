@@ -70,6 +70,7 @@ class OrderBottomBar extends StatelessWidget {
                             ),
                             AnimatedAmount(
                               value: c.total,
+                              currency: c.orderCurrency,
                               style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w900,
                                 color: scheme.primary,

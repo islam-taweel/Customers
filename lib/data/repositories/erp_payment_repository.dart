@@ -2,6 +2,46 @@ import '../../core/constants/app_strings.dart';
 import '../api/erp_api_client.dart';
 import '../api/erp_config.dart';
 
+/// نتيجة تسجيل دفعة في ERPNext: رقم المستند، وما يقابلها بعملة حساب العميل.
+class PaymentEntryResult {
+  final String name;
+
+  /// عملة حساب العميل (paid_from) التي سُدِّد بها الدين
+  final String accountCurrency;
+
+  /// مبلغ الدفعة بعد تحويله إلى [accountCurrency] (paid_amount)
+  final double accountAmount;
+
+  const PaymentEntryResult({
+    required this.name,
+    required this.accountCurrency,
+    required this.accountAmount,
+  });
+}
+
+/// تحويل من عملة إلى أخرى بسعر صرف ERPNext (للمعاينة قبل الحفظ).
+class CurrencyConversion {
+  final String from;
+  final String to;
+
+  /// كم وحدة من [to] تساوي وحدة واحدة من [from]
+  final double rate;
+
+  const CurrencyConversion({
+    required this.from,
+    required this.to,
+    required this.rate,
+  });
+
+  double convert(double amount) => double.parse((amount * rate).toStringAsFixed(2));
+
+  /// السعر بلا أصفار زائدة: 3.6500 ← 3.65
+  String get rateText => rate
+      .toStringAsFixed(4)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+}
+
 /// تسجيل دفعة العميل في ERPNext كمستند Payment Entry (نوع Receive) ثم اعتماده.
 ///
 /// الحسابات تُحدَّد تلقائيًا:
@@ -20,7 +60,7 @@ class ErpPaymentRepository {
 
   /// ينشئ Payment Entry ويعتمده، ويعيد رقمه. يرمي [ErpApiException] عند الفشل.
   /// إن فشل الاعتماد يُحذف المستند المسودة حتى لا يتراكم عند إعادة المحاولة.
-  Future<String> createPaymentEntry({
+  Future<PaymentEntryResult> createPaymentEntry({
     required String customerErpId,
     required double amount,
     required String currency,
@@ -77,6 +117,7 @@ class ErpPaymentRepository {
     final fromToCompany = await _rate(paidFromCurrency, companyCurrency, day);
     final toToCompany = await _rate(paidToCurrency, companyCurrency, day);
 
+    final paidAmount = _round(amount * toFrom);
     final cleanNote = note?.trim() ?? '';
     final body = <String, dynamic>{
       'payment_type': 'Receive',
@@ -89,7 +130,7 @@ class ErpPaymentRepository {
       'paid_from_account_currency': paidFromCurrency,
       'paid_to': paidTo,
       'paid_to_account_currency': paidToCurrency,
-      'paid_amount': _round(amount * toFrom),
+      'paid_amount': paidAmount,
       'received_amount': _round(amount * toTo),
       'source_exchange_rate': fromToCompany,
       'target_exchange_rate': toToCompany,
@@ -116,8 +157,32 @@ class ErpPaymentRepository {
       }
       rethrow;
     }
-    return name;
+    return PaymentEntryResult(
+      name: name,
+      accountCurrency: paidFromCurrency,
+      accountAmount: paidAmount,
+    );
   }
+
+  /// عملة حساب العميل في ERPNext (party_account_currency): العملة التي يُسدَّد بها
+  /// دينه، وإليها تُحوَّل الدفعات بعملات أخرى.
+  Future<String> accountCurrencyOf(String customerErpId, DateTime date) async {
+    final res = await _api.getMethod(_partyDetailsMethod, {
+      'company': ErpConfig.company,
+      'party_type': 'Customer',
+      'party': customerErpId,
+      'date': _date(date),
+    });
+    final party = res['message'];
+    final currency =
+        party is Map ? party['party_account_currency']?.toString() ?? '' : '';
+    if (currency.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
+    return currency;
+  }
+
+  /// سعر الصرف من [from] إلى [to] بتاريخ [date] (1 إن تطابقتا).
+  Future<double> exchangeRate(String from, String to, DateTime date) =>
+      _rate(from, to, _date(date));
 
   /// حساب Cash/Bank للشركة بعملة الدفعة (call 2d). يرمي خطأً واضحًا إن لم يوجد.
   Future<({String name, String type})> _pickReceivingAccount({

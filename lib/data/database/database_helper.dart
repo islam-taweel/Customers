@@ -7,7 +7,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
   static const _dbName = 'debts.db';
-  static const _dbVersion = 8;
+  static const _dbVersion = 12;
 
   static const tableCustomers = 'customers';
   static const tableOperations = 'operations';
@@ -45,7 +45,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         phone TEXT NOT NULL,
-        erpId TEXT
+        erpId TEXT,
+        accountCurrency TEXT
       )
     ''');
 
@@ -62,6 +63,8 @@ class DatabaseHelper {
         currency TEXT,
         modeOfPayment TEXT,
         paymentEntry TEXT,
+        settledAmount REAL,
+        settledCurrency TEXT,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');
@@ -110,6 +113,10 @@ class DatabaseHelper {
         'ALTER TABLE $tableInvoices ADD COLUMN submitted INTEGER NOT NULL DEFAULT 0',
       );
     }
+    if (oldVersion < 11) {
+      // الإصدار 11: عملة فاتورة الطلبية (الطلبية بعملة العميل، لا بالشيكل دائمًا)
+      await db.execute('ALTER TABLE $tableInvoices ADD COLUMN currency TEXT');
+    }
     if (oldVersion < 8) {
       // الإصدار 8: عملة كل عملية، وطريقة الدفع ورقم Payment Entry للدفعات
       await db.execute('ALTER TABLE $tableOperations ADD COLUMN currency TEXT');
@@ -119,6 +126,42 @@ class DatabaseHelper {
       await db.execute(
         'ALTER TABLE $tableOperations ADD COLUMN paymentEntry TEXT',
       );
+    }
+    if (oldVersion < 10) {
+      // الإصدار 10: عملة حساب العميل (تُحدَّد عند إضافته أو تعديله)
+      await db.execute(
+        'ALTER TABLE $tableCustomers ADD COLUMN accountCurrency TEXT',
+      );
+    }
+    if (oldVersion < 9) {
+      // الإصدار 9: الدفعة بعملة غير عملة حساب العميل تُحفظ مع مبلغها المحوَّل
+      // (settledAmount بعملة settledCurrency) فيخفّض دين الحساب فعلًا.
+      await db.execute(
+        'ALTER TABLE $tableOperations ADD COLUMN settledAmount REAL',
+      );
+      await db.execute(
+        'ALTER TABLE $tableOperations ADD COLUMN settledCurrency TEXT',
+      );
+    }
+    if (oldVersion < 12) {
+      // الإصدار 12: ملاحظات الطلبية (تُكتب قبل الإرسال) في الفاتورة والطلبية المعلّقة
+      await _addColumnIfMissing(db, tableInvoices, 'notes', 'TEXT');
+      await _addColumnIfMissing(db, tablePendingOrders, 'notes', 'TEXT');
+    }
+  }
+
+  /// يضيف العمود إن لم يكن موجودًا (الجداول التي أُنشئت أثناء هذه الترقية
+  /// تحتوي العمود أصلًا، وإضافته مرتين تُسقط الترقية).
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final info = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = info.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
     }
   }
 
@@ -173,7 +216,8 @@ class DatabaseHelper {
         invoiceId INTEGER,
         status TEXT NOT NULL DEFAULT 'pending',
         lastError TEXT,
-        erpOrderId TEXT
+        erpOrderId TEXT,
+        notes TEXT
       )
     ''');
   }
@@ -207,6 +251,8 @@ class DatabaseHelper {
         itemsJson TEXT,
         pendingUpload INTEGER NOT NULL DEFAULT 0,
         submitted INTEGER NOT NULL DEFAULT 0,
+        currency TEXT,
+        notes TEXT,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');

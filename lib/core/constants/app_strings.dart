@@ -45,6 +45,23 @@ class AppStrings {
       _t('جرّب البحث باسم آخر.', 'Try searching with a different name.');
   static String get customerAdded =>
       _t('تمت إضافة العميل', 'Customer added');
+  static String get customerSavedLocalOnly => _t(
+        'لا يوجد اتصال بـ ERPNext، فحُفظ العميل على الجهاز فقط.',
+        'ERPNext is not reachable, so the customer was saved on this device only.',
+      );
+  static String get customerPhoneNotSaved => _t(
+        'أُنشئ العميل في ERPNext لكن تعذّر تسجيل هاتفه هناك.',
+        'The customer was created in ERPNext, but the phone number could not be saved there.',
+      );
+  static String get customerType => _t('نوع العميل', 'Customer type');
+  static String get customerTypeCompany => _t('شركة', 'Company');
+  static String get customerTypeIndividual => _t('فرد', 'Individual');
+  static String get customerGroup => _t('مجموعة العملاء', 'Customer group');
+  static String get customerGroupRequired =>
+      _t('اختر مجموعة العميل', 'Select a customer group');
+  static String get territory => _t('المنطقة', 'Territory');
+  static String get territoryRequired =>
+      _t('اختر المنطقة', 'Select a territory');
   static String get customerSaveFailed =>
       _t('تعذّر حفظ العميل', 'Could not save the customer');
   static String get totalDebts => _t('إجمالي الديون', 'Total debts');
@@ -179,6 +196,14 @@ class AppStrings {
   static String get modeOfPayment => _t('طريقة الدفع', 'Mode of payment');
   static String get currencyRequired =>
       _t('اختر العملة', 'Select a currency');
+  static String get accountCurrency =>
+      _t('عملة حساب العميل', 'Customer account currency');
+  static String get accountCurrencyHelper => _t(
+        'الدفعات بأي عملة أخرى تُحوَّل إلى هذه العملة بسعر الصرف',
+        'Payments in any other currency are converted to this currency',
+      );
+  static String get accountCurrencyAuto =>
+      _t('حسب حساب ERPNext', 'Per the ERPNext account');
   static String get modeOfPaymentRequired =>
       _t('اختر طريقة الدفع', 'Select a mode of payment');
   static String get modesOfPaymentUnavailable => _t(
@@ -210,6 +235,21 @@ class AppStrings {
         'يشمل الدفعات غير المربوطة بفواتير',
         'Includes payments not linked to invoices',
       );
+  static String conversionNote(String to) => _t(
+        'سيُحوَّل المبلغ إلى عملة حساب العميل ($to) بسعر صرف ERPNext',
+        'The amount is converted to the customer account currency ($to) at the ERPNext rate',
+      );
+  static String conversionResult(String converted, String from, String rate, String to) =>
+      _t(
+        '≈ $converted  (1 $from = $rate $to)',
+        '≈ $converted  (1 $from = $rate $to)',
+      );
+  static String get loadingRate =>
+      _t('جاري جلب سعر الصرف...', 'Fetching the exchange rate...');
+  static String settledAs(String amount, String rate) => _t(
+        'سُدِّد بعد التحويل: $amount (سعر الصرف $rate)',
+        'Settled after conversion: $amount (rate $rate)',
+      );
   static String paymentEntryRef(String name) =>
       _t('سند الدفع: $name', 'Payment Entry: $name');
 
@@ -231,6 +271,7 @@ class AppStrings {
         'Orders you create for this customer appear here as drafts until you submit them.',
       );
   static String get draftEdit => _t('تعديل', 'Edit');
+  static String get draftApprove => _t('اعتماد', 'Submit');
   static String get draftSubmit => _t('اعتماد الفاتورة', 'Submit invoice');
   static String get editDraftTitle => _t('تعديل المسودة', 'Edit draft');
   static String get draftNeedsUploadNote => _t(
@@ -428,6 +469,11 @@ class AppStrings {
   static String get removeItem => _t('إزالة الصنف', 'Remove item');
   static String get deliveryDate => _t('تاريخ التسليم', 'Delivery date');
   static String get orderDate => _t('تاريخ الطلبية', 'Order date');
+  static String get orderNotes => _t('ملاحظات', 'Notes');
+  static String get orderNotesHint => _t(
+        'أضف ملاحظات على الطلبية (اختياري)',
+        'Add notes to the order (optional)',
+      );
   static String get savedAsDraft => _t(
         'ستُحفظ الطلبية كمسودة في ERPNext.',
         'The order will be saved as a draft in ERPNext.',
@@ -476,6 +522,32 @@ class AppStrings {
         'Sub Assemblies' => _t('تجميعات فرعية', 'Sub Assemblies'),
         _ => group,
       };
+
+  // ───────── عملة الطلبية ─────────
+  static String get orderRateLoading =>
+      _t('جاري جلب سعر الصرف...', 'Fetching the exchange rate...');
+  static String get orderRateNeedsConnection => _t(
+        'عملة هذا العميل ليست الشيكل، ويلزم اتصال بـ ERPNext لجلب سعر الصرف.',
+        'This customer’s currency is not the shekel; a connection to ERPNext is needed to fetch the exchange rate.',
+      );
+  static String get orderRateFailed => _t(
+        'تعذّر جلب سعر الصرف. حاول مرة أخرى.',
+        'Could not fetch the exchange rate. Please try again.',
+      );
+  static String orderCurrencyInfo(String currency, double rate) {
+    final text = rate
+        .toStringAsFixed(4)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+    return _t(
+      'عملة الطلبية: $currency • 1 $currency = $text ₪',
+      'Order currency: $currency • 1 $currency = $text ₪',
+    );
+  }
+  static String get orderOfflineNeedsConnection => _t(
+        'الطلبية بعملة غير الشيكل تحتاج اتصالًا بـ ERPNext لتحديد سعر الصرف، فلا تُحفظ دون اتصال.',
+        'An order in a non-shekel currency needs ERPNext to get the exchange rate, so it cannot be saved offline.',
+      );
 
   // ───────── طلبية دون اتصال ─────────
   static String get orderSavedOfflineTitle =>

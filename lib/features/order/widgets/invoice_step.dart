@@ -46,6 +46,7 @@ class InvoiceStep extends StatelessWidget {
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         // ترويسة الفاتورة: العميل والتاريخ
         Container(
@@ -183,6 +184,7 @@ class InvoiceStep extends StatelessWidget {
                     ),
                     AnimatedAmount(
                       value: c.total,
+                      currency: c.orderCurrency,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                         color: scheme.onPrimaryContainer,
@@ -250,6 +252,10 @@ class InvoiceStep extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+
+        // ملاحظات الطلبية (اختيارية) قبل الإرسال
+        const _NotesField(),
+        const SizedBox(height: 4),
         Row(
           children: [
             Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
@@ -265,6 +271,52 @@ class InvoiceStep extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// حقل ملاحظات الطلبية. النص يُحفظ في [OrderController] أثناء الكتابة، فلا يضيع
+/// عند الرجوع إلى الخطوة السابقة ثم العودة.
+class _NotesField extends StatefulWidget {
+  const _NotesField();
+
+  @override
+  State<_NotesField> createState() => _NotesFieldState();
+}
+
+class _NotesFieldState extends State<_NotesField> {
+  late final TextEditingController _text;
+
+  @override
+  void initState() {
+    super.initState();
+    _text = TextEditingController(text: context.read<OrderController>().notes);
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.read<OrderController>();
+    return TextField(
+      controller: _text,
+      minLines: 2,
+      maxLines: 5,
+      maxLength: 500,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
+      textCapitalization: TextCapitalization.sentences,
+      onChanged: c.setNotes,
+      decoration: InputDecoration(
+        labelText: AppStrings.orderNotes,
+        hintText: AppStrings.orderNotesHint,
+        alignLabelWithHint: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 }
@@ -306,7 +358,7 @@ class _InvoiceLine extends StatelessWidget {
             ],
           ),
           Text(
-            '${AppStrings.unitPrice}: ${formatAmount(line.rate)}'
+            '${AppStrings.unitPrice}: ${formatAmount(line.rate, currency: c.orderCurrency)}'
             '${line.item.uom.isEmpty ? '' : ' / ${line.item.uom}'}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -327,7 +379,7 @@ class _InvoiceLine extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${formatQty(line.qty)} × ${formatAmount(line.rate)}',
+                  '${formatQty(line.qty)} × ${formatAmount(line.rate, currency: c.orderCurrency)}',
                   textDirection: TextDirection.ltr,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -335,7 +387,7 @@ class _InvoiceLine extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  formatAmount(line.total),
+                  formatAmount(line.total, currency: c.orderCurrency),
                   textDirection: TextDirection.ltr,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,

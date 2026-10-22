@@ -9,6 +9,67 @@ import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/erp_customer.dart';
 import '../controllers/order_controller.dart';
 
+/// حالة عملة الطلبية وسعر صرفها بعد اختيار العميل: جارٍ الجلب، أو فشل (يمنع المتابعة)،
+/// أو السعر المستخدم. لا تظهر لعملاء الشيكل.
+class _RateStatus extends StatelessWidget {
+  const _RateStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<OrderController>();
+    final scheme = Theme.of(context).colorScheme;
+    final currency = c.orderCurrency;
+    if (c.customer == null || currency == null) return const SizedBox.shrink();
+
+    Widget body;
+    Color background;
+    if (c.rateLoading) {
+      background = scheme.surfaceContainerHighest;
+      body = Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(AppStrings.orderRateLoading)),
+        ],
+      );
+    } else if (c.rateError != null) {
+      background = scheme.errorContainer;
+      body = Row(
+        children: [
+          Expanded(
+            child: Text(
+              c.rateError!,
+              style: TextStyle(color: scheme.onErrorContainer),
+            ),
+          ),
+          TextButton(onPressed: c.retryRate, child: Text(AppStrings.retry)),
+        ],
+      );
+    } else {
+      background = scheme.secondaryContainer;
+      body = Text(
+        AppStrings.orderCurrencyInfo(currency, c.conversionRate),
+        style: TextStyle(color: scheme.onSecondaryContainer),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: body,
+    );
+  }
+}
+
 /// الخطوة 1: اختيار عميل واحد من عملاء ERPNext.
 class CustomerStep extends StatefulWidget {
   const CustomerStep({super.key});
@@ -58,6 +119,7 @@ class _CustomerStepState extends State<CustomerStep> {
                 ),
               ),
               const SizedBox(height: 12),
+              const _RateStatus(),
               TextField(
                 controller: _search,
                 onChanged: c.setQuery,

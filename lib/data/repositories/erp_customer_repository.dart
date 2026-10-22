@@ -42,7 +42,10 @@ class ErpCustomerRepository {
   /// يرمي [ErpApiException] عند فشل الاتصال أو رفض المفاتيح.
   Future<List<ErpCustomer>> fetchCustomers() async {
     final results = await Future.wait<List<Map<String, dynamic>>>([
-      _api.getAll('Customer', fields: ['name', 'customer_name']),
+      _api.getAll(
+        'Customer',
+        fields: ['name', 'customer_name', 'default_currency'],
+      ),
       _fetchContactRows(),
     ]);
     final customerRows = results[0];
@@ -69,10 +72,56 @@ class ErpCustomerRepository {
       final name = (row['customer_name']?.toString() ?? '').trim();
       if (id.isEmpty || name.isEmpty) continue;
       customers.add(
-        ErpCustomer(id: id, name: name, phone: phoneById[id] ?? ''),
+        ErpCustomer(
+          id: id,
+          name: name,
+          phone: phoneById[id] ?? '',
+          // فارغة = عملة الشركة (ILS)
+          currency: (row['default_currency']?.toString() ?? '').trim(),
+        ),
       );
     }
     return customers;
+  }
+
+  /// ينشئ عميلًا في ERPNext ويعيد رقمه (data.name). [type] هو Company أو Individual.
+  /// default_currency تُرسل فقط إن اختلفت عن عملة الشركة (ILS)، كما يشترط ERPNext.
+  /// الاسم المكرر يرجع خطأ من الخادم برسالته (في [ErpApiException.detail]).
+  Future<String> createCustomer({
+    required String name,
+    required String type,
+    required String group,
+    required String territory,
+    required String currency,
+  }) async {
+    final doc = await _api.postDoc('Customer', {
+      'customer_name': name,
+      'customer_type': type,
+      'customer_group': group,
+      'territory': territory,
+      if (currency.isNotEmpty && currency != ErpConfig.priceListCurrency)
+        'default_currency': currency,
+    });
+    final id = doc['name']?.toString() ?? '';
+    if (id.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
+    return id;
+  }
+
+  /// يضيف هاتف العميل كجهة اتصال (Contact) مرتبطة به. يُستدعى بعد [createCustomer].
+  Future<void> addPhone({
+    required String customerId,
+    required String name,
+    required String phone,
+  }) async {
+    await _api.postDoc('Contact', {
+      'first_name': name,
+      'phone_nos': [
+        {'phone': phone, 'is_primary_phone': 1},
+      ],
+      'links': [
+        {'link_doctype': 'Customer', 'link_name': customerId},
+      ],
+    });
   }
 
   /// فشل جلب الهواتف بسبب خطأ من الخادم لا يمنع عرض الأسماء، فنكمل بلا هواتف.

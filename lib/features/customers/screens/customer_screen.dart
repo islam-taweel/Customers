@@ -90,17 +90,27 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final controller = context.read<CustomersController>();
     final messenger = ScaffoldMessenger.of(context);
 
-    final customer = await AddCustomerDialog.show(context);
-    if (customer == null) return;
+    // عملات ERPNext ومجموعاته ومناطقه (فشل التحميل لا يمنع فتح النافذة)
+    final form = await controller.loadCustomerForm();
+    if (!mounted) return;
 
-    final ok = await controller.addCustomer(customer);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? AppStrings.customerAdded : AppStrings.customerSaveFailed,
-        ),
-      ),
+    final input = await AddCustomerDialog.show(
+      context,
+      currencies: form.currencies,
+      groups: form.groups,
+      territories: form.territories,
     );
+    if (input == null) return;
+
+    final result = await controller.addCustomer(input);
+    final text = !result.ok
+        ? (result.message ?? AppStrings.customerSaveFailed)
+        : result.phoneNotSaved
+            ? AppStrings.customerPhoneNotSaved
+            : result.savedLocalOnly
+                ? AppStrings.customerSavedLocalOnly
+                : AppStrings.customerAdded;
+    messenger.showSnackBar(SnackBar(content: Text(text)));
   }
 
   /// للتطوير فقط: إدخال عملاء وهميين لاختبار التصفح اللانهائي

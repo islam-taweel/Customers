@@ -4,9 +4,9 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/api/erp_config.dart';
-import '../../../data/models/operation.dart';
+import '../../../data/repositories/erp_payment_repository.dart';
 
-/// القيم التي يُدخلها المستخدم في نافذة الدين/الدفعة.
+/// القيم التي يُدخلها المستخدم في نافذة الدفعة.
 class OperationInput {
   final double amount;
   final String? note;
@@ -14,7 +14,7 @@ class OperationInput {
   /// العملة المختارة (من عملات ERPNext)
   final String currency;
 
-  /// طريقة الدفع (للدفعات فقط، null للديون)
+  /// طريقة الدفع
   final String? modeOfPayment;
 
   const OperationInput(
@@ -25,33 +25,42 @@ class OperationInput {
   });
 }
 
-/// نافذة إضافة دين أو دفعة: المبلغ والعملة، وطريقة الدفع للدفعات، والملاحظة.
-/// العملات وطرق الدفع تأتي جاهزة من ERPNext عبر المتحكم.
-/// تُرجع [OperationInput] أو null إن أُلغيت. التاريخ يُحدَّد عند الحفظ، لا هنا.
+/// نافذة إضافة دفعة: المبلغ، والعملة (قائمة عملات ERPNext)، وطريقة الدفع، والملاحظة.
+/// عند اختيار عملة تختلف عن عملة حساب العميل تعرض النافذة المبلغ بعد التحويل وسعر
+/// الصرف قبل الحفظ. تُرجع [OperationInput] أو null إن أُلغيت. التاريخ عند الحفظ.
 class OperationDialog extends StatefulWidget {
-  final OperationType type;
   final List<String> currencies;
   final List<String> modesOfPayment;
 
+  /// العملة المختارة افتراضيًا (عملة حساب العميل إن حُدِّدت)، وإلا عملة الشركة
+  final String? initialCurrency;
+
+  /// يجلب التحويل من العملة المختارة إلى عملة حساب العميل (null = لا تحويل)
+  final Future<CurrencyConversion?> Function(String currency) previewConversion;
+
   const OperationDialog({
     super.key,
-    required this.type,
     required this.currencies,
     required this.modesOfPayment,
+    required this.previewConversion,
+    this.initialCurrency,
   });
 
   static Future<OperationInput?> show(
-    BuildContext context,
-    OperationType type, {
+    BuildContext context, {
     required List<String> currencies,
     required List<String> modesOfPayment,
+    required Future<CurrencyConversion?> Function(String currency)
+        previewConversion,
+    String? initialCurrency,
   }) {
     return showDialog<OperationInput>(
       context: context,
       builder: (_) => OperationDialog(
-        type: type,
         currencies: currencies,
         modesOfPayment: modesOfPayment,
+        previewConversion: previewConversion,
+        initialCurrency: initialCurrency,
       ),
     );
   }
@@ -71,7 +80,8 @@ class _OperationDialogState extends State<OperationDialog> {
   late String? _currency;
   String? _modeOfPayment;
 
-  bool get _isDebt => widget.type == OperationType.debt;
+  /// معاينة التحويل لكل عملة جُلبت (القيمة null = لا تحويل أو تعذّر السعر)
+  final Map<String, CurrencyConversion?> _previews = {};
 
   @override
   void initState() {
@@ -81,11 +91,15 @@ class _OperationDialogState extends State<OperationDialog> {
     _amountFocus = FocusNode();
     _noteFocus = FocusNode();
 
-    // العملة الافتراضية: عملة الشركة إن وُجدت في القائمة، وإلا أول عملة
+    // العملة الافتراضية: عملة حساب العميل، وإلا عملة الشركة، وإلا أول عملة
     final currencies = widget.currencies;
-    _currency = currencies.contains(ErpConfig.priceListCurrency)
-        ? ErpConfig.priceListCurrency
-        : (currencies.isEmpty ? null : currencies.first);
+    final preferred = widget.initialCurrency;
+    _currency = (preferred != null && currencies.contains(preferred))
+        ? preferred
+        : currencies.contains(ErpConfig.priceListCurrency)
+            ? ErpConfig.priceListCurrency
+            : (currencies.isEmpty ? null : currencies.first);
+    _loadPreview();
   }
 
   @override
@@ -97,6 +111,14 @@ class _OperationDialogState extends State<OperationDialog> {
     super.dispose();
   }
 
+  Future<void> _loadPreview() async {
+    final currency = _currency;
+    if (currency == null || _previews.containsKey(currency)) return;
+    final preview = await widget.previewConversion(currency);
+    if (!mounted) return;
+    setState(() => _previews[currency] = preview);
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final note = _noteController.text.trim();
@@ -106,18 +128,80 @@ class _OperationDialogState extends State<OperationDialog> {
         parseAmount(_amountController.text)!,
         note.isEmpty ? null : note,
         currency: _currency!,
-        modeOfPayment: _isDebt ? null : _modeOfPayment,
+        modeOfPayment: _modeOfPayment,
+      ),
+    );
+  }
+
+  /// سطر التحويل تحت العملة: جارٍ الجلب، أو المبلغ المحوَّل وسعر الصرف
+  Widget? _conversionInfo(BuildContext context) {
+    final currency = _currency;
+    if (currency == null) return null;
+    final theme = Theme.of(context);
+
+    if (!_previews.containsKey(currency)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(AppStrings.loadingRate, style: theme.textTheme.bodySmall),
+          ],
+        ),
+      );
+    }
+
+    final conversion = _previews[currency];
+    if (conversion == null) return null;
+
+    final amount = parseAmount(_amountController.text);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            AppStrings.conversionNote(conversion.to),
+            style: theme.textTheme.bodySmall,
+          ),
+          if (amount != null && amount > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              AppStrings.conversionResult(
+                formatAmount(conversion.convert(amount), currency: conversion.to),
+                conversion.from,
+                conversion.rateText,
+                conversion.to,
+              ),
+              textDirection: TextDirection.ltr,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDebt = _isDebt;
     final hasModes = widget.modesOfPayment.isNotEmpty;
+    final info = _conversionInfo(context);
 
     return AlertDialog(
-      title: Text(isDebt ? AppStrings.addDebt : AppStrings.addPayment),
+      title: Text(AppStrings.addPayment),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -134,6 +218,8 @@ class _OperationDialogState extends State<OperationDialog> {
                 textInputAction: TextInputAction.next,
                 // زر «التالي» ينقل المؤشر إلى حقل الملاحظة
                 onEditingComplete: () => _noteFocus.requestFocus(),
+                // يُحدّث المبلغ المحوَّل أثناء الكتابة
+                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: AppStrings.amount,
                   suffixText: _currency,
@@ -154,39 +240,40 @@ class _OperationDialogState extends State<OperationDialog> {
                   for (final c in widget.currencies)
                     DropdownMenuItem(value: c, child: Text(c)),
                 ],
-                onChanged: (v) => setState(() => _currency = v),
+                onChanged: (v) {
+                  setState(() => _currency = v);
+                  _loadPreview();
+                },
                 validator: (v) =>
                     (v == null || v.isEmpty) ? AppStrings.currencyRequired : null,
               ),
-              if (!isDebt) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _modeOfPayment,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.modeOfPayment,
-                  ),
-                  items: [
-                    for (final m in widget.modesOfPayment)
-                      DropdownMenuItem(value: m, child: Text(m)),
-                  ],
-                  onChanged: (v) => setState(() => _modeOfPayment = v),
-                  // إن تعذّر تحميل الطرق لا نمنع الحفظ هنا (المتحكم يتحقق عند اللزوم)
-                  validator: (v) => (hasModes && (v == null || v.isEmpty))
-                      ? AppStrings.modeOfPaymentRequired
-                      : null,
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _modeOfPayment,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.modeOfPayment,
                 ),
-                if (!hasModes)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      AppStrings.modesOfPaymentUnavailable,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                    ),
+                items: [
+                  for (final m in widget.modesOfPayment)
+                    DropdownMenuItem(value: m, child: Text(m)),
+                ],
+                onChanged: (v) => setState(() => _modeOfPayment = v),
+                // إن تعذّر تحميل الطرق لا نمنع الحفظ هنا (المتحكم يتحقق عند اللزوم)
+                validator: (v) => (hasModes && (v == null || v.isEmpty))
+                    ? AppStrings.modeOfPaymentRequired
+                    : null,
+              ),
+              if (!hasModes)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    AppStrings.modesOfPaymentUnavailable,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                   ),
-              ],
+                ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _noteController,
@@ -197,6 +284,8 @@ class _OperationDialogState extends State<OperationDialog> {
                 minLines: 1,
                 decoration: InputDecoration(labelText: AppStrings.noteOptional),
               ),
+              // التحويل في أسفل النافذة: حقل المبلغ يبقى بالعملة المختارة كما كُتب
+              if (info != null) info,
             ],
           ),
         ),
@@ -208,9 +297,7 @@ class _OperationDialogState extends State<OperationDialog> {
         ),
         FilledButton(
           onPressed: _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: isDebt ? AppColors.debt : AppColors.payment,
-          ),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.payment),
           child: Text(AppStrings.save),
         ),
       ],

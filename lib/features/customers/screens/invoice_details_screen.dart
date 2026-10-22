@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/services/invoice_pdf_service.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
@@ -172,6 +173,7 @@ class _InvoiceViewState extends State<_InvoiceView> {
                   date: detail.postingDate,
                   dueDate: detail.dueDate,
                   status: detail.status,
+                  currency: displayCurrency(detail.currency),
                   items: detail.items,
                   taxes: detail.totalTaxesAndCharges,
                   outstanding: detail.outstandingAmount,

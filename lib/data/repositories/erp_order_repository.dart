@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../api/erp_api_client.dart';
+import '../../core/constants/app_strings.dart';
 import '../api/erp_config.dart';
 import '../models/order_models.dart';
 import '../models/pending_order.dart';
@@ -268,14 +269,45 @@ class ErpOrderRepository {
 
   // ───────────────────────── إنشاء الطلبية ─────────────────────────
 
-  /// ينشئ الطلبية (تُحفظ كمسودة Draft) ويعيد رقمها.
+  /// سعر تحويل عملة الطلبية إلى عملة الشركة (ILS): كم شيكلًا تساوي وحدة واحدة منها.
+  /// يُجلب وقت الطلب من ERPNext ولا يُخمَّن: إن لم يوجد سعر (0 أو خطأ) يُرمى خطأ
+  /// بنصٍّ واضح فيُمنع الإجراء.
+  Future<double> conversionRate(String currency) async {
+    if (currency.isEmpty || currency == ErpConfig.priceListCurrency) return 1;
+    final res = await _api.getMethod('erpnext.setup.utils.get_exchange_rate', {
+      'from_currency': currency,
+      'to_currency': ErpConfig.priceListCurrency,
+      'transaction_date': _date(DateTime.now()),
+    });
+    final raw = res['message'];
+    final rate = raw is num ? raw.toDouble() : double.tryParse('$raw') ?? 0;
+    if (rate <= 0) {
+      throw ErpApiException(
+        ErpErrorType.server,
+        detail: AppStrings.exchangeRateMissing(
+          currency,
+          ErpConfig.priceListCurrency,
+        ),
+      );
+    }
+    return rate;
+  }
+
+  /// ينشئ الطلبية (تُحفظ كمسودة Draft) ويعيد رقمها. أسعار [lines] بعملة
+  /// الطلبية [currency]، و[conversionRate] سعر تحويلها إلى الشيكل.
   Future<CreatedOrder> createOrder({
     required String customerId,
     required DateTime deliveryDate,
     required List<CartLine> lines,
+    String currency = ErpConfig.priceListCurrency,
+    double conversionRate = 1,
+    String notes = '',
   }) {
     return _createOrder(
       customerId: customerId,
+      currency: currency,
+      conversionRate: conversionRate,
+      notes: notes,
       transactionDate: _date(DateTime.now()),
       deliveryDate: _date(deliveryDate),
       lines: [
@@ -288,6 +320,9 @@ class ErpOrderRepository {
   Future<CreatedOrder> createOrderFromPending(PendingOrder order) {
     return _createOrder(
       customerId: order.customerErpId,
+      currency: ErpConfig.priceListCurrency,
+      conversionRate: 1,
+      notes: order.notes ?? '',
       transactionDate: order.transactionDate,
       deliveryDate: order.deliveryDate,
       lines: [
@@ -298,18 +333,26 @@ class ErpOrderRepository {
 
   Future<CreatedOrder> _createOrder({
     required String customerId,
+    required String currency,
+    required double conversionRate,
     required String transactionDate,
     required String deliveryDate,
     required List<({String code, double qty, double rate})> lines,
+    String notes = '',
   }) async {
     final body = {
       'customer': customerId,
       'company': ErpConfig.company,
       'transaction_date': transactionDate,
       'delivery_date': deliveryDate,
+      // عملة الطلبية وسعر تحويلها إلى الشيكل (1 للشيكل). السعر غير مقرّب
+      'currency': currency,
+      'conversion_rate': conversionRate,
       'selling_price_list': ErpConfig.sellingPriceList,
       'price_list_currency': ErpConfig.priceListCurrency,
       'plc_conversion_rate': ErpConfig.priceListConversionRate,
+      // ملاحظات الطلبية (إن كُتبت)
+      if (notes.trim().isNotEmpty) ErpConfig.orderNotesField: notes.trim(),
       'items': [
         for (final line in lines)
           {
@@ -330,6 +373,7 @@ class ErpOrderRepository {
       id: id,
       total: lines.fold<double>(0, (sum, l) => sum + l.qty * l.rate),
       itemCount: lines.length,
+      currency: currency == ErpConfig.priceListCurrency ? null : currency,
     );
   }
 

@@ -8,11 +8,15 @@ class AnimatedAmount extends StatelessWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
 
+  /// عملة المبلغ (null = الشيكل)
+  final String? currency;
+
   const AnimatedAmount({
     super.key,
     required this.value,
     this.style,
     this.textAlign,
+    this.currency,
   });
 
   @override
@@ -22,7 +26,7 @@ class AnimatedAmount extends StatelessWidget {
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOutCubic,
       builder: (_, v, _) => Text(
-        formatAmount(v),
+        formatAmount(v, currency: currency),
         style: style,
         textAlign: textAlign,
         textDirection: TextDirection.ltr,

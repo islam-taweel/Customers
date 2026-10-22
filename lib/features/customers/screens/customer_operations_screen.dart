@@ -28,7 +28,8 @@ class CustomerOperationsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _addOperation(BuildContext context, OperationType type) async {
+  /// إضافة دفعة (إضافة الديون من التطبيق أُزيلت: الديون تأتي من فواتير ERPNext)
+  Future<void> _addPayment(BuildContext context) async {
     final controller = context.read<CustomerDetailsController>();
     final messenger = ScaffoldMessenger.of(context);
 
@@ -38,14 +39,15 @@ class CustomerOperationsScreen extends StatelessWidget {
 
     final input = await OperationDialog.show(
       context,
-      type,
       currencies: controller.currencies,
       modesOfPayment: controller.modesOfPayment,
+      previewConversion: controller.previewConversion,
+      initialCurrency: controller.accountCurrency,
     );
     if (input == null) return;
 
     final ok = await controller.addOperation(
-      type: type,
+      type: OperationType.payment,
       amount: input.amount,
       currency: input.currency,
       modeOfPayment: input.modeOfPayment,
@@ -57,9 +59,7 @@ class CustomerOperationsScreen extends StatelessWidget {
         content: Text(
           !ok
               ? (controller.saveError ?? AppStrings.operationSaveFailed)
-              : type == OperationType.debt
-                  ? AppStrings.debtAdded
-                  : AppStrings.paymentAdded,
+              : AppStrings.paymentAdded,
         ),
       ),
     );
@@ -119,7 +119,7 @@ class CustomerOperationsScreen extends StatelessWidget {
     return _buildOperations(context, controller);
   }
 
-  /// الرصيد، إضافة دين/دفعة، واتساب، سجل العمليات
+  /// الرصيد، إضافة دفعة، واتساب، سجل العمليات
   Widget _buildOperations(
     BuildContext context,
     CustomerDetailsController controller,
@@ -136,32 +136,17 @@ class CustomerOperationsScreen extends StatelessWidget {
         BalanceCard(customer: controller.customer, balances: controller.balances),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _addOperation(context, OperationType.debt),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.debt,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  icon: const Icon(Icons.add),
-                  label: Text(AppStrings.addDebt),
-                ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _addPayment(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.payment,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _addOperation(context, OperationType.payment),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.payment,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(AppStrings.addPayment),
-                ),
-              ),
-            ],
+              icon: const Icon(Icons.payments_outlined),
+              label: Text(AppStrings.addPayment),
+            ),
           ),
         ),
         // زر واتساب: يظهر فقط إذا كان على العميل مبلغ مستحق (الرصيد أكبر من صفر)
@@ -197,12 +182,16 @@ class CustomerOperationsScreen extends StatelessWidget {
           ),
         ),
         if (operations.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyView(
-              icon: Icons.receipt_long_outlined,
-              title: AppStrings.noOperationsTitle,
-              message: AppStrings.noOperationsMessage,
+          // ارتفاع ثابت: EmptyView يستخدم LayoutBuilder، وهو لا يعمل داخل
+          // SliverFillRemaining(hasScrollBody: false) لأنه لا يدعم الأبعاد الجوهرية
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 320,
+              child: EmptyView(
+                icon: Icons.receipt_long_outlined,
+                title: AppStrings.noOperationsTitle,
+                message: AppStrings.noOperationsMessage,
+              ),
             ),
           )
         else

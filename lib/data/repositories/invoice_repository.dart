@@ -88,6 +88,7 @@ class InvoiceRepository {
     required CreatedOrder order,
     required List<CartLine> lines,
     required DateTime deliveryDate,
+    String notes = '',
   }) async {
     final db = await _dbHelper.database;
 
@@ -122,6 +123,8 @@ class InvoiceRepository {
       createdAt: DateTime.now(),
       orderId: offline ? null : order.id,
       pendingUpload: offline,
+      currency: order.currency,
+      notes: notes.trim().isEmpty ? null : notes.trim(),
       deliveryDate:
           '${deliveryDate.year}-${two(deliveryDate.month)}-${two(deliveryDate.day)}',
       itemsJson: jsonEncode([

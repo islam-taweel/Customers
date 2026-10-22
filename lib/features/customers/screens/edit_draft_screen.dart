@@ -92,6 +92,7 @@ class EditDraftScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final lines = controller.lines;
+    final cur = displayCurrency(controller.invoice.currency);
 
     return Scaffold(
       appBar: AppBar(title: Text(AppStrings.editDraftTitle)),
@@ -120,7 +121,7 @@ class EditDraftScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${formatAmount(lines[i].rate)} × ${_plain(lines[i].qty)} = ${formatAmount(lines[i].total)}',
+                                  '${formatAmount(lines[i].rate, currency: cur)} × ${_plain(lines[i].qty)} = ${formatAmount(lines[i].total, currency: cur)}',
                                   textDirection: TextDirection.ltr,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -216,7 +217,7 @@ class EditDraftScreen extends StatelessWidget {
                         style: theme.textTheme.titleMedium,
                       ),
                       Text(
-                        formatAmount(controller.total),
+                        formatAmount(controller.total, currency: cur),
                         textDirection: TextDirection.ltr,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,

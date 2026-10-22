@@ -69,7 +69,7 @@ class CustomerRepository {
       ..add(offset);
 
     final rows = await db.rawQuery('''
-      SELECT c.id, c.name, c.phone, c.erpId,
+      SELECT c.id, c.name, c.phone, c.erpId, c.accountCurrency,
              COALESCE((
                SELECT SUM(CASE WHEN o.type = 'debt' THEN o.amount ELSE -o.amount END)
                FROM $_operations o
@@ -105,19 +105,26 @@ class CustomerRepository {
     return (rows.first['total'] as num).toDouble();
   }
 
-  /// إضافة عميل جديد، تُرجع id العميل
-  Future<int> addCustomer(Customer customer) async {
+  /// إضافة عميل جديد، تُرجع id العميل. [erpId] إن أُنشئ في ERPNext فيرتبط به فورًا.
+  Future<int> addCustomer(Customer customer, {String? erpId}) async {
     final db = await _dbHelper.database;
-    return db.insert(_customers, customer.toMap());
+    return db.insert(_customers, {
+      ...customer.toMap(),
+      if (erpId != null && erpId.isNotEmpty) 'erpId': erpId,
+    });
   }
 
-  /// تعديل اسم عميل وهاتفه (يُحدَّد بالـ id)، وتُرجع عدد الصفوف المتأثرة
+  /// تعديل اسم عميل وهاتفه وعملة حسابه (يُحدَّد بالـ id)، وتُرجع عدد الصفوف المتأثرة
   /// (0 يعني أن العميل غير موجود).
   Future<int> updateCustomer(Customer customer) async {
     final db = await _dbHelper.database;
     return db.update(
       _customers,
-      {'name': customer.name, 'phone': customer.phone},
+      {
+        'name': customer.name,
+        'phone': customer.phone,
+        'accountCurrency': customer.accountCurrency,
+      },
       where: 'id = ?',
       whereArgs: [customer.id],
     );
@@ -243,6 +250,7 @@ class CustomerRepository {
             'name': customer.name,
             'phone': customer.phone,
             'erpId': customer.id,
+            'accountCurrency': _currencyOf(customer),
           });
         } else {
           batch.update(
@@ -252,6 +260,8 @@ class CustomerRepository {
               // عميل ERPNext بلا هاتف لا يمحو الهاتف المحلي
               if (customer.phone.isNotEmpty) 'phone': customer.phone,
               'erpId': customer.id,
+              // عملة العميل المرتبط تُقرأ من ERPNext (default_currency)
+              'accountCurrency': _currencyOf(customer),
             },
             where: 'id = ?',
             whereArgs: [localId],
@@ -268,7 +278,7 @@ class CustomerRepository {
     final db = await _dbHelper.database;
     final rows = await db.query(
       _customers,
-      columns: ['name', 'phone', 'erpId'],
+      columns: ['name', 'phone', 'erpId', 'accountCurrency'],
       where: "erpId IS NOT NULL AND erpId != ''",
       orderBy: 'name COLLATE NOCASE',
     );
@@ -278,9 +288,14 @@ class CustomerRepository {
           id: row['erpId'] as String,
           name: row['name'] as String,
           phone: (row['phone'] as String?) ?? '',
+          currency: (row['accountCurrency'] as String?) ?? '',
         ),
     ];
   }
+
+  /// عملة العميل من ERPNext؛ الفارغة تعني عملة الشركة (ILS).
+  String _currencyOf(ErpCustomer c) =>
+      c.currency.isEmpty ? ErpConfig.priceListCurrency : c.currency;
 
   /// رقم العميل في ERPNext (null إن كان عميلًا محليًا غير مرتبط بعد).
   Future<String?> getErpId(int customerId) async {

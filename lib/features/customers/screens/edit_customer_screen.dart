@@ -40,10 +40,19 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
   late final FocusNode _nameFocus;
   late final FocusNode _phoneFocus;
 
+  /// عملة حساب العميل (null = حسب حسابه في ERPNext)
+  String? _accountCurrency;
+
   @override
   void initState() {
     super.initState();
-    final customer = context.read<CustomerDetailsController>().customer;
+    final controller = context.read<CustomerDetailsController>();
+    final customer = controller.customer;
+    _accountCurrency = controller.accountCurrency;
+    // قائمة عملات ERPNext (فشل الجلب يُبقي عملة الشركة وعملة العميل الحالية)
+    controller.loadLookups().then((_) {
+      if (mounted) setState(() {});
+    });
     _nameController = TextEditingController(text: customer.name);
     _phoneController = TextEditingController(text: customer.phone);
     _nameFocus = FocusNode();
@@ -69,6 +78,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     final updated = await controller.updateCustomer(
       name: _nameController.text,
       phone: _phoneController.text,
+      accountCurrency: _accountCurrency,
     );
 
     if (updated == null) {
@@ -85,7 +95,14 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isSaving = context.watch<CustomerDetailsController>().isSavingCustomer;
+    final details = context.watch<CustomerDetailsController>();
+    final isSaving = details.isSavingCustomer;
+    // عملات ERPNext، مع عملة العميل الحالية حتى لو لم تعد في القائمة
+    final currencies = {
+      ...details.currencies,
+      if (_accountCurrency != null) _accountCurrency!,
+    }.toList()
+      ..sort();
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppConstants.borderRadius),
     );
@@ -133,6 +150,28 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
                   border: border,
                 ),
                 validator: Validators.phone,
+              ),
+              const SizedBox(height: 16),
+              // نوع حساب العميل: شيكل أو أي عملة أخرى
+              DropdownButtonFormField<String?>(
+                initialValue: _accountCurrency,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.accountCurrency,
+                  helperText: AppStrings.accountCurrencyHelper,
+                  helperMaxLines: 2,
+                  prefixIcon: const Icon(Icons.currency_exchange),
+                  border: border,
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(AppStrings.accountCurrencyAuto),
+                  ),
+                  for (final c in currencies)
+                    DropdownMenuItem<String?>(value: c, child: Text(c)),
+                ],
+                onChanged: (v) => setState(() => _accountCurrency = v),
               ),
               const SizedBox(height: 24),
               SizedBox(

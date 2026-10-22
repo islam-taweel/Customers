@@ -453,7 +453,10 @@ class _Orderable extends StatelessWidget {
                 icon: Icons.sell_rounded,
                 color: scheme.primary,
                 label: AppStrings.itemPrice,
-                value: formatAmount(rate),
+                value: formatAmount(
+                  rate * c.priceFactor,
+                  currency: c.orderCurrency,
+                ),
                 footer: item.uom.isEmpty ? null : '/ ${item.uom}',
               ),
             ),
@@ -506,7 +509,8 @@ class _Orderable extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 AnimatedAmount(
-                  value: qty * rate,
+                  value: qty * rate * c.priceFactor,
+                  currency: c.orderCurrency,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: qty > 0 ? scheme.primary : scheme.outline,

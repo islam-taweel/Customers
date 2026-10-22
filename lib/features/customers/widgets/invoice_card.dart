@@ -21,6 +21,12 @@ class InvoiceCard extends StatelessWidget {
   final double? taxes;
   final double? outstanding;
 
+  /// عملة الفاتورة (null = الشيكل)
+  final String? currency;
+
+  /// ملاحظات الطلبية (تظهر إن لم تكن فارغة)
+  final String? notes;
+
   const InvoiceCard({
     super.key,
     required this.number,
@@ -33,6 +39,8 @@ class InvoiceCard extends StatelessWidget {
     this.items = const [],
     this.taxes,
     this.outstanding,
+    this.currency,
+    this.notes,
   });
 
   static const Color _text = Color(0xFF212121);
@@ -94,13 +102,22 @@ class InvoiceCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              for (final item in items) _ItemRow(item: item),
+              for (final item in items) _ItemRow(item: item, currency: currency),
+            ],
+            if (notes != null && notes!.trim().isNotEmpty) ...[
+              const Divider(height: 28),
+              Text(
+                AppStrings.orderNotes,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(notes!.trim()),
             ],
             const Divider(height: 28),
             if (hasTaxes)
               _InfoRow(
                 label: AppStrings.invoiceTaxes,
-                value: formatSignedAmount(taxes!),
+                value: formatSignedAmount(taxes!, currency: currency),
                 isLtr: true,
               ),
             Row(
@@ -112,7 +129,7 @@ class InvoiceCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  formatSignedAmount(amount),
+                  formatSignedAmount(amount, currency: currency),
                   textDirection: TextDirection.ltr,
                   style: const TextStyle(
                     color: AppColors.seed,
@@ -125,7 +142,7 @@ class InvoiceCard extends StatelessWidget {
             if (hasOutstanding)
               _InfoRow(
                 label: AppStrings.invoiceOutstanding,
-                value: formatAmount(outstanding!),
+                value: formatAmount(outstanding!, currency: currency),
                 isLtr: true,
               ),
           ],
@@ -177,7 +194,10 @@ String _formatQty(double qty) =>
 class _ItemRow extends StatelessWidget {
   final InvoiceItem item;
 
-  const _ItemRow({required this.item});
+  /// عملة الفاتورة (null = الشيكل)
+  final String? currency;
+
+  const _ItemRow({required this.item, this.currency});
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +212,7 @@ class _ItemRow extends StatelessWidget {
               children: [
                 Text(item.itemName, style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
-                  '${_formatQty(item.qty)} × ${formatSignedAmount(item.rate)}',
+                  '${_formatQty(item.qty)} × ${formatSignedAmount(item.rate, currency: currency)}',
                   textDirection: TextDirection.ltr,
                   style: const TextStyle(color: InvoiceCard._label, fontSize: 13),
                 ),
@@ -201,7 +221,7 @@ class _ItemRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            formatSignedAmount(item.amount),
+            formatSignedAmount(item.amount, currency: currency),
             textDirection: TextDirection.ltr,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),

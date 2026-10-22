@@ -77,6 +77,7 @@ class ErpInvoiceRepository {
     'grand_total',
     'outstanding_amount',
     'status',
+    'currency',
   ];
 
   _Directory? _directory;

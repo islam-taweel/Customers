@@ -152,4 +152,9 @@ class ErpConfig {
 
   /// المستودع الذي يُقرأ منه المخزون وتُسحب منه الأصناف
   static const String warehouse = 'Main Warehouse - RTC';
+
+  /// الحقل في Sales Order الذي تُحفظ فيه ملاحظات الطلبية. الافتراضي `terms`
+  /// (الشروط والأحكام) لأنه موجود في كل نسخ ERPNext. إن أنشأت حقلًا مخصصًا
+  /// للملاحظات (مثل `custom_notes`) فغيّر الاسم هنا فقط.
+  static const String orderNotesField = 'terms';
 }

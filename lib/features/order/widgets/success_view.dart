@@ -170,7 +170,7 @@ class SuccessView extends StatelessWidget {
                         const SizedBox(height: 8),
                         _Row(
                           label: AppStrings.orderTotal,
-                          value: formatAmount(order.total),
+                          value: formatAmount(order.total, currency: order.currency),
                           bold: true,
                         ),
                       ],

@@ -9,6 +9,8 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
 import '../../../data/dev/fake_customers.dart';
 import '../../../data/models/customer.dart';
 import '../../../data/models/customer_sort_option.dart';
@@ -16,7 +18,35 @@ import '../../../data/models/customer_with_balance.dart';
 import '../../../data/models/deleted_customer.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../../data/repositories/erp_customer_repository.dart';
+import '../../../data/models/new_customer.dart';
+import '../../../data/repositories/erp_lookup_repository.dart';
 import '../../../data/repositories/outstanding_repository.dart';
+
+/// نتيجة إضافة عميل: نجاح، أو فشل مع رسالة الخادم إن وُجدت.
+class AddCustomerResult {
+  final bool ok;
+
+  /// سبب الفشل (مثل رسالة ERPNext عن اسم مكرر). null = الرسالة العامة
+  final String? message;
+
+  /// true = حُفظ على الجهاز فقط (لا اتصال، أو لم تُحمَّل المجموعة والمنطقة)
+  final bool savedLocalOnly;
+
+  /// true = أُنشئ في ERPNext لكن تعذّر تسجيل هاتفه هناك
+  final bool phoneNotSaved;
+
+  const AddCustomerResult({
+    required this.ok,
+    this.message,
+    this.savedLocalOnly = false,
+    this.phoneNotSaved = false,
+  });
+
+  const AddCustomerResult.failed({this.message})
+      : ok = false,
+        savedLocalOnly = false,
+        phoneNotSaved = false;
+}
 
 /// حالة ومنطق شاشة العملاء. لا يعرف شيئًا عن الواجهة ولا عن SQL،
 /// وكل وصوله للبيانات يمر عبر [CustomerRepository].
@@ -24,8 +54,12 @@ class CustomersController extends ChangeNotifier {
   CustomersController(
     this._repository,
     this._erpCustomers,
-    this._outstandingRepository,
-  );
+    this._outstandingRepository, {
+    ErpLookupRepository? lookupRepository,
+  }) : _lookups = lookupRepository;
+
+  /// العملات المفعّلة في ERPNext (لاختيار عملة حساب العميل عند إضافته)
+  final ErpLookupRepository? _lookups;
 
   /// إجمالي المستحق على العملاء من ERPNext (بطاقة أعلى شاشة العملاء)
   final OutstandingRepository _outstandingRepository;
@@ -220,26 +254,106 @@ class CustomersController extends ChangeNotifier {
 
   // ───────────────────────── 8) إضافة عميل ─────────────────────────
 
-  /// حفظ عميل جديد في قاعدة البيانات ثم تحديث القائمة والإجمالي.
-  /// تُرجع true عند النجاح.
-  Future<bool> addCustomer(Customer customer) async {
-    final name = customer.name.trim();
-    final phone = normalizeDigits(customer.phone.trim());
+  /// عملات ERPNext لقائمة «عملة حساب العميل». لا ترمي: إن تعذّر الجلب ولا نسخة
+  /// محفوظة تُرجع عملة الشركة وحدها فلا تتعطل إضافة العملاء.
+  Future<List<String>> loadCurrencies() async {
+    try {
+      final list = await _lookups?.fetchCurrencies() ?? const <String>[];
+      if (list.isNotEmpty) return list;
+    } catch (e) {
+      debugPrint('CustomersController.loadCurrencies failed: $e');
+    }
+    return [ErpConfig.priceListCurrency];
+  }
+
+  /// قوائم نموذج إضافة العميل: العملات والمجموعات والمناطق من ERPNext (أو المحفوظة).
+  /// لا ترمي: القائمة الفارغة تعني تعذّر جلبها، فيُحفظ العميل محليًا فقط.
+  Future<({List<String> currencies, List<String> groups, List<String> territories})>
+      loadCustomerForm() async {
+    final currencies = await loadCurrencies();
+    Future<List<String>> safe(Future<List<String>>? f) async {
+      try {
+        return await f ?? const <String>[];
+      } catch (e) {
+        debugPrint('CustomersController.loadCustomerForm failed: $e');
+        return const <String>[];
+      }
+    }
+
+    final groups = await safe(_lookups?.fetchCustomerGroups());
+    final territories = await safe(_lookups?.fetchTerritories());
+    return (currencies: currencies, groups: groups, territories: territories);
+  }
+
+  /// إضافة عميل جديد: يُنشأ في ERPNext أولًا (مع هاتفه كجهة اتصال) ثم يُحفظ محليًا
+  /// مرتبطًا به. إن لم يتوفر الاتصال يُحفظ محليًا فقط. خطأ الخادم (مثل اسم مكرر)
+  /// لا يحفظ شيئًا ويُعاد نصّه في [AddCustomerResult.message].
+  Future<AddCustomerResult> addCustomer(NewCustomer input) async {
+    final name = input.name.trim();
+    final phone = normalizeDigits(input.phone.trim());
 
     // حماية ثانية بعد تحقق الواجهة: القواعد نفسها المستخدمة في التعديل
     if (Validators.name(name) != null || Validators.phone(phone) != null) {
-      return false;
+      return const AddCustomerResult.failed();
+    }
+
+    String? erpId;
+    var phoneNotSaved = false;
+    var localOnly = !input.canCreateInErp;
+
+    if (!localOnly) {
+      try {
+        erpId = await _erpCustomers.createCustomer(
+          name: name,
+          type: input.type,
+          group: input.group!,
+          territory: input.territory!,
+          currency: input.currency,
+        );
+      } on ErpApiException catch (e) {
+        debugPrint('addCustomer (ERPNext) failed: $e');
+        if (e.type != ErpErrorType.network) {
+          final detail = e.type == ErpErrorType.server ? e.detail : null;
+          return AddCustomerResult.failed(
+            message: (detail == null || detail.isEmpty)
+                ? describeError(e, fallback: AppStrings.customerSaveFailed)
+                : detail,
+          );
+        }
+        localOnly = true; // لا اتصال: نحفظه على الجهاز فقط
+      }
+    }
+
+    if (erpId != null) {
+      try {
+        await _erpCustomers.addPhone(
+          customerId: erpId,
+          name: name,
+          phone: phone,
+        );
+      } catch (e) {
+        // العميل أُنشئ في ERPNext: لا نتراجع، وننبّه فقط أن الهاتف لم يُسجَّل هناك
+        debugPrint('addCustomer phone (ERPNext) failed: $e');
+        phoneNotSaved = true;
+      }
     }
 
     try {
-      await _repository.addCustomer(customer.copyWith(name: name, phone: phone));
+      await _repository.addCustomer(
+        Customer(name: name, phone: phone, accountCurrency: input.currency),
+        erpId: erpId,
+      );
     } catch (e) {
       debugPrint('addCustomer failed: $e');
-      return false;
+      return const AddCustomerResult.failed();
     }
 
     await refresh();
-    return true;
+    return AddCustomerResult(
+      ok: true,
+      savedLocalOnly: localOnly,
+      phoneNotSaved: phoneNotSaved,
+    );
   }
 
   // ───────────────────────── إضافات لازمة للشاشة ─────────────────────────

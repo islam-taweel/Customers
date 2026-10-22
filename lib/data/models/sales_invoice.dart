@@ -21,6 +21,9 @@ class SalesInvoice {
   final double outstandingAmount;
   final String status;
 
+  /// عملة الفاتورة (فارغة = الشيكل أو نسخة محفوظة قديمة بلا عملة)
+  final String currency;
+
   /// true = فاتورة طلبية محفوظة على الهاتف (وليست من ERPNext)
   final bool isLocal;
 
@@ -33,6 +36,7 @@ class SalesInvoice {
     required this.grandTotal,
     required this.outstandingAmount,
     required this.status,
+    this.currency = '',
     this.isLocal = false,
   });
 
@@ -46,6 +50,7 @@ class SalesInvoice {
       grandTotal: _toDouble(json['grand_total']),
       outstandingAmount: _toDouble(json['outstanding_amount']),
       status: _toText(json['status']),
+      currency: _toText(json['currency']),
     );
   }
 }

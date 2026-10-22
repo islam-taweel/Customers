@@ -45,13 +45,16 @@ class SalesInvoiceTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            formatSignedAmount(invoice.grandTotal),
+            formatSignedAmount(
+              invoice.grandTotal,
+              currency: displayCurrency(invoice.currency),
+            ),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             textDirection: TextDirection.ltr,
           ),
           if (outstanding > 0)
             Text(
-              '${AppStrings.invoiceRemaining} ${formatAmount(outstanding)}',
+              '${AppStrings.invoiceRemaining} ${formatAmount(outstanding, currency: displayCurrency(invoice.currency))}',
               style: TextStyle(color: AppColors.debt, fontSize: 12),
             ),
         ],

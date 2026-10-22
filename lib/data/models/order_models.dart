@@ -33,20 +33,37 @@ class CartLine {
   final ItemPricing pricing;
   final double qty;
 
+  /// معامل تحويل سعر قائمة الأسعار (ILS) إلى عملة الطلبية: 1 للشيكل، و1 ÷ سعر الصرف
+  /// لغيره. الأسعار تُحوَّل ولا تُقرَّب (التقريب للعرض فقط).
+  final double priceFactor;
+
   const CartLine({
     required this.item,
     required this.pricing,
     required this.qty,
+    this.priceFactor = 1,
   });
 
-  double get rate => pricing.rate ?? 0;
+  /// سعر الوحدة بعملة الطلبية
+  double get rate => (pricing.rate ?? 0) * priceFactor;
   double get total => qty * rate;
 
   /// المتبقي في المخزن بعد خصم هذه الكمية
   double get remaining => pricing.available - qty;
 
-  CartLine withQty(double newQty) =>
-      CartLine(item: item, pricing: pricing, qty: newQty);
+  CartLine withQty(double newQty) => CartLine(
+        item: item,
+        pricing: pricing,
+        qty: newQty,
+        priceFactor: priceFactor,
+      );
+
+  CartLine withPriceFactor(double factor) => CartLine(
+        item: item,
+        pricing: pricing,
+        qty: qty,
+        priceFactor: factor,
+      );
 }
 
 /// نتيجة إنشاء الطلبية في ERPNext.
@@ -56,9 +73,13 @@ class CreatedOrder {
   final double total;
   final int itemCount;
 
+  /// عملة الطلبية (null = الشيكل)
+  final String? currency;
+
   const CreatedOrder({
     required this.id,
     required this.total,
     required this.itemCount,
+    this.currency,
   });
 }

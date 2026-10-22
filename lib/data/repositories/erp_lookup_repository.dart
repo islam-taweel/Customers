@@ -34,6 +34,24 @@ class ErpLookupRepository {
         ],
       );
 
+  /// مجموعات العملاء النهائية (Customer Group.is_group = 0).
+  Future<List<String>> fetchCustomerGroups() => _fetch(
+        key: 'lookup:customer_groups',
+        doctype: 'Customer Group',
+        filters: [
+          ['is_group', '=', 0],
+        ],
+      );
+
+  /// المناطق النهائية (Territory.is_group = 0).
+  Future<List<String>> fetchTerritories() => _fetch(
+        key: 'lookup:territories',
+        doctype: 'Territory',
+        filters: [
+          ['is_group', '=', 0],
+        ],
+      );
+
   Future<List<String>> _fetch({
     required String key,
     required String doctype,

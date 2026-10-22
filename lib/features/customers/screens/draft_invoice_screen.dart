@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../controllers/draft_invoice_controller.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/invoice_card.dart';
@@ -103,7 +104,9 @@ class DraftInvoiceScreen extends StatelessWidget {
                   date: detail.postingDate,
                   dueDate: detail.dueDate,
                   status: detail.status,
+                  currency: displayCurrency(detail.currency),
                   items: detail.items,
+                  notes: invoice.notes,
                 ),
                 if (controller.error != null) ...[
                   const SizedBox(height: 12),
