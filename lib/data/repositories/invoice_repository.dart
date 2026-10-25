@@ -27,6 +27,13 @@ class InvoiceRepository {
     return rows.map(Invoice.fromMap).toList();
   }
 
+  /// كل طلبيات كل العملاء (قسم «الطلبات») من الأحدث إلى الأقدم.
+  Future<List<Invoice>> getAllInvoices() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(_invoices, orderBy: 'createdAt DESC, id DESC');
+    return rows.map(Invoice.fromMap).toList();
+  }
+
   /// فاتورة واحدة بآخر حالة لها في القاعدة (null إن حُذفت).
   Future<Invoice?> getInvoice(int id) async {
     final db = await _dbHelper.database;
@@ -66,6 +73,96 @@ class InvoiceRepository {
     await db.update(
       _invoices,
       {'submitted': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// بعد تسليم الطلبية: تنتقل إلى «بانتظار الفوترة».
+  Future<void> markDelivered(int id) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'delivered': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// بعد أن أنشأ التطبيق سند تسليم (مسودة) للطلبية: تنتقل إلى «بانتظار الفوترة»
+  /// والفوترة مظللة إلى أن يُعتمد السند في ERPNext.
+  Future<void> markDeliveryCreated(int id, String deliveryNote) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'deliveryNote': deliveryNote, 'deliveryDraft': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// بعد أن أنشأ التطبيق فاتورة المبيعات (مسودة) للطلبية: تنتقل إلى «مكتملة»،
+  /// ويعتمد المسؤول الفاتورة في ERPNext.
+  Future<void> markInvoiceCreated(int id, String salesInvoice) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'salesInvoice': salesInvoice},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// أرقام فواتير المبيعات (مسودات) التي أنشأها التطبيق عند «فوترة» الطلبيات.
+  /// تظهر في تبويب «غير مدفوعة» من لحظة الفوترة، والدفع يتفعّل بعد اعتمادها.
+  Future<Set<String>> billedSalesInvoiceNames() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      _invoices,
+      columns: ['salesInvoice'],
+      where: "salesInvoice IS NOT NULL AND salesInvoice != ''",
+    );
+    return {for (final r in rows) r['salesInvoice'] as String};
+  }
+
+  /// سند التسليم حُذف أو أُلغي في ERPNext (رُفض): تعود الطلبية «بانتظار التسليم».
+  Future<void> clearDeliveryNote(int id) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'deliveryNote': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// فاتورة المبيعات حُذفت أو أُلغيت في ERPNext (رُفضت): تعود الطلبية «بانتظار الفوترة».
+  Future<void> clearSalesInvoice(int id) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {'salesInvoice': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// مزامنة مرحلة الطلبية مع ERPNext (حيث تتم الفوترة وقد يتم التسليم).
+  /// [deliveryDraft]: هل يوجد سند تسليم مسودة (غير معتمد) لها في ERPNext.
+  Future<void> updateFulfillment(
+    int id, {
+    required bool delivered,
+    required bool billed,
+    bool? deliveryDraft,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {
+        'delivered': delivered ? 1 : 0,
+        'billed': billed ? 1 : 0,
+        if (deliveryDraft != null) 'deliveryDraft': deliveryDraft ? 1 : 0,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );

@@ -6,6 +6,10 @@ double _toDouble(Object? value) {
 
 String _toText(Object? value) => value?.toString() ?? '';
 
+/// تبويبات قسم «الفواتير»: تُحسب من مبالغ الفاتورة في ERPNext (لا من نص الحالة)
+/// لأن حالة Overdue تغطي المدفوعة جزئيًا المتأخرة أيضًا.
+enum InvoiceBucket { draft, unpaid, partlyPaid, paid, other }
+
 /// فاتورة مبيعات كما تظهر في قائمة فواتير العميل.
 class SalesInvoice {
   final String name;
@@ -27,6 +31,9 @@ class SalesInvoice {
   /// true = فاتورة طلبية محفوظة على الهاتف (وليست من ERPNext)
   final bool isLocal;
 
+  /// 0 = مسودة، 1 = معتمدة في ERPNext
+  final int docstatus;
+
   const SalesInvoice({
     required this.name,
     required this.customer,
@@ -38,7 +45,23 @@ class SalesInvoice {
     required this.status,
     this.currency = '',
     this.isLocal = false,
+    this.docstatus = 1,
   });
+
+  /// أي تبويب في قسم «الفواتير» تنتمي إليه (المرتجعات وإشعارات الدائن خارج التبويبات)
+  InvoiceBucket get bucket {
+    if (docstatus == 0) return InvoiceBucket.draft;
+    if (docstatus != 1 || isLocal) return InvoiceBucket.other;
+    if (status == 'Return' ||
+        status == 'Credit Note Issued' ||
+        status == 'Cancelled') {
+      return InvoiceBucket.other;
+    }
+    if (grandTotal <= 0) return InvoiceBucket.other;
+    if (outstandingAmount <= 0.005) return InvoiceBucket.paid;
+    if (outstandingAmount < grandTotal - 0.005) return InvoiceBucket.partlyPaid;
+    return InvoiceBucket.unpaid;
+  }
 
   factory SalesInvoice.fromJson(Map<String, dynamic> json) {
     return SalesInvoice(
@@ -51,6 +74,9 @@ class SalesInvoice {
       outstandingAmount: _toDouble(json['outstanding_amount']),
       status: _toText(json['status']),
       currency: _toText(json['currency']),
+      docstatus: json['docstatus'] is num
+          ? (json['docstatus'] as num).toInt()
+          : int.tryParse('${json['docstatus']}') ?? 1,
     );
   }
 }

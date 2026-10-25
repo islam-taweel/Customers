@@ -60,6 +60,10 @@ class ErpPaymentRepository {
 
   /// ينشئ Payment Entry ويعتمده، ويعيد رقمه. يرمي [ErpApiException] عند الفشل.
   /// إن فشل الاعتماد يُحذف المستند المسودة حتى لا يتراكم عند إعادة المحاولة.
+  ///
+  /// [invoiceName]: إن مُرِّر تُربط الدفعة بفاتورة المبيعات هذه (references) فيتغيّر
+  /// مستحقها وحالتها عند **اعتماد** الدفعة. [submit] = false يحفظها مسودة فقط
+  /// ويبقى اعتمادها في ERPNext.
   Future<PaymentEntryResult> createPaymentEntry({
     required String customerErpId,
     required double amount,
@@ -67,6 +71,8 @@ class ErpPaymentRepository {
     required String modeOfPayment,
     required DateTime date,
     String? note,
+    String? invoiceName,
+    bool submit = true,
   }) async {
     final day = _date(date);
     final company = ErpConfig.company;
@@ -140,22 +146,32 @@ class ErpPaymentRepository {
         'reference_date': day,
       },
       if (cleanNote.isNotEmpty) 'remarks': cleanNote,
+      if (invoiceName != null)
+        'references': [
+          {
+            'reference_doctype': 'Sales Invoice',
+            'reference_name': invoiceName,
+            'allocated_amount': paidAmount,
+          },
+        ],
     };
 
     final created = await _api.postDoc(_doctype, body);
     final name = created['name']?.toString() ?? '';
     if (name.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
 
-    try {
-      final doc = await _api.getDoc(_doctype, name);
-      await _api.postMethod('frappe.client.submit', {'doc': doc});
-    } catch (_) {
+    if (submit) {
       try {
-        await _api.deleteDoc(_doctype, name);
+        final doc = await _api.getDoc(_doctype, name);
+        await _api.postMethod('frappe.client.submit', {'doc': doc});
       } catch (_) {
-        // لا شيء: المسودة تبقى ويمكن حذفها من ERPNext
+        try {
+          await _api.deleteDoc(_doctype, name);
+        } catch (_) {
+          // لا شيء: المسودة تبقى ويمكن حذفها من ERPNext
+        }
+        rethrow;
       }
-      rethrow;
     }
     return PaymentEntryResult(
       name: name,

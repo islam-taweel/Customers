@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- الاتصال بـ ERPNext (ضروري في نسخة release أيضًا) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- مسح الباركود بالكاميرا (قسم الجرد) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- الكاميرا غير إلزامية: يبقى التطبيق قابلًا للتثبيت على أي جهاز -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <application
         android:usesCleartextTraffic="true"
         android:label="customer"

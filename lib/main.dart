@@ -22,9 +22,13 @@ import 'data/repositories/customer_repository.dart';
 import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
 import 'data/repositories/erp_draft_repository.dart';
+import 'data/repositories/erp_fulfillment_repository.dart';
+import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
 import 'data/repositories/erp_lookup_repository.dart';
 import 'data/repositories/erp_payment_repository.dart';
+import 'data/repositories/erp_purchases_repository.dart';
+import 'data/repositories/erp_sales_invoices_repository.dart';
 import 'data/repositories/outstanding_repository.dart';
 import 'data/repositories/erp_order_repository.dart';
 import 'data/repositories/invoice_repository.dart';
@@ -34,7 +38,11 @@ import 'features/auth/controllers/auth_controller.dart';
 import 'features/auth/screens/auth_gate.dart';
 import 'features/customers/controllers/customer_details_controller.dart';
 import 'features/customers/controllers/customers_controller.dart';
+import 'features/inventory/controllers/inventory_controller.dart';
 import 'features/order/controllers/order_controller.dart';
+import 'features/orders_section/controllers/orders_controller.dart';
+import 'features/orders_section/controllers/sales_invoices_controller.dart';
+import 'features/purchases/controllers/purchases_controller.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +86,8 @@ Future<void> main() async {
   // كتالوج محلي (أصناف/أسعار/مخزون) وطلبيات تنتظر الرفع
   final erpOrders = ErpOrderRepository(erpApi, CatalogStore(dbHelper));
   final pendingRepository = PendingOrderRepository(dbHelper);
+  // تعديل المسودات وحذفها واعتمادها في ERPNext (يشترك فيها قسم «الطلبات»)
+  final draftRepository = ErpDraftRepository(erpApi);
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
     customerRepository,
@@ -87,7 +97,7 @@ Future<void> main() async {
     // فواتير الطلبيات المحفوظة محليًا تظهر مع فواتير ERPNext
     invoiceRepository,
     // تعديل المسودات وحذفها واعتمادها في ERPNext
-    ErpDraftRepository(erpApi),
+    draftRepository,
     // المسودات التي أُنشئت دون اتصال ولم تُرفع بعد
     pendingRepository,
     // العملات وطرق الدفع من ERPNext (مع نسخة محلية)
@@ -116,6 +126,35 @@ Future<void> main() async {
     invoiceRepository,
     pendingRepository,
     syncService,
+  );
+
+  // قسم «الطلبات»: طلبيات كل العملاء بمراحلها (مسودة ← تسليم ← فوترة ← مكتملة)
+  final ordersFactory = OrdersControllerFactory(
+    invoiceRepository,
+    pendingRepository,
+    draftRepository,
+    ErpFulfillmentRepository(erpApi),
+  );
+
+  // قسم «الفواتير»: فواتير المبيعات لكل العملاء ودفعاتها (تُحفظ مسودة في ERPNext)
+  final salesInvoicesFactory = SalesInvoicesControllerFactory(
+    ErpSalesInvoicesRepository(
+      erpApi,
+      cacheStore,
+      lookupRepository,
+    ),
+    invoiceRepository,
+  );
+
+  // قسم «المشتريات»: أوامر الشراء والاستلامات والفواتير ودفعات الموردين
+  // (الاستلام والفاتورة والدفعة تُحفظ مسودة ويعتمدها ERPNext)
+  final purchasesFactory = PurchasesControllerFactory(
+    ErpPurchasesRepository(erpApi, cacheStore, lookupRepository),
+  );
+
+  // قسم «الجرد»: البحث بالباركود وتعديل كمية الصنف وسعره في ERPNext
+  final inventoryFactory = InventoryControllerFactory(
+    ErpInventoryRepository(erpApi),
   );
 
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
@@ -156,6 +195,10 @@ Future<void> main() async {
       languageController: languageController,
       invoiceRepository: invoiceRepository,
       orderFactory: orderFactory,
+      ordersFactory: ordersFactory,
+      salesInvoicesFactory: salesInvoicesFactory,
+      purchasesFactory: purchasesFactory,
+      inventoryFactory: inventoryFactory,
       syncService: syncService,
       authController: authController,
       navigatorKey: navigatorKey,
@@ -172,6 +215,10 @@ class DebtsApp extends StatelessWidget {
   final LanguageController languageController;
   final InvoiceRepository invoiceRepository;
   final OrderControllerFactory orderFactory;
+  final OrdersControllerFactory ordersFactory;
+  final SalesInvoicesControllerFactory salesInvoicesFactory;
+  final PurchasesControllerFactory purchasesFactory;
+  final InventoryControllerFactory inventoryFactory;
   final SyncService syncService;
   final AuthController authController;
   final GlobalKey<NavigatorState> navigatorKey;
@@ -183,6 +230,10 @@ class DebtsApp extends StatelessWidget {
     required this.languageController,
     required this.invoiceRepository,
     required this.orderFactory,
+    required this.ordersFactory,
+    required this.salesInvoicesFactory,
+    required this.purchasesFactory,
+    required this.inventoryFactory,
     required this.syncService,
     required this.authController,
     required this.navigatorKey,
@@ -203,6 +254,16 @@ class DebtsApp extends StatelessWidget {
         Provider<InvoiceRepository>.value(value: invoiceRepository),
         // ينشئ متحكم طلبية جديدة كلما فُتحت شاشة «طلبيات العملاء»
         Provider<OrderControllerFactory>.value(value: orderFactory),
+        // ينشئ متحكم قسم «الطلبات» كلما فُتح
+        Provider<OrdersControllerFactory>.value(value: ordersFactory),
+        // ينشئ متحكم فواتير المبيعات ودفعاتها (تبويب «الفواتير»)
+        Provider<SalesInvoicesControllerFactory>.value(
+          value: salesInvoicesFactory,
+        ),
+        // ينشئ متحكم قسم «المشتريات» كلما فُتح
+        Provider<PurchasesControllerFactory>.value(value: purchasesFactory),
+        // ينشئ متحكم قسم «الجرد» كلما فُتح
+        Provider<InventoryControllerFactory>.value(value: inventoryFactory),
         // المزامنة: شاشة الإعدادات تقرأ حالتها وتشغّلها
         ChangeNotifierProvider<SyncService>.value(value: syncService),
         // حالة تسجيل الدخول: البوابة وشاشة الدخول والقائمة الجانبية

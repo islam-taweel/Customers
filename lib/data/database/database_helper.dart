@@ -7,7 +7,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
   static const _dbName = 'debts.db';
-  static const _dbVersion = 12;
+  static const _dbVersion = 15;
 
   static const tableCustomers = 'customers';
   static const tableOperations = 'operations';
@@ -148,6 +148,35 @@ class DatabaseHelper {
       await _addColumnIfMissing(db, tableInvoices, 'notes', 'TEXT');
       await _addColumnIfMissing(db, tablePendingOrders, 'notes', 'TEXT');
     }
+    if (oldVersion < 13) {
+      // الإصدار 13: مراحل الطلبية بعد الاعتماد (تسليم ثم فوترة)
+      await _addColumnIfMissing(
+        db,
+        tableInvoices,
+        'delivered',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        db,
+        tableInvoices,
+        'billed',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 14) {
+      // الإصدار 14: سند التسليم الذي أنشأه التطبيق، وهل توجد مسودة تسليم في ERPNext
+      await _addColumnIfMissing(db, tableInvoices, 'deliveryNote', 'TEXT');
+      await _addColumnIfMissing(
+        db,
+        tableInvoices,
+        'deliveryDraft',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 15) {
+      // الإصدار 15: فاتورة المبيعات (مسودة) التي أنشأها التطبيق للطلبية
+      await _addColumnIfMissing(db, tableInvoices, 'salesInvoice', 'TEXT');
+    }
   }
 
   /// يضيف العمود إن لم يكن موجودًا (الجداول التي أُنشئت أثناء هذه الترقية
@@ -253,6 +282,11 @@ class DatabaseHelper {
         submitted INTEGER NOT NULL DEFAULT 0,
         currency TEXT,
         notes TEXT,
+        delivered INTEGER NOT NULL DEFAULT 0,
+        billed INTEGER NOT NULL DEFAULT 0,
+        deliveryNote TEXT,
+        deliveryDraft INTEGER NOT NULL DEFAULT 0,
+        salesInvoice TEXT,
         FOREIGN KEY (customerId) REFERENCES $tableCustomers (id) ON DELETE CASCADE
       )
     ''');

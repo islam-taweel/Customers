@@ -20,6 +20,190 @@ class AppStrings {
   // ───────── القائمة الجانبية ─────────
   static String get dashboard => _t('لوحة التحكم', 'Dashboard');
   static String get customerOrders => _t('طلبيات العملاء', 'Customer orders');
+
+  // ───────── قسم الطلبات: الطلبيات / التسليمات / الفواتير ─────────
+  static String get ordersSection => _t('الطلبات', 'Orders');
+  static String get navOrders => _t('الطلبيات', 'Orders');
+  static String get navDeliveries => _t('التسليمات', 'Deliveries');
+  static String get navInvoices => _t('الفواتير', 'Invoices');
+  static String get tabToDeliver => _t('بانتظار التسليم', 'To deliver');
+  static String get tabToBill => _t('بانتظار الفوترة', 'To bill');
+  static String get tabCompleted => _t('مكتملة', 'Completed');
+  static String get addNewOrder => _t('إضافة طلبية جديدة', 'Add new order');
+  static String get ordersRefresh => _t('تحديث', 'Refresh');
+  static String get ordersDraftsEmptyMessage => _t(
+        'اضغط «إضافة طلبية جديدة» لإنشاء طلبية. تبقى هنا كمسودة إلى أن تعتمدها.',
+        'Tap “Add new order” to create one. It stays here as a draft until you submit it.',
+      );
+  static String get toDeliverEmptyTitle =>
+      _t('لا توجد طلبيات بانتظار التسليم', 'No orders waiting for delivery');
+  static String get toDeliverEmptyMessage => _t(
+        'الطلبية التي تعتمدها تظهر هنا إلى أن تُسلَّم.',
+        'Orders you submit appear here until they are delivered.',
+      );
+  static String get toBillEmptyTitle =>
+      _t('لا توجد طلبيات بانتظار الفوترة', 'No orders waiting for billing');
+  static String get toBillEmptyMessage => _t(
+        'الطلبية التي تُسلَّم تظهر هنا إلى أن تُفوتَر.',
+        'Delivered orders appear here until they are billed.',
+      );
+  static String get completedEmptyTitle =>
+      _t('لا توجد طلبيات مكتملة', 'No completed orders');
+  static String get completedEmptyMessage => _t(
+        'الطلبية التي سُلِّمت وفُوتِرت تظهر هنا.',
+        'Orders that are delivered and billed appear here.',
+      );
+  static String get deliver => _t('تسليم', 'Deliver');
+  static String get deliverTitle => _t('تسليم الطلبية؟', 'Deliver this order?');
+  static String get deliverMessage => _t(
+        'سيُنشأ سند تسليم في ERPNext، وتنتقل الطلبية إلى «بانتظار الفوترة».',
+        'A delivery note will be created in ERPNext and the order moves to “To bill”.',
+      );
+  static String get orderDelivered => _t('تم تسليم الطلبية', 'Order delivered');
+  static String get deliverFailed =>
+      _t('تعذّر تسليم الطلبية', 'Could not deliver the order');
+  static String get ordersRefreshFailed => _t(
+        'تعذّر تحديث حالات الطلبيات من ERPNext. تُعرض آخر حالة محفوظة.',
+        'Could not update order statuses from ERPNext. Showing the last saved status.',
+      );
+  // ───────── قسم الفواتير ─────────
+  static String get tabUnpaid => _t('غير مدفوعة', 'Unpaid');
+  static String get tabPartlyPaid => _t('مدفوعة جزئيًا', 'Partly paid');
+  static String get tabPaid => _t('مدفوعة', 'Paid');
+  static String get invoicesDraftEmptyTitle =>
+      _t('لا توجد فواتير مسودة', 'No draft invoices');
+  static String get invoicesDraftEmptyMessage => _t(
+        'فواتير المبيعات المسودة في ERPNext تظهر هنا إلى أن تُعتمد.',
+        'Draft sales invoices in ERPNext appear here until they are submitted.',
+      );
+  static String get invoicesUnpaidEmptyTitle =>
+      _t('لا توجد فواتير غير مدفوعة', 'No unpaid invoices');
+  static String get invoicesUnpaidEmptyMessage => _t(
+        'الفواتير التي لم يُدفع منها شيء تظهر هنا.',
+        'Invoices with no payment yet appear here.',
+      );
+  static String get invoicesPartlyEmptyTitle =>
+      _t('لا توجد فواتير مدفوعة جزئيًا', 'No partly paid invoices');
+  static String get invoicesPartlyEmptyMessage => _t(
+        'الفاتورة التي يُدفع جزء من مبلغها تنتقل إلى هنا.',
+        'An invoice moves here once part of it is paid.',
+      );
+  static String get invoicesPaidEmptyTitle =>
+      _t('لا توجد فواتير مدفوعة', 'No paid invoices');
+  static String get invoicesPaidEmptyMessage => _t(
+        'الفواتير التي سُدِّدت بالكامل تظهر هنا.',
+        'Fully paid invoices appear here.',
+      );
+  static String get amountDue => _t('المبلغ المستحق', 'Amount due');
+  static String get payAction => _t('دفع', 'Pay');
+  static String get payInvoiceTitle => _t('دفع فاتورة', 'Pay invoice');
+  static String get payAmountLabel =>
+      _t('المبلغ الذي تريد دفعه', 'Amount to pay');
+  static String get payNoteLabel => _t('ملاحظة (اختياري)', 'Note (optional)');
+  static String get payAmountRequired =>
+      _t('أدخل المبلغ', 'Enter the amount');
+  static String get payAmountPositive => _t(
+        'يجب أن يكون المبلغ أكبر من صفر',
+        'The amount must be greater than zero',
+      );
+  static String payAmountExceeds(String due) => _t(
+        'تنبيه: المبلغ أكبر من المستحق ($due). لا يمكن دفع أكثر من المستحق.',
+        'Warning: the amount is more than the amount due ($due). You cannot pay more than is due.',
+      );
+  static String get paySave => _t('حفظ الدفعة', 'Save payment');
+  static String get paymentSavedPending => _t(
+        'تم حفظ الدفعة. تتغير حالة الفاتورة ومستحقها بعد اعتمادها في ERPNext.',
+        'Payment saved. The invoice status and amount due change once it is approved in ERPNext.',
+      );
+  static String get paymentSaveFailed =>
+      _t('تعذّر حفظ الدفعة', 'Could not save the payment');
+  static String paymentPending(String amount) => _t(
+        'دفعة بانتظار الاعتماد في ERPNext: $amount',
+        'Payment awaiting approval in ERPNext: $amount',
+      );
+
+  // ───────── قسم التسليمات ─────────
+  static String get deliveriesDraftEmptyTitle =>
+      _t('لا توجد تسليمات مسودة', 'No draft deliveries');
+  static String get deliveriesDraftEmptyMessage => _t(
+        'سندات التسليم المسودة التي لم تُعتمد بعد في ERPNext تظهر هنا.',
+        'Draft delivery notes that are not yet approved in ERPNext appear here.',
+      );
+  static String get deliveriesToBillEmptyTitle =>
+      _t('لا توجد تسليمات بانتظار الفوترة', 'No deliveries waiting for billing');
+  static String get deliveriesToBillEmptyMessage => _t(
+        'الطلبية التي تُسلَّمها تظهر هنا إلى أن تُفوتَر.',
+        'Orders you deliver appear here until they are billed.',
+      );
+  static String get deliveriesCompletedEmptyTitle =>
+      _t('لا توجد فواتير مكتملة', 'No completed invoices');
+  static String get deliveriesCompletedEmptyMessage => _t(
+        'الطلبيات التي فوترتها تظهر هنا.',
+        'Orders you have billed appear here.',
+      );
+  static String get deliveryDraftStatus =>
+      _t('سند تسليم مسودة', 'Draft delivery note');
+  static String get bill => _t('فوترة', 'Bill');
+  static String get billTitle => _t('فوترة الطلبية؟', 'Bill this order?');
+  static String get billMessage => _t(
+        'ستُنشأ فاتورة مبيعات مسودة في ERPNext يعتمدها المسؤول هناك، وتنتقل الطلبية إلى «مكتملة».',
+        'A draft sales invoice will be created in ERPNext for the approver to submit, and the order moves to “Completed”.',
+      );
+  static String get orderBilled => _t(
+        'تم إنشاء الفاتورة وهي بانتظار الاعتماد في ERPNext',
+        'Invoice created and waiting for approval in ERPNext',
+      );
+  static String get invoiceAwaitingApproval => _t(
+        'فاتورة بانتظار الاعتماد',
+        'Invoice awaiting approval',
+      );
+  static String get billNoDeliveryNote => _t(
+        'لا يوجد سند تسليم معتمد لهذه الطلبية في ERPNext.',
+        'There is no approved delivery note for this order in ERPNext.',
+      );
+  static String paymentNoAccountForMode(String mode) => _t(
+        'لا يوجد حساب افتراضي لطريقة الدفع ($mode) في الشركة. اضبطه في ERPNext.',
+        'No default account for the mode of payment ($mode) in this company. Set it in ERPNext.',
+      );
+  static String get payWaitingInvoiceApproval => _t(
+        'الدفع يتفعّل بعد اعتماد الفاتورة في ERPNext',
+        'Payment is enabled once the invoice is approved in ERPNext',
+      );
+  static String get payFieldRequired =>
+      _t('هذا الحقل مطلوب', 'This field is required');
+  static String get payRefCheque => _t('رقم الشيك', 'Cheque number');
+  static String get payDateCheque => _t('تاريخ الشيك', 'Cheque date');
+  static String get payChequeBank => _t('بنك الشيك', 'Cheque bank');
+  static String get payDrawerName => _t('اسم الساحب', 'Drawer name');
+  static String get payRefCard =>
+      _t('رمز الموافقة أو العملية', 'Approval / transaction code');
+  static String get payDateCard => _t('تاريخ العملية', 'Transaction date');
+  static String get payCardLast4 =>
+      _t('آخر 4 أرقام من البطاقة', 'Card last 4 digits');
+  static String get payCardLast4Helper => _t(
+        'أدخل آخر 4 أرقام فقط. لا تُدخل رقم البطاقة كاملًا.',
+        'Enter only the last 4 digits. Never enter the full card number.',
+      );
+  static String get payCardLast4Invalid =>
+      _t('أدخل 4 أرقام بالضبط', 'Enter exactly 4 digits');
+  static String get payCardBrand =>
+      _t('نوع البطاقة (Visa, Mastercard…)', 'Card brand (Visa, Mastercard…)');
+  static String get payRefTransfer =>
+      _t('رقم مرجع التحويل', 'Transfer reference');
+  static String get payDateTransfer => _t('تاريخ التحويل', 'Transfer date');
+  static String get paySenderBank =>
+      _t('بنك المُحوِّل (اختياري)', 'Sender bank (optional)');
+  static String get payRefGeneric => _t('رقم المرجع', 'Reference number');
+  static String get payDateGeneric => _t('تاريخ المرجع', 'Reference date');
+  static String get billFailed =>
+      _t('تعذّرت فوترة الطلبية', 'Could not bill the order');
+  static String get billWaitingApproval => _t(
+        'الفوترة تتفعّل بعد اعتماد التسليم في ERPNext',
+        'Billing is enabled once the delivery is approved in ERPNext',
+      );
+  static String get comingSoon => _t('قريبًا', 'Coming soon');
+  static String get comingSoonMessage =>
+      _t('هذا القسم قيد الإعداد.', 'This section is being set up.');
   static String get settings => _t('الإعدادات', 'Settings');
 
   // ───────── شاشة العملاء ─────────
@@ -392,6 +576,9 @@ class AppStrings {
         'Credit Note Issued' => _t('أُصدر لها إشعار دائن', 'Credit note issued'),
         'Pending Upload' => _t('بانتظار الرفع', 'Waiting to upload'),
         'Submitted' => _t('معتمدة', 'Submitted'),
+        'To Deliver' => _t('بانتظار التسليم', 'Waiting for delivery'),
+        'To Bill' => _t('بانتظار الفوترة', 'Waiting for billing'),
+        'Completed' => _t('مكتملة', 'Completed'),
         _ => status,
       };
 

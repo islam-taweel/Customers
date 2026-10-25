@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import 'sales_invoice.dart';
 
+/// مراحل الطلبية: مسودة ← بانتظار التسليم ← بانتظار الفوترة ← مكتملة.
+/// ترتيب القيم هو ترتيب التبويبات في شاشة الطلبات.
+enum OrderStage { draft, toDeliver, toBill, completed }
+
 /// فاتورة واحدة محفوظة في قاعدة البيانات.
 /// اسم العميل ورقمه نسخة ثابتة (snapshot) لحظة الإنشاء،
 /// فلا تتغير الفاتورة إن عُدّل العميل بعد ذلك.
@@ -34,6 +38,23 @@ class Invoice {
   /// ملاحظات كُتبت على الطلبية قبل إرسالها (null = لا ملاحظات)
   final String? notes;
 
+  /// true = سُلِّمت الطلبية بالكامل (سند تسليم في ERPNext)
+  final bool delivered;
+
+  /// true = فُوتِرت الطلبية بالكامل (فاتورة مبيعات في ERPNext)
+  final bool billed;
+
+  /// رقم سند التسليم (Delivery Note) الذي أنشأه التطبيق لهذه الطلبية.
+  /// يبقى مسودة في ERPNext إلى أن يُعتمد هناك (null = لم يُنشأ من التطبيق)
+  final String? deliveryNote;
+
+  /// true = في ERPNext سند تسليم مسودة لهذه الطلبية لم يُعتمد بعد، أُنشئ خارج التطبيق
+  final bool deliveryDraft;
+
+  /// رقم فاتورة المبيعات (مسودة) التي أنشأها التطبيق للطلبية. يعتمدها المسؤول في
+  /// ERPNext، ولا يعود للطلبية «فوترة» إلا إن حُذفت (رُفضت) هناك.
+  final String? salesInvoice;
+
   const Invoice({
     this.id,
     required this.customerId,
@@ -48,7 +69,42 @@ class Invoice {
     this.submitted = false,
     this.currency,
     this.notes,
+    this.delivered = false,
+    this.billed = false,
+    this.deliveryNote,
+    this.deliveryDraft = false,
+    this.salesInvoice,
   });
+
+  /// مرحلة الطلبية الحالية، تحدد التبويب الذي تظهر فيه
+  OrderStage get stage {
+    if (!submitted) return OrderStage.draft;
+    if (!delivered) {
+      // أنشأ التطبيق سند تسليم لها: صارت بانتظار الفوترة (تُفعَّل بعد اعتماده)
+      return (deliveryNote ?? '').isNotEmpty
+          ? OrderStage.toBill
+          : OrderStage.toDeliver;
+    }
+    if (!billed && (salesInvoice ?? '').isEmpty) return OrderStage.toBill;
+    return OrderStage.completed;
+  }
+
+  /// سند تسليم مسودة في ERPNext أُنشئ خارج التطبيق ولم يُعتمد: يظهر في تبويب
+  /// «مسودة» بقسم التسليمات بلا أزرار
+  bool get isErpDeliveryDraft =>
+      submitted &&
+      !delivered &&
+      (deliveryNote ?? '').isEmpty &&
+      deliveryDraft;
+
+  /// الفوترة متاحة فقط بعد اعتماد سند التسليم في ERPNext (حينها تصير الطلبية «مُسلَّمة»)
+  bool get canBill =>
+      submitted &&
+      delivered &&
+      !billed &&
+      (salesInvoice ?? '').isEmpty &&
+      !pendingUpload &&
+      (orderId ?? '').isNotEmpty;
 
   /// رقم الفاتورة مشتق من الـ id المتسلسل، مثال: INV-00012
   String get number => 'INV-${(id ?? 0).toString().padLeft(5, '0')}';
@@ -68,6 +124,11 @@ class Invoice {
       'submitted': submitted ? 1 : 0,
       'currency': currency,
       'notes': notes,
+      'delivered': delivered ? 1 : 0,
+      'billed': billed ? 1 : 0,
+      'deliveryNote': deliveryNote,
+      'deliveryDraft': deliveryDraft ? 1 : 0,
+      'salesInvoice': salesInvoice,
     };
   }
 
@@ -86,6 +147,11 @@ class Invoice {
       submitted: (map['submitted'] as num?)?.toInt() == 1,
       currency: map['currency'] as String?,
       notes: map['notes'] as String?,
+      delivered: (map['delivered'] as num?)?.toInt() == 1,
+      billed: (map['billed'] as num?)?.toInt() == 1,
+      deliveryNote: map['deliveryNote'] as String?,
+      deliveryDraft: (map['deliveryDraft'] as num?)?.toInt() == 1,
+      salesInvoice: map['salesInvoice'] as String?,
     );
   }
 
@@ -122,12 +188,14 @@ class Invoice {
     }
   }
 
-  /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»، ثم «معتمدة»
-  String get _status => submitted
-      ? 'Submitted'
-      : pendingUpload
-          ? 'Pending Upload'
-          : 'Draft';
+  /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»،
+  /// وبعد الاعتماد: «بانتظار التسليم» ثم «بانتظار الفوترة» ثم «مكتملة»
+  String get _status => switch (stage) {
+        OrderStage.draft => pendingUpload ? 'Pending Upload' : 'Draft',
+        OrderStage.toDeliver => 'To Deliver',
+        OrderStage.toBill => 'To Bill',
+        OrderStage.completed => 'Completed',
+      };
 
   /// صف في قائمة فواتير العميل
   SalesInvoice toListEntry() => SalesInvoice(
@@ -163,6 +231,11 @@ class Invoice {
     String? deliveryDate,
     String? itemsJson,
     bool? submitted,
+    bool? delivered,
+    bool? billed,
+    String? deliveryNote,
+    bool? deliveryDraft,
+    String? salesInvoice,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -178,6 +251,11 @@ class Invoice {
       submitted: submitted ?? this.submitted,
       currency: currency,
       notes: notes,
+      delivered: delivered ?? this.delivered,
+      billed: billed ?? this.billed,
+      deliveryNote: deliveryNote ?? this.deliveryNote,
+      deliveryDraft: deliveryDraft ?? this.deliveryDraft,
+      salesInvoice: salesInvoice ?? this.salesInvoice,
     );
   }
 }

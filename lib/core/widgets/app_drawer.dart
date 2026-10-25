@@ -6,6 +6,11 @@ import '../localization/language_controller.dart';
 import '../../features/auth/controllers/auth_controller.dart';
 import '../../features/order/controllers/order_controller.dart';
 import '../../features/order/screens/new_order_screen.dart';
+import '../../features/orders_section/screens/orders_screen.dart';
+import '../../features/inventory/screens/inventory_screen.dart';
+import '../../features/purchases/screens/purchases_screen.dart';
+import '../constants/inventory_strings.dart';
+import '../constants/purchase_strings.dart';
 import '../../features/settings/screens/settings_screen.dart';
 
 /// القائمة الجانبية: الشعار بالأعلى، زر لوحة التحكم، ومبدّل اللغة بالأسفل.
@@ -27,6 +32,24 @@ class AppDrawer extends StatelessWidget {
     final controller = context.read<OrderControllerFactory>().create();
     navigator.pop(); // إغلاق القائمة
     navigator.push(NewOrderScreen.route(controller));
+  }
+
+  void _openOrdersSection(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(OrdersScreen.route());
+  }
+
+  void _openPurchases(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(PurchasesScreen.route());
+  }
+
+  void _openInventory(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(InventoryScreen.route());
   }
 
   void _openSettings(BuildContext context) {
@@ -127,7 +150,46 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
-            // 4) الإعدادات: مزامنة العملاء والأصناف والفواتير
+            // 4) الطلبات: الطلبيات والتسليمات والفواتير (شريط تنقل سفلي)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: Text(AppStrings.ordersSection),
+                onTap: () => _openOrdersSection(context),
+              ),
+            ),
+
+            // المشتريات: أوامر الشراء والاستلامات والفواتير (شريط تنقل سفلي)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.shopping_cart_outlined),
+                title: Text(PurchaseStrings.section),
+                onTap: () => _openPurchases(context),
+              ),
+            ),
+
+            // الجرد: الباركود (كتابة أو كاميرا) ثم تعديل كمية الصنف وسعره
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.qr_code_scanner),
+                title: Text(InventoryStrings.section),
+                onTap: () => _openInventory(context),
+              ),
+            ),
+
+            // 5) الإعدادات: مزامنة العملاء والأصناف والفواتير
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ListTile(
@@ -161,7 +223,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
-            // 5) زرّان متلاصقان للتبديل بين العربية والإنجليزية
+            // 6) زرّان متلاصقان للتبديل بين العربية والإنجليزية
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),
