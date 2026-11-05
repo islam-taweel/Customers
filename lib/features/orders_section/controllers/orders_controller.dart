@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/error_messages.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/invoice.dart';
 import '../../../data/repositories/erp_draft_repository.dart';
@@ -13,6 +14,17 @@ import '../../../data/repositories/erp_fulfillment_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../../data/repositories/pending_order_repository.dart';
 import '../../customers/controllers/draft_invoice_controller.dart';
+
+/// رسالة نجاح إرجاع الطلبية للتعديل، ومعها المبلغ الذي بقي في حساب العميل إن دفع.
+String reopenSuccessMessage(ReopenResult r) {
+  final reopened = AppStrings.orderReopened(r.orderId);
+  if (r.keptAmount <= 0.005) return reopened;
+  final amount = formatAmount(
+    r.keptAmount,
+    currency: displayCurrency(r.currency),
+  );
+  return '$reopened\n${AppStrings.amountKeptOnAccount(amount)}';
+}
 
 /// ينشئ متحكمًا جديدًا كلما فُتح قسم «الطلبات» (نفس نمط بقية المصانع).
 class OrdersControllerFactory {
@@ -231,6 +243,78 @@ class OrdersController extends ChangeNotifier {
     }
   }
 
+  /// هل يمكن إرجاع الطلبية للتعديل: أي طلبية معتمدة مرفوعة إلى ERPNext،
+  /// في أي مرحلة (بانتظار التسليم أو الفوترة أو مكتملة، مدفوعة أو لا).
+  bool canReopen(Invoice invoice) =>
+      invoice.submitted &&
+      !invoice.pendingUpload &&
+      (invoice.orderId ?? '').isNotEmpty;
+
+  /// يعيد طلبية معتمدة إلى مسودة: تُلغى فاتورتها وسند تسليمها والطلبية في ERPNext
+  /// وتُنشأ منها نسخة مسودة برقم جديد، فتعود إلى تبويب «مسودة» وتُعدَّل أصنافها.
+  /// المدفوع يبقى رصيدًا في حساب العميل ([ReopenResult.keptAmount]).
+  Future<({ReopenResult? result, String? error})> reopen(
+    Invoice invoice,
+  ) async {
+    if (!canReopen(invoice)) {
+      return (result: null, error: AppStrings.draftStateChanged);
+    }
+    return _reopen(() => _drafts.reopenOrder(invoice.orderId!), local: invoice);
+  }
+
+  /// من بطاقة فاتورة في قسم «الفواتير»: يجد طلبيتها (محليًا، وإلا من ERPNext) ويعيدها.
+  Future<({ReopenResult? result, String? error})> reopenFromSalesInvoice(
+    String invoiceName,
+  ) {
+    return _reopen(() async {
+      final local = _findLocal(salesInvoice: invoiceName);
+      final orderId = (local?.orderId ?? '').isNotEmpty
+          ? local!.orderId!
+          : await _drafts.orderOfInvoice(invoiceName);
+      return _drafts.reopenOrder(orderId);
+    });
+  }
+
+  Invoice? _findLocal({String? orderId, String? salesInvoice}) {
+    for (final i in _all) {
+      if (orderId != null && i.orderId == orderId) return i;
+      if (salesInvoice != null && i.salesInvoice == salesInvoice) return i;
+    }
+    return null;
+  }
+
+  Future<({ReopenResult? result, String? error})> _reopen(
+    Future<ReopenResult> Function() task, {
+    Invoice? local,
+  }) async {
+    try {
+      final result = await task();
+      // الطلبية قد تكون أُنشئت خارج التطبيق فلا نسخة محلية لها
+      final match = local ?? _findLocal(orderId: result.sourceOrderId);
+      if (match?.id != null) {
+        await _invoices.markReopened(match!.id!, result.orderId);
+      }
+      await reloadLocal();
+      return (result: result, error: null);
+    } on ErpApiException catch (e) {
+      debugPrint('OrdersController.reopen: $e');
+      if (e.type == ErpErrorType.network) {
+        return (result: null, error: AppStrings.draftNeedsConnection);
+      }
+      final detail = e.type == ErpErrorType.server ? e.detail : null;
+      final base = describeError(e, fallback: AppStrings.reopenFailed);
+      return (
+        result: null,
+        error: detail == null || detail.isEmpty
+            ? base
+            : '${AppStrings.reopenFailed}\n$detail',
+      );
+    } catch (e) {
+      debugPrint('OrdersController.reopen: $e');
+      return (result: null, error: AppStrings.reopenFailed);
+    }
+  }
+
   /// يمسح سند التسليم أو الفاتورة التي أنشأها التطبيق ثم لم تعد موجودة في ERPNext
   /// (حذفها المسؤول عند الرفض) أو أُلغيت.
   Future<void> _dropRejectedDocs(
@@ -244,10 +328,9 @@ class OrdersController extends ChangeNotifier {
           i,
     ];
     if (notes.isNotEmpty) {
-      final found = await _fulfillment.existingDocs(
-        'Delivery Note',
-        [for (final i in notes) i.deliveryNote!],
-      );
+      final found = await _fulfillment.existingDocs('Delivery Note', [
+        for (final i in notes) i.deliveryNote!,
+      ]);
       for (final i in notes) {
         final docstatus = found[i.deliveryNote];
         if (docstatus == null || docstatus == 2) {
@@ -263,10 +346,9 @@ class OrdersController extends ChangeNotifier {
           i,
     ];
     if (bills.isNotEmpty) {
-      final found = await _fulfillment.existingDocs(
-        'Sales Invoice',
-        [for (final i in bills) i.salesInvoice!],
-      );
+      final found = await _fulfillment.existingDocs('Sales Invoice', [
+        for (final i in bills) i.salesInvoice!,
+      ]);
       for (final i in bills) {
         final docstatus = found[i.salesInvoice];
         if (docstatus == null || docstatus == 2) {

@@ -78,7 +78,7 @@ class ErpApiClient {
     );
     try {
       final response = await _client
-          .get(uri, headers: {'Host': ErpConfig.hostHeader})
+          .get(uri)
           .timeout(const Duration(seconds: 5));
       _lastNetworkFailure = null;
       return response.statusCode < 500;
@@ -97,10 +97,9 @@ class ErpApiClient {
   /// حد أمان لحلقة جلب الصفحات حتى لا تدور بلا نهاية عند خلل في الخادم
   static const int _maxPages = 500;
 
-  /// كل طلب بعد الدخول يحمل كوكي الجلسة وترويسة Host (لا مفاتيح API).
+  /// كل طلب بعد الدخول يحمل كوكي الجلسة (لا مفاتيح API).
   Map<String, String> _headers(String sid) => {
         'Cookie': 'sid=$sid',
-        'Host': ErpConfig.hostHeader,
         'Accept': 'application/json',
       };
 
@@ -118,14 +117,19 @@ class ErpApiClient {
     String doctype, {
     required List<String> fields,
     List<List<Object>>? filters,
+    List<List<Object>>? orFilters,
     String? groupBy,
+    String? orderBy,
     int limitStart = 0,
     int limitPageLength = ErpConfig.pageSize,
   }) async {
     final uri = _uri([doctype], {
       'fields': jsonEncode(fields),
       if (filters != null) 'filters': jsonEncode(filters),
+      // يكفي أن يتحقق شرط واحد منها (مع كل شروط filters)
+      if (orFilters != null) 'or_filters': jsonEncode(orFilters),
       if (groupBy != null) 'group_by': groupBy,
+      if (orderBy != null) 'order_by': orderBy,
       'limit_start': '$limitStart',
       'limit_page_length': '$limitPageLength',
     });
@@ -143,7 +147,9 @@ class ErpApiClient {
     String doctype, {
     required List<String> fields,
     List<List<Object>>? filters,
+    List<List<Object>>? orFilters,
     String? groupBy,
+    String? orderBy,
   }) async {
     final all = <Map<String, dynamic>>[];
     var start = 0;
@@ -153,7 +159,9 @@ class ErpApiClient {
         doctype,
         fields: fields,
         filters: filters,
+        orFilters: orFilters,
         groupBy: groupBy,
+        orderBy: orderBy,
         limitStart: start,
       );
       all.addAll(rows);
@@ -281,6 +289,20 @@ class ErpApiClient {
         bytes[3] == 0x46;
     if (!isPdf) throw const ErpApiException(ErpErrorType.badResponse);
     return bytes;
+  }
+
+  /// ملف مرفوع في ERPNext (مثل صورة الموظف «/files/x.jpg» أو «/private/files/…»)
+  /// بكوكي الجلسة، فتعمل الملفات الخاصة أيضًا.
+  Future<Uint8List> downloadFile(String path) async {
+    final uri = Uri.parse(ErpConfig.baseUrl).replace(path: path);
+    final response = await _execute(
+      uri,
+      (headers) => _client.get(uri, headers: {...headers, 'Accept': '*/*'}),
+    );
+    if (response.bodyBytes.isEmpty) {
+      throw const ErpApiException(ErpErrorType.badResponse);
+    }
+    return response.bodyBytes;
   }
 
   Future<Map<String, dynamic>> _get(Uri uri) =>

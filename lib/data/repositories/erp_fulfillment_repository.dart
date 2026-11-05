@@ -117,6 +117,10 @@ class ErpFulfillmentRepository {
       {'source_name': note},
     );
     final draft = _cleanDoc(made['message']);
+    // رصيد العميل السابق (دفعات مقدمة/غير مخصصة) يخصصه ERPNext نفسه للفاتورة
+    // (advances، الأقدم أولًا)، فيصير المتبقي outstanding_amount صحيحًا من الخادم
+    // ولا يُخصم الرصيد مرتين: مرة على الفاتورة ومرة في رصيد الحساب.
+    draft['allocate_advances_automatically'] = 1;
     final created = await _api.postDoc('Sales Invoice', draft);
     final name = created['name']?.toString() ?? '';
     if (name.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);

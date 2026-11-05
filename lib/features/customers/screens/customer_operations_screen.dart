@@ -12,6 +12,7 @@ import '../controllers/customer_details_controller.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/operation_dialog.dart';
 import '../widgets/operation_tile.dart';
+import '../widgets/payments_tabs.dart';
 
 /// شاشة عمليات العميل (ديون ودفعات وسجلّها). كانت تبويبًا في تفاصيل العميل
 /// وصارت شاشة مستقلة تُفتح من زر «العمليات».
@@ -20,6 +21,8 @@ class CustomerOperationsScreen extends StatelessWidget {
 
   /// تشارك المتحكم نفسه مع شاشة التفاصيل، فيبقى الرصيد واحدًا في الشاشتين.
   static Route<void> route(CustomerDetailsController controller) {
+    // دفعات ERPNext (مسودة/معتمدة) تُحمَّل عند فتح الشاشة
+    controller.loadPayments();
     return MaterialPageRoute<void>(
       builder: (_) => ChangeNotifierProvider<CustomerDetailsController>.value(
         value: controller,
@@ -59,7 +62,9 @@ class CustomerOperationsScreen extends StatelessWidget {
         content: Text(
           !ok
               ? (controller.saveError ?? AppStrings.operationSaveFailed)
-              : AppStrings.paymentAdded,
+              : controller.lastSavedAsDraft
+                  ? AppStrings.paymentSavedDraft
+                  : AppStrings.paymentAdded,
         ),
       ),
     );
@@ -167,21 +172,30 @@ class CustomerOperationsScreen extends StatelessWidget {
               ),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              AppStrings.operationsLog,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        // عميل ERPNext: تحت زر الدفعة تبويبا «مسودة» و«معتمدة» من ERPNext
+        if (controller.isErpCustomer) ...[
+          const SizedBox(height: 12),
+          const PaymentsTabs(),
+        ] else ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                AppStrings.operationsLog,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
-        ),
-        const Divider(height: 1),
+          const Divider(height: 1),
+        ],
             ],
           ),
         ),
-        if (operations.isEmpty)
+        // العميل المحلي (غير المرتبط بـ ERPNext): سجل العمليات المحلي كما كان
+        if (controller.isErpCustomer)
+          const SliverToBoxAdapter(child: SizedBox.shrink())
+        else if (operations.isEmpty)
           // ارتفاع ثابت: EmptyView يستخدم LayoutBuilder، وهو لا يعمل داخل
           // SliverFillRemaining(hasScrollBody: false) لأنه لا يدعم الأبعاد الجوهرية
           SliverToBoxAdapter(

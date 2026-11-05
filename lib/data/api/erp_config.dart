@@ -8,21 +8,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ErpConfig {
   ErpConfig._();
 
-  /// الخادم الافتراضي: يُستخدم حين يُدخل المستخدم «اسم موقع» فقط.
-  /// من محاكي أندرويد استخدم http://10.0.2.2
+  /// الخادم الافتراضي: نفس العنوان على الهاتف الحقيقي والمحاكي، ومن أي شبكة.
   static const String _defaultServer = String.fromEnvironment(
     'ERP_BASE_URL',
-    defaultValue: 'http://192.168.1.130',
+    defaultValue: 'http://158.158.74.163',
   );
 
-  /// اسم الموقع الافتراضي قبل أن يدخل المستخدم شيئًا
-  static const String _defaultSite = String.fromEnvironment(
-    'ERP_HOST',
-    defaultValue: 'erp.local',
-  );
+  /// لا اسم موقع افتراضيًا: الخادم الجديد لا يحتاج ترويسة Host
+  static const String _defaultSite = String.fromEnvironment('ERP_HOST');
 
-  static const String _serverKey = 'erp_server_url';
-  static const String _siteKey = 'erp_site_name';
+  // مفاتيح جديدة (v2): عنوان الخادم القديم المحفوظ (192.168.1.130 / erp.local)
+  // لا يُقرأ بعد الانتقال إلى الخادم الجديد
+  static const String _serverKey = 'erp_server_url_v2';
+  static const String _siteKey = 'erp_site_name_v2';
 
   static String _server = _defaultServer;
   static String _site = _defaultSite;
@@ -32,15 +30,6 @@ class ErpConfig {
 
   /// ما يظهر في حقل الدخول: اسم الموقع إن وُجد، وإلا عنوان الخادم.
   static String get currentInput => _site.isNotEmpty ? _site : _server;
-
-  /// قيمة ترويسة Host. اسم الموقع إن أُدخل، وإلا مضيف عنوان الخادم نفسه
-  /// (مواقع يطابق اسمها نطاقها أو عنوانها).
-  static String get hostHeader {
-    if (_site.isNotEmpty) return _site;
-    final uri = Uri.tryParse(_server);
-    if (uri == null || uri.host.isEmpty) return _server;
-    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
-  }
 
   /// يقرأ المحفوظ عند بدء التطبيق، قبل أول طلب.
   static Future<void> loadSite() async {

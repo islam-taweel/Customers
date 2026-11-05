@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-
-/// ثيم التطبيق (Material 3).
+/// ثيم التطبيق (Material 3) من لون أساسي وسطوع.
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light => ThemeData(
+  /// fidelity: يبقى اللون الأساسي قريبًا من اللون المختار بدل تليينه
+  static ThemeData build(Color seed, Brightness brightness) => ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: AppColors.seed,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: brightness,
+          dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+        ),
       );
 }

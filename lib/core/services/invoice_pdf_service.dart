@@ -31,7 +31,7 @@ class InvoicePdfService {
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       if (data == null) throw StateError('تعذّر التقاط صورة الفاتورة');
-      return _buildPdf(data.buffer.asUint8List());
+      return await _buildPdf(data.buffer.asUint8List());
     } finally {
       image.dispose();
     }

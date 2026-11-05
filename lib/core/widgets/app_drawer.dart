@@ -9,21 +9,46 @@ import '../../features/order/screens/new_order_screen.dart';
 import '../../features/orders_section/screens/orders_screen.dart';
 import '../../features/inventory/screens/inventory_screen.dart';
 import '../../features/purchases/screens/purchases_screen.dart';
+import '../../features/sales_returns/screens/sales_returns_screen.dart';
 import '../constants/inventory_strings.dart';
 import '../constants/purchase_strings.dart';
-import '../../features/settings/screens/settings_screen.dart';
+import '../constants/returns_strings.dart';
+import '../constants/statement_strings.dart';
+import '../constants/ess_strings.dart';
+import '../constants/visit_strings.dart';
+import '../../features/employee_services/screens/employee_services_screen.dart';
+import '../constants/warehouse_strings.dart';
+import '../../features/home/screens/main_shell.dart';
+import '../../features/visits/screens/visits_screen.dart';
+import '../../features/warehouses/screens/warehouses_screen.dart';
+import '../../features/statement/screens/customer_statement_list_screen.dart';
 
-/// القائمة الجانبية: الشعار بالأعلى، زر لوحة التحكم، ومبدّل اللغة بالأسفل.
+/// القائمة الجانبية: الشعار بالأعلى، الرئيسية ولوحة التحكم وبقية الأقسام، ومبدّل اللغة بالأسفل.
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
   static const _logoAsset = 'assets/splash/logo.png';
 
-  void _openDashboard(BuildContext context) {
+  /// تبويب في الشريط السفلي (الرئيسية أو لوحة التحكم أو الإعدادات)
+  void _openTab(BuildContext context, ShellTab tab) {
+    final navigator = Navigator.of(context);
+    // قبل الإغلاق: القائمة ما زالت داخل الهيكل
+    MainShell.select(context, tab);
+    navigator.pop(); // إغلاق القائمة
+    navigator.popUntil((route) => route.isFirst);
+  }
+
+  void _openEmployeeServices(BuildContext context) {
     final navigator = Navigator.of(context);
     navigator.pop(); // إغلاق القائمة
-    // لوحة التحكم = شاشة العملاء (أول شاشة في التطبيق)
-    navigator.popUntil((route) => route.isFirst);
+    navigator.push(EmployeeServicesScreen.route());
+  }
+
+  void _openVisits(BuildContext context) {
+    final navigator = Navigator.of(context);
+    final route = VisitsScreen.route(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(route);
   }
 
   void _openOrders(BuildContext context) {
@@ -40,6 +65,18 @@ class AppDrawer extends StatelessWidget {
     navigator.push(OrdersScreen.route());
   }
 
+  void _openSalesReturns(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(SalesReturnsScreen.route());
+  }
+
+  void _openStatements(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(CustomerStatementListScreen.route());
+  }
+
   void _openPurchases(BuildContext context) {
     final navigator = Navigator.of(context);
     navigator.pop(); // إغلاق القائمة
@@ -52,10 +89,11 @@ class AppDrawer extends StatelessWidget {
     navigator.push(InventoryScreen.route());
   }
 
-  void _openSettings(BuildContext context) {
+  void _openWarehouses(BuildContext context) {
     final navigator = Navigator.of(context);
+    final route = WarehousesScreen.route(context);
     navigator.pop(); // إغلاق القائمة
-    navigator.push(SettingsScreen.route());
+    navigator.push(route);
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
@@ -103,7 +141,29 @@ class AppDrawer extends StatelessWidget {
 
     return Drawer(
       child: SafeArea(
-        child: Column(
+        // تتمرر إن زادت العناصر عن ارتفاع الشاشة (الهواتف الصغيرة)، وإلا يبقى
+        // تسجيل الخروج واللغة في الأسفل كما كانا
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: _items(context, current, fullName, errorColor),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _items(
+    BuildContext context,
+    AppLanguage current,
+    String? fullName,
+    Color errorColor,
+  ) {
+    return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1) الشعار في الأعلى بالمنتصف
@@ -121,19 +181,42 @@ class AppDrawer extends StatelessWidget {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
+            // الرئيسية: الترحيب ومواعيد اليوم
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.home_outlined),
+                title: Text(VisitStrings.home),
+                onTap: () => _openTab(context, ShellTab.home),
+              ),
+            ),
+
             // 2) لوحة التحكم (= شاشة العملاء)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ListTile(
-                selected: true,
-                selectedTileColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
                 ),
                 leading: const Icon(Icons.dashboard_outlined),
                 title: Text(AppStrings.dashboard),
-                onTap: () => _openDashboard(context),
+                onTap: () => _openTab(context, ShellTab.dashboard),
+              ),
+            ),
+
+            // المواعيد: زيارات العملاء (إنشاء وتعديل وإلغاء)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.event_note_outlined),
+                title: Text(VisitStrings.section),
+                onTap: () => _openVisits(context),
               ),
             ),
 
@@ -163,6 +246,32 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
+            // مردود المبيعات: اختيار عميل سابق وعرض كل أصنافه بكمياتها
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.assignment_return_outlined),
+                title: Text(ReturnsStrings.section),
+                onTap: () => _openSalesReturns(context),
+              ),
+            ),
+
+            // كشف حساب العملاء: كل العملاء ← كشف حساب العميل من ERPNext
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.request_page_outlined),
+                title: Text(StatementStrings.section),
+                onTap: () => _openStatements(context),
+              ),
+            ),
+
             // المشتريات: أوامر الشراء والاستلامات والفواتير (شريط تنقل سفلي)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -189,6 +298,32 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
 
+            // المستودعات: أصناف كل مستودع بكمياتها، ونقل الأصناف بينها
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.warehouse_outlined),
+                title: Text(WarehouseStrings.section),
+                onTap: () => _openWarehouses(context),
+              ),
+            ),
+
+            // خدمات الموظف: حسابي، الحضور والانصراف، الإجازات، العمل الإضافي...
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.badge_outlined),
+                title: Text(EssStrings.section),
+                onTap: () => _openEmployeeServices(context),
+              ),
+            ),
+
             // 5) الإعدادات: مزامنة العملاء والأصناف والفواتير
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -198,7 +333,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 leading: const Icon(Icons.settings_outlined),
                 title: Text(AppStrings.settings),
-                onTap: () => _openSettings(context),
+                onTap: () => _openTab(context, ShellTab.settings),
               ),
             ),
 
@@ -244,8 +379,6 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 }

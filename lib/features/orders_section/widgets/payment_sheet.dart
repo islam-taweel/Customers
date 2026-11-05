@@ -73,7 +73,12 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   SalesInvoice get _invoice => widget.invoice;
   double get _due => _invoice.outstandingAmount;
   String get _dueText =>
-      formatAmount(_due, currency: displayCurrency(_invoice.currency));
+      formatAmount(
+        _due,
+        currency: displayCurrency(
+          _invoice.settlement?.displayIn(_invoice.currency) ?? _invoice.currency,
+        ),
+      );
   _ModeKind get _kind => _kindOf(_mode);
 
   @override

@@ -78,6 +78,26 @@ class InvoiceRepository {
     );
   }
 
+  /// أُعيدت الطلبية المعتمدة مسودة في ERPNext (إلغاء ثم Amend): تحمل رقمها الجديد
+  /// وتعود إلى تبويب «مسودة» بلا أي أثر للتسليم أو الفوترة.
+  Future<void> markReopened(int id, String newOrderId) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      _invoices,
+      {
+        'orderId': newOrderId,
+        'submitted': 0,
+        'delivered': 0,
+        'billed': 0,
+        'deliveryNote': null,
+        'deliveryDraft': 0,
+        'salesInvoice': null,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   /// بعد تسليم الطلبية: تنتقل إلى «بانتظار الفوترة».
   Future<void> markDelivered(int id) async {
     final db = await _dbHelper.database;

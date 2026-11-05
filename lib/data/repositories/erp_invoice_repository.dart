@@ -78,6 +78,15 @@ class ErpInvoiceRepository {
     'outstanding_amount',
     'status',
     'currency',
+    // قيمة الفاتورة والمسدد من رصيد سابق (InvoiceSettlement.fields)
+    'party_account_currency',
+    'rounded_total',
+    'base_grand_total',
+    'base_rounded_total',
+    'disable_rounded_total',
+    'total_advance',
+    'write_off_amount',
+    'base_write_off_amount',
   ];
 
   _Directory? _directory;

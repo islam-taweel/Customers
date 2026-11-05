@@ -1,6 +1,7 @@
 import '../../core/constants/app_strings.dart';
 import '../api/erp_api_client.dart';
 import '../api/erp_config.dart';
+import '../models/payment_entry.dart';
 
 /// نتيجة تسجيل دفعة في ERPNext: رقم المستند، وما يقابلها بعملة حساب العميل.
 class PaymentEntryResult {
@@ -178,6 +179,46 @@ class ErpPaymentRepository {
       accountCurrency: paidFromCurrency,
       accountAmount: paidAmount,
     );
+  }
+
+  /// دفعات العميل (Receive) مسودة ومعتمدة، الأحدث أولًا.
+  Future<List<PaymentEntrySummary>> fetchCustomerPayments(
+    String customerErpId,
+  ) async {
+    final rows = await _api.getAll(
+      _doctype,
+      fields: PaymentEntrySummary.fields,
+      filters: [
+        ['party_type', '=', 'Customer'],
+        ['party', '=', customerErpId],
+        ['payment_type', '=', 'Receive'],
+        [
+          'docstatus',
+          'in',
+          [0, 1],
+        ],
+      ],
+      orderBy: 'posting_date desc, creation desc',
+    );
+    return [for (final r in rows) PaymentEntrySummary.fromJson(r)];
+  }
+
+  /// يعتمد دفعة مسودة (frappe.client.submit يحتاج المستند كاملًا بآخر `modified`)
+  /// ويعيد المستند المعتمد. يرمي [ErpApiException] (مثل: المبلغ أكبر من المستحق).
+  Future<Map<String, dynamic>> submitPaymentEntry(String name) async {
+    final doc = await _api.getDoc(_doctype, name);
+    final res = await _api.postMethod('frappe.client.submit', {'doc': doc});
+    final message = res['message'];
+    return message is Map ? Map<String, dynamic>.from(message) : doc;
+  }
+
+  /// يحذف دفعة مسودة. المحذوفة أصلًا (404) تُعدّ نجاحًا.
+  Future<void> deletePaymentEntry(String name) async {
+    try {
+      await _api.deleteDoc(_doctype, name);
+    } on ErpApiException catch (e) {
+      if (e.type != ErpErrorType.notFound) rethrow;
+    }
   }
 
   /// عملة حساب العميل في ERPNext (party_account_currency): العملة التي يُسدَّد بها

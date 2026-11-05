@@ -53,7 +53,6 @@ class ErpAuthService {
           .post(
             _uri('login'),
             headers: {
-              'Host': ErpConfig.hostHeader,
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
@@ -94,7 +93,6 @@ class ErpAuthService {
           _uri('logout'),
           headers: {
             'Cookie': 'sid=$sid',
-            'Host': ErpConfig.hostHeader,
             'Accept': 'application/json',
           },
         ).timeout(ErpConfig.requestTimeout);

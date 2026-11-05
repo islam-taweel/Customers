@@ -11,7 +11,8 @@ import 'core/localization/language_controller.dart';
 import 'core/localization/rebuild_all.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/whatsapp_launcher.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
+import 'core/utils/palestine_time.dart';
 import 'data/api/erp_api_client.dart';
 import 'data/api/erp_auth_service.dart';
 import 'data/api/erp_config.dart';
@@ -22,13 +23,19 @@ import 'data/repositories/customer_repository.dart';
 import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
 import 'data/repositories/erp_draft_repository.dart';
+import 'data/repositories/erp_employee_repository.dart';
 import 'data/repositories/erp_fulfillment_repository.dart';
 import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
+import 'data/repositories/erp_ledger_repository.dart';
+import 'data/repositories/erp_statement_repository.dart';
+import 'data/repositories/erp_visit_repository.dart';
+import 'data/repositories/erp_warehouse_repository.dart';
 import 'data/repositories/erp_lookup_repository.dart';
 import 'data/repositories/erp_payment_repository.dart';
 import 'data/repositories/erp_purchases_repository.dart';
 import 'data/repositories/erp_sales_invoices_repository.dart';
+import 'data/repositories/erp_sales_returns_repository.dart';
 import 'data/repositories/outstanding_repository.dart';
 import 'data/repositories/erp_order_repository.dart';
 import 'data/repositories/invoice_repository.dart';
@@ -43,6 +50,9 @@ import 'features/order/controllers/order_controller.dart';
 import 'features/orders_section/controllers/orders_controller.dart';
 import 'features/orders_section/controllers/sales_invoices_controller.dart';
 import 'features/purchases/controllers/purchases_controller.dart';
+import 'features/sales_returns/controllers/sales_returns_controller.dart';
+import 'features/visits/controllers/visits_controller.dart';
+import 'features/warehouses/controllers/warehouses_controller.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -52,9 +62,14 @@ Future<void> main() async {
 
   // اللغة المحفوظة (العربية افتراضيًا) تُحمَّل أولًا حتى تظهر النصوص بلغتها من أول إطار
   final languageController = await LanguageController.load();
+  // الثيم المحفوظ (فاتح سماوي افتراضيًا)، قبل أول إطار أيضًا
+  final themeController = await ThemeController.load();
 
   // اسم موقع المستخدم المحفوظ (ترويسة Host): قبل أي طلب إلى الخادم
   await ErpConfig.loadSite();
+
+  // توقيت فلسطين (Asia/Hebron) لكل أوقات خدمات الموظف المرسلة إلى ERPNext
+  PalestineTime.init();
 
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
   final dbHelper = DatabaseHelper.instance;
@@ -146,6 +161,11 @@ Future<void> main() async {
     invoiceRepository,
   );
 
+  // قسم «مردود المبيعات»: فاتورة العميل ← إشعار دائن وإرجاع بضاعة (مسودات) ← رد المال
+  final salesReturnsFactory = SalesReturnsControllerFactory(
+    ErpSalesReturnsRepository(erpApi, cacheStore, lookupRepository),
+  );
+
   // قسم «المشتريات»: أوامر الشراء والاستلامات والفواتير ودفعات الموردين
   // (الاستلام والفاتورة والدفعة تُحفظ مسودة ويعتمدها ERPNext)
   final purchasesFactory = PurchasesControllerFactory(
@@ -157,6 +177,24 @@ Future<void> main() async {
     ErpInventoryRepository(erpApi),
   );
 
+  // قسم «المستودعات»: أصناف كل مستودع ونقلها بين المستودعات (مسودة ثم اعتماد)
+  final warehousesFactory = WarehousesControllerFactory(
+    ErpWarehouseRepository(erpApi),
+  );
+
+  // مواعيد زيارات العملاء (Event): الرئيسية وقسم «المواعيد»
+  final visitsFactory = VisitsControllerFactory(
+    ErpVisitRepository(erpApi, erpCustomers),
+  );
+
+  // خدمات الموظف: بيانات الموظف المرتبط بالمستخدم (حسابي)
+  final employeeRepository = ErpEmployeeRepository(erpApi);
+
+  // القيود المحاسبية (GL Entry) للقراءة فقط: شاشة القيود وملخص فواتير الطلبية
+  final ledgerRepository = ErpLedgerRepository(erpApi);
+  // كشف حساب العملاء (GL Entry) وتفاصيل المستندات: قراءة فقط
+  final statementRepository = ErpStatementRepository(erpApi, erpCustomers);
+
   // جلب أول 20 عميل (وإجمالي الديون) قبل عرض أي شيء.
   // الـ timeout حماية فقط: إن تأخر التحميل تظهر الشاشة بمؤشر التحميل
   // بدل بقاء الـ splash إلى الأبد.
@@ -166,17 +204,23 @@ Future<void> main() async {
   );
 
   // عند كل دخول (ومن بدء التطبيق إن كانت الجلسة محفوظة): مزامنة العملاء من ERPNext
-  // في الخلفية، فتظهر القائمة المحلية فورًا ثم تتحدث، ورفع الطلبيات المنتظرة.
-  // عند الخروج أو انتهاء الجلسة: نغلق كل الشاشات المفتوحة فوق البوابة.
+  // في الخلفية، فتظهر القائمة المحلية فورًا ثم تتحدث. بعدها تبدأ المزامنة
+  // التلقائية الكاملة (العملاء والأصناف والفواتير ورفع الطلبيات) ما دام الاتصال متاحًا.
+  // عند الخروج أو انتهاء الجلسة: تتوقف المزامنة ونغلق كل الشاشات فوق البوابة.
   final navigatorKey = GlobalKey<NavigatorState>();
   var wasAuthenticated = false;
   void onAuthChanged() {
     final isAuthenticated = authController.isAuthenticated;
     if (isAuthenticated && !wasAuthenticated) {
-      unawaited(customersController.syncFromApi());
-      unawaited(syncService.pushPending());
+      // بالتتابع حتى لا تكتب المزامنتان جدول العملاء معًا
+      unawaited(
+        customersController.syncFromApi().whenComplete(
+              () => syncService.setEnabled(authController.isAuthenticated),
+            ),
+      );
     }
     if (!isAuthenticated) {
+      syncService.setEnabled(false);
       navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
     wasAuthenticated = isAuthenticated;
@@ -193,12 +237,19 @@ Future<void> main() async {
       customersController: customersController,
       detailsFactory: detailsFactory,
       languageController: languageController,
+      themeController: themeController,
+      ledgerRepository: ledgerRepository,
+      statementRepository: statementRepository,
       invoiceRepository: invoiceRepository,
       orderFactory: orderFactory,
       ordersFactory: ordersFactory,
       salesInvoicesFactory: salesInvoicesFactory,
+      salesReturnsFactory: salesReturnsFactory,
       purchasesFactory: purchasesFactory,
       inventoryFactory: inventoryFactory,
+      warehousesFactory: warehousesFactory,
+      visitsFactory: visitsFactory,
+      employeeRepository: employeeRepository,
       syncService: syncService,
       authController: authController,
       navigatorKey: navigatorKey,
@@ -213,12 +264,19 @@ class DebtsApp extends StatelessWidget {
   final CustomersController customersController;
   final CustomerDetailsControllerFactory detailsFactory;
   final LanguageController languageController;
+  final ThemeController themeController;
+  final ErpLedgerRepository ledgerRepository;
+  final ErpStatementRepository statementRepository;
   final InvoiceRepository invoiceRepository;
   final OrderControllerFactory orderFactory;
   final OrdersControllerFactory ordersFactory;
   final SalesInvoicesControllerFactory salesInvoicesFactory;
+  final SalesReturnsControllerFactory salesReturnsFactory;
   final PurchasesControllerFactory purchasesFactory;
   final InventoryControllerFactory inventoryFactory;
+  final WarehousesControllerFactory warehousesFactory;
+  final VisitsControllerFactory visitsFactory;
+  final ErpEmployeeRepository employeeRepository;
   final SyncService syncService;
   final AuthController authController;
   final GlobalKey<NavigatorState> navigatorKey;
@@ -228,12 +286,19 @@ class DebtsApp extends StatelessWidget {
     required this.customersController,
     required this.detailsFactory,
     required this.languageController,
+    required this.themeController,
+    required this.ledgerRepository,
+    required this.statementRepository,
     required this.invoiceRepository,
     required this.orderFactory,
     required this.ordersFactory,
     required this.salesInvoicesFactory,
+    required this.salesReturnsFactory,
     required this.purchasesFactory,
     required this.inventoryFactory,
+    required this.warehousesFactory,
+    required this.visitsFactory,
+    required this.employeeRepository,
     required this.syncService,
     required this.authController,
     required this.navigatorKey,
@@ -252,6 +317,10 @@ class DebtsApp extends StatelessWidget {
         Provider<CustomerDetailsControllerFactory>.value(value: detailsFactory),
         // مستودع الفواتير: تأخذه شاشة التفاصيل لإنشاء متحكم فواتير لكل عميل
         Provider<InvoiceRepository>.value(value: invoiceRepository),
+        // القيود المحاسبية من ERPNext (قراءة فقط)
+        Provider<ErpLedgerRepository>.value(value: ledgerRepository),
+        // كشف حساب العملاء وتفاصيل المستندات (قراءة فقط)
+        Provider<ErpStatementRepository>.value(value: statementRepository),
         // ينشئ متحكم طلبية جديدة كلما فُتحت شاشة «طلبيات العملاء»
         Provider<OrderControllerFactory>.value(value: orderFactory),
         // ينشئ متحكم قسم «الطلبات» كلما فُتح
@@ -260,10 +329,20 @@ class DebtsApp extends StatelessWidget {
         Provider<SalesInvoicesControllerFactory>.value(
           value: salesInvoicesFactory,
         ),
+        // ينشئ متحكمات قسم «مردود المبيعات» كلما فُتح
+        Provider<SalesReturnsControllerFactory>.value(
+          value: salesReturnsFactory,
+        ),
         // ينشئ متحكم قسم «المشتريات» كلما فُتح
         Provider<PurchasesControllerFactory>.value(value: purchasesFactory),
         // ينشئ متحكم قسم «الجرد» كلما فُتح
         Provider<InventoryControllerFactory>.value(value: inventoryFactory),
+        // ينشئ متحكمات قسم «المستودعات» كلما فُتح
+        Provider<WarehousesControllerFactory>.value(value: warehousesFactory),
+        // ينشئ متحكمات المواعيد (الرئيسية وقسم «المواعيد» والنموذج)
+        Provider<VisitsControllerFactory>.value(value: visitsFactory),
+        // خدمات الموظف من ERPNext: حسابي، البصمة، الحضور، الطلبات، الإجازات، العمل الإضافي
+        Provider<ErpEmployeeRepository>.value(value: employeeRepository),
         // المزامنة: شاشة الإعدادات تقرأ حالتها وتشغّلها
         ChangeNotifierProvider<SyncService>.value(value: syncService),
         // حالة تسجيل الدخول: البوابة وشاشة الدخول والقائمة الجانبية
@@ -272,13 +351,15 @@ class DebtsApp extends StatelessWidget {
         ChangeNotifierProvider<LanguageController>.value(
           value: languageController,
         ),
+        // الثيم: داكن / فاتح / مخصص (يُغيَّر من الإعدادات)
+        ChangeNotifierProvider<ThemeController>.value(value: themeController),
       ],
-      child: Consumer<LanguageController>(
-        builder: (context, language, _) => MaterialApp(
+      child: Consumer2<LanguageController, ThemeController>(
+        builder: (context, language, theme, _) => MaterialApp(
           title: AppStrings.appName,
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
+          theme: theme.theme,
           locale: language.locale,
           supportedLocales: const [Locale('ar'), Locale('en')],
           localizationsDelegates: const [

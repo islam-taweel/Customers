@@ -117,6 +117,12 @@ class InvoiceDetailsController extends ChangeNotifier {
   Future<Uint8List> downloadServerPdf() =>
       _repository.downloadPdf(doctype, invoiceName);
 
+  /// زر «القيود المحاسبية» في كل الحالات: فاتورة ERPNext (معتمدة أو مسودة؛ المسودة
+  /// تُعرض «بانتظار الاعتماد» دون طلب قيودها)، أو طلبية رُفعت إلى ERPNext
+  /// (قيود تسليمها وفوترتها ودفعاتها). الطلبية غير المرفوعة (INV-…) لا رقم لها هناك.
+  bool get hasGlEntries =>
+      doctype == 'Sales Invoice' || !invoiceName.startsWith('INV-');
+
   bool _isStale(int requestId) => _disposed || requestId != _requestId;
 
   void _notify() {

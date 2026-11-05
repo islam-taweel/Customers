@@ -18,12 +18,15 @@ import '../../features/customers/controllers/customers_controller.dart';
 import '../constants/app_strings.dart';
 import '../utils/error_messages.dart';
 
-/// ينسّق المزامنة بين الجهاز و ERPNext:
+/// ينسّق المزامنة بين الجهاز و ERPNext، وكلها **تلقائية** ما دام الخادم متاحًا:
 ///
-/// * **التنزيل** (العملاء، الأصناف، الفواتير) يدويًا من شاشة الإعدادات، ويُحفظ
-///   كله محليًا فيعمل التطبيق دون اتصال.
-/// * **الرفع**: الطلبيات المنشأة دون اتصال تُرفع **تلقائيًا** عند عودة الاتصال
-///   (مؤقّت كل 30 ثانية + عند فتح التطبيق + بعد كل حفظ دون اتصال).
+/// * **التنزيل** (العملاء، الأصناف، الفواتير): بعد الدخول، وعند عودة الاتصال،
+///   وعند الرجوع للتطبيق، وكل 15 دقيقة (وبعد دقيقتين إن فشلت). يُحفظ كله محليًا
+///   فيعمل التطبيق دون اتصال.
+/// * **الرفع**: الطلبيات المنشأة دون اتصال تُرفع عند عودة الاتصال
+///   (فحص كل 30 ثانية + عند فتح التطبيق + بعد كل حفظ دون اتصال).
+///
+/// توفر الاتصال يُعرف بفحص الخادم نفسه (ping) كل 30 ثانية والتطبيق في المقدمة.
 class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   SyncService({
     required ErpApiClient api,
@@ -55,7 +58,9 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   final PendingOrderRepository _pending;
   final ErpCacheStore _cache;
 
-  static const Duration _autoPushInterval = Duration(seconds: 30);
+  static const Duration _checkInterval = Duration(seconds: 30);
+  static const Duration _autoSyncInterval = Duration(minutes: 15);
+  static const Duration _retryInterval = Duration(minutes: 2);
 
   final Map<SyncSection, SectionStatus> _status = {
     for (final s in SyncSection.values) s: SectionStatus(),
@@ -68,7 +73,26 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   int _failedCount = 0;
   int _lastPushFailed = 0;
 
+  /// المزامنة التلقائية تعمل فقط والمستخدم مسجّل الدخول (يضبطها main)
+  bool _enabled = false;
+  bool _initialized = false;
+  bool _foreground = true;
+  bool _checking = false;
+  bool _syncingAll = false;
+
+  /// null = لم يُفحص بعد
+  bool? _online;
+
+  /// موعد المزامنة الكاملة التالية (null = الآن)
+  DateTime? _nextFullSync;
+
   SectionStatus status(SyncSection section) => _status[section]!;
+
+  /// آخر نتيجة لفحص الخادم (null = لم يُفحص بعد)
+  bool? get online => _online;
+
+  /// مزامنة كاملة (العملاء ← الأصناف ← الفواتير) جارية الآن
+  bool get syncingAll => _syncingAll;
 
   /// طلبيات محفوظة محليًا وتنتظر الرفع
   int get pendingCount => _pendingCount;
@@ -96,15 +120,80 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
     _timer?.cancel();
-    _timer = Timer.periodic(_autoPushInterval, (_) => pushPending());
+    _timer = Timer.periodic(_checkInterval, (_) => _tick());
+    _initialized = true;
 
-    // طلبيات من جلسة سابقة: نحاول رفعها فورًا
-    if (_pendingCount > 0) unawaited(pushPending());
+    // أول فحص فورًا: مزامنة كاملة إن كان المستخدم داخلًا والخادم متاحًا
+    unawaited(_tick());
+  }
+
+  /// يستدعيه main عند الدخول/الخروج. الدخول يبدأ مزامنة كاملة فورًا.
+  void setEnabled(bool enabled) {
+    if (enabled == _enabled) return;
+    _enabled = enabled;
+    if (enabled) {
+      _nextFullSync = null;
+      if (_initialized) unawaited(_tick());
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(pushPending());
+    _foreground = state == AppLifecycleState.resumed;
+    // الرجوع للتطبيق: فحص فوري، ومزامنة كاملة إن مرّ وقتها
+    if (_foreground) unawaited(_tick());
+  }
+
+  // ───────────────────────── المزامنة التلقائية ─────────────────────────
+
+  /// يفحص الخادم، ثم: مزامنة كاملة إن عاد الاتصال أو حان موعدها، وإلا رفع
+  /// الطلبيات المعلّقة فقط. لا يعمل مرتين معًا.
+  Future<void> _tick() async {
+    if (!_enabled || !_foreground || _disposed || _checking || _syncingAll) {
+      return;
+    }
+    _checking = true;
+    try {
+      final online = await _api.ping();
+      if (_disposed) return;
+      final cameBack = online && _online == false;
+      if (online != _online) {
+        _online = online;
+        _notify();
+      }
+      if (!online) return;
+
+      // عاد الاتصال بعد انقطاع: لا ننتظر الموعد
+      if (cameBack) _nextFullSync = null;
+      final next = _nextFullSync;
+      if (next == null || !DateTime.now().isBefore(next)) {
+        await _syncAll();
+      } else if (_pendingCount > 0) {
+        await pushPending();
+      }
+    } finally {
+      _checking = false;
+    }
+  }
+
+  /// العملاء ← الأصناف ← الفواتير (تشمل رفع الطلبيات). الموعد التالي بعد
+  /// 15 دقيقة، أو دقيقتين إن فشل قسم.
+  Future<void> _syncAll() async {
+    _syncingAll = true;
+    _notify();
+    try {
+      await syncCustomers();
+      if (!_enabled || _disposed) return;
+      await syncItems();
+      if (!_enabled || _disposed) return;
+      await syncInvoices();
+    } finally {
+      final failed = SyncSection.values.any((s) => _status[s]!.error != null);
+      _nextFullSync =
+          DateTime.now().add(failed ? _retryInterval : _autoSyncInterval);
+      _syncingAll = false;
+      _notify();
+    }
   }
 
   String _metaKey(SyncSection s) => 'sync:${s.name}';
@@ -208,7 +297,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ───────────────────────── المزامنة اليدوية ─────────────────────────
+  // ───────────────────────── أقسام المزامنة ─────────────────────────
 
   Future<void> syncCustomers() {
     return _run(SyncSection.customers, (report) async {

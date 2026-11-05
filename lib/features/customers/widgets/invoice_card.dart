@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/sales_invoice.dart';
 
@@ -19,7 +20,9 @@ class InvoiceCard extends StatelessWidget {
   final String? status;
   final List<InvoiceItem> items;
   final double? taxes;
-  final double? outstanding;
+
+  /// قيمة الفاتورة والمسدد من رصيد سابق والمدفوع والمتبقي (null = طلبية محلية)
+  final InvoiceSettlement? settlement;
 
   /// عملة الفاتورة (null = الشيكل)
   final String? currency;
@@ -38,7 +41,7 @@ class InvoiceCard extends StatelessWidget {
     this.status,
     this.items = const [],
     this.taxes,
-    this.outstanding,
+    this.settlement,
     this.currency,
     this.notes,
   });
@@ -49,7 +52,12 @@ class InvoiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasTaxes = taxes != null && taxes != 0;
-    final hasOutstanding = outstanding != null && outstanding! > 0;
+    final s = settlement;
+    // عملة الحساب إن اختلفت عن عملة الفاتورة (ERPNext يحسب المتبقي بها)
+    final sCurrency =
+        (s == null || s.currency.isEmpty) ? currency : displayCurrency(s.currency);
+    // الفاتورة ورقة بيضاء دائمًا: نلوّنها بلون الثيم نفسه (يُقرأ على الأبيض بكل الأوضاع)
+    final accent = context.watch<ThemeController>().activeColor.color;
 
     return Container(
       width: double.infinity,
@@ -69,8 +77,8 @@ class InvoiceCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     AppStrings.appName,
-                    style: const TextStyle(
-                      color: AppColors.seed,
+                    style: TextStyle(
+                      color: accent,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -124,27 +132,47 @@ class InvoiceCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    AppStrings.invoiceAmount,
+                    s != null ? AppStrings.invoiceTotalValue : AppStrings.invoiceAmount,
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Text(
                   formatSignedAmount(amount, currency: currency),
                   textDirection: TextDirection.ltr,
-                  style: const TextStyle(
-                    color: AppColors.seed,
+                  style: TextStyle(
+                    color: accent,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            if (hasOutstanding)
+            // كل مبلغ في سطر مستقل: قيمة الفاتورة أعلاه كاملة، والمتبقي كما في ERPNext
+            if (s != null) ...[
+              if (s.currency.isNotEmpty)
+                _InfoRow(
+                  label: AppStrings.invoiceTotalValue,
+                  value: formatAmount(s.total, currency: displayCurrency(s.currency)),
+                  isLtr: true,
+                ),
+              if (s.fromAdvance > 0.005)
+                _InfoRow(
+                  label: AppStrings.invoicePaidFromCredit,
+                  value: formatAmount(s.fromAdvance, currency: sCurrency),
+                  isLtr: true,
+                ),
+              if (s.paid > 0.005)
+                _InfoRow(
+                  label: AppStrings.invoicePaid,
+                  value: formatAmount(s.paid, currency: sCurrency),
+                  isLtr: true,
+                ),
               _InfoRow(
                 label: AppStrings.invoiceOutstanding,
-                value: formatAmount(outstanding!, currency: currency),
+                value: formatSignedAmount(s.outstanding, currency: sCurrency),
                 isLtr: true,
               ),
+            ],
           ],
         ),
       ),

@@ -206,12 +206,12 @@ class _StagePage extends StatelessWidget {
     final orders = context.read<OrdersController>();
     final tabs = DefaultTabController.of(context);
 
-    final delivered = await Navigator.push<bool>(
+    final changed = await Navigator.push<bool>(
       context,
       OrderDetailsScreen.route(invoice, orders),
     );
-    // بعد التسليم تنتقل الطلبية وحدها: نفتح التبويب الذي صارت فيه
-    if (delivered == true) {
+    // بعد التسليم أو الإرجاع للتعديل تنتقل الطلبية وحدها: نفتح التبويب الذي صارت فيه
+    if (changed == true) {
       final next = orders.stageOf(invoice.id!);
       if (next != null) tabs.animateTo(next.index);
     }

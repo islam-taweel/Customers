@@ -15,10 +15,11 @@ import '../../../data/models/sales_invoice.dart';
 import '../controllers/invoice_details_controller.dart';
 import '../widgets/invoice_card.dart';
 import '../widgets/offline_banner.dart';
+import 'gl_entries_screen.dart';
 import 'invoice_pdf_screen.dart';
 
 /// تفاصيل فاتورة معتمدة (عند الضغط عليها): رقمها واسم العميل وهاتفه والمبلغ
-/// وأصنافها، مع زرّين: عرضها كملف PDF وطباعتها.
+/// وأصنافها، مع زرّين: عرضها كملف PDF وطباعتها، وزر «القيود المحاسبية» للفاتورة المعتمدة.
 /// الملف هو PDF الرسمي من ERPNext (download_pdf)، وعند تعذّره (دون اتصال مثلًا)
 /// نولّد ملفًا من الفاتورة المعروضة على الشاشة.
 class InvoiceDetailsScreen extends StatelessWidget {
@@ -59,6 +60,14 @@ class InvoiceDetailsScreen extends StatelessWidget {
       customerPhone: controller.customerPhone,
       notice: controller.notice,
       fetchServerPdf: controller.downloadServerPdf,
+      // كل الحالات: الفاتورة (وقيود دفعاتها) أو الطلبية (تسليم/فوترة/دفعات)
+      openGlEntries: controller.hasGlEntries
+          ? (context) => Navigator.of(context).push(
+                controller.doctype == 'Sales Invoice'
+                    ? GlEntriesScreen.forInvoice(controller.invoiceName)
+                    : GlEntriesScreen.forOrder(controller.invoiceName),
+              )
+          : null,
     );
   }
 }
@@ -74,11 +83,15 @@ class _InvoiceView extends StatefulWidget {
   /// يطلب ملف PDF الرسمي من ERPNext
   final Future<Uint8List> Function() fetchServerPdf;
 
+  /// يفتح القيود المحاسبية (null = لا زر: مسودة أو طلبية)
+  final void Function(BuildContext context)? openGlEntries;
+
   const _InvoiceView({
     required this.detail,
     required this.customerPhone,
     required this.fetchServerPdf,
     this.notice,
+    this.openGlEntries,
   });
 
   @override
@@ -169,14 +182,16 @@ class _InvoiceViewState extends State<_InvoiceView> {
                   number: detail.name,
                   customerName: detail.customerName,
                   customerPhone: widget.customerPhone,
-                  amount: detail.grandTotal,
+                  amount: detail.settlement?.documentTotal ?? detail.grandTotal,
                   date: detail.postingDate,
                   dueDate: detail.dueDate,
                   status: detail.status,
                   currency: displayCurrency(detail.currency),
                   items: detail.items,
                   taxes: detail.totalTaxesAndCharges,
-                  outstanding: detail.outstandingAmount,
+                  // قيمة الفاتورة، المسدد من رصيد سابق، المدفوع، المتبقي (من ERPNext).
+                  // المسودة: لا مسدد ولا متبقٍ نهائي قبل اعتمادها
+                  settlement: detail.docstatus == 1 ? detail.settlement : null,
                 ),
               ),
               const SizedBox(height: 16),
@@ -211,6 +226,17 @@ class _InvoiceViewState extends State<_InvoiceView> {
                   ),
                 ],
               ),
+              if (widget.openGlEntries != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => widget.openGlEntries!(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.account_balance_outlined),
+                  label: Text(AppStrings.glEntriesTitle),
+                ),
+              ],
             ],
           ),
         ),

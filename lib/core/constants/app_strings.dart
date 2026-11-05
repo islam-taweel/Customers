@@ -62,6 +62,44 @@ class AppStrings {
   static String get orderDelivered => _t('تم تسليم الطلبية', 'Order delivered');
   static String get deliverFailed =>
       _t('تعذّر تسليم الطلبية', 'Could not deliver the order');
+  // إرجاع طلبية معتمدة إلى مسودة (إلغاء ثم تعديل في ERPNext)
+  static String get reopenOrder => _t('إرجاع للتعديل', 'Back to editing');
+  static String get reopenTitle =>
+      _t('إرجاع الطلبية للتعديل؟', 'Return this order for editing?');
+  static String get reopenMessage => _t(
+        'ستُلغى في ERPNext فاتورة الطلبية وسند تسليمها (إن وُجدا، وتعود البضاعة للمخزون) '
+            'ثم الطلبية نفسها، وتُنشأ منها نسخة مسودة برقم جديد (مثل SO-0001-1) تعود إلى '
+            'تبويب «مسودة» لتعديل أصنافها ثم اعتمادها من جديد.\n'
+            'إن كان العميل قد دفع، يبقى المبلغ رصيدًا في حسابه.',
+        'The order’s invoice and delivery note (if any; goods go back to stock) and the '
+            'order itself will be cancelled in ERPNext and amended into a new draft '
+            '(e.g. SO-0001-1) under “Draft”, so you can edit its items and submit again.\n'
+            'Any amount the customer paid stays as credit on their account.',
+      );
+  static String orderReopened(String id) => _t(
+        'أُعيدت الطلبية مسودة برقم $id',
+        'The order is a draft again: $id',
+      );
+  static String amountKeptOnAccount(String amount) => _t(
+        'المبلغ المدفوع $amount بقي رصيدًا في حساب العميل',
+        'The paid amount $amount stays as credit on the customer’s account',
+      );
+  static String get reopenFailed =>
+      _t('تعذّر إرجاع الطلبية للتعديل', 'Could not return the order for editing');
+  static String reopenHasDraftPayments(String docs) => _t(
+        'على الفاتورة دفعات مسودة لم تُعتمد ($docs). اعتمدها أو احذفها في ERPNext أولًا.',
+        'The invoice has draft payments ($docs). Submit or delete them in ERPNext first.',
+      );
+  static String get reopenNeedsUnlinkSetting => _t(
+        'العميل دفع على الفاتورة، ولإبقاء المبلغ في حسابه يجب تفعيل '
+            '«Unlink Payment on Cancellation of Invoice» في Accounts Settings في ERPNext.',
+        'The customer paid this invoice. To keep the money on their account, enable '
+            '“Unlink Payment on Cancellation of Invoice” in ERPNext Accounts Settings.',
+      );
+  static String reopenNoOrder(String invoice) => _t(
+        'الفاتورة $invoice ليست مرتبطة بطلبية، فلا يمكن إرجاعها للتعديل.',
+        'Invoice $invoice is not linked to an order, so it cannot be reopened.',
+      );
   static String get ordersRefreshFailed => _t(
         'تعذّر تحديث حالات الطلبيات من ERPNext. تُعرض آخر حالة محفوظة.',
         'Could not update order statuses from ERPNext. Showing the last saved status.',
@@ -205,6 +243,30 @@ class AppStrings {
   static String get comingSoonMessage =>
       _t('هذا القسم قيد الإعداد.', 'This section is being set up.');
   static String get settings => _t('الإعدادات', 'Settings');
+
+  // ───────── المظهر (الثيم) ─────────
+  static String get appearanceTitle => _t('المظهر', 'Appearance');
+  static String get appearanceDesc => _t(
+        'داكن بالبنفسجي، فاتح بالسماوي، أو اختر لونًا مخصصًا.',
+        'Dark in violet, light in sky, or pick a custom color.',
+      );
+  static String get themeDark => _t('داكن', 'Dark');
+  static String get themeLight => _t('فاتح', 'Light');
+  static String get themeCustom => _t('مخصص', 'Custom');
+  static String get themeChooseColor => _t('اختر اللون', 'Choose a color');
+  static String themeColorName(String name) => switch (name) {
+        'green' => _t('أخضر', 'Green'),
+        'teal' => _t('فيروزي', 'Teal'),
+        'sky' => _t('سماوي', 'Sky'),
+        'blue' => _t('أزرق', 'Blue'),
+        'indigo' => _t('نيلي', 'Indigo'),
+        'violet' => _t('بنفسجي', 'Violet'),
+        'rose' => _t('وردي', 'Rose'),
+        'red' => _t('أحمر', 'Red'),
+        'orange' => _t('برتقالي', 'Orange'),
+        'gold' => _t('ذهبي', 'Gold'),
+        _ => name,
+      };
 
   // ───────── شاشة العملاء ─────────
   static String get customers => _t('العملاء', 'Customers');
@@ -356,6 +418,45 @@ class AppStrings {
   // ───────── العمليات (شاشة التفاصيل) ─────────
   static String get addDebt => _t('إضافة دين', 'Add debt');
   static String get addPayment => _t('إضافة دفعة', 'Add payment');
+
+  // ───────── دفعات ERPNext: تبويبا «مسودة» و«معتمدة» ─────────
+  static String paymentsDraftTab(int n) => _t('مسودة ($n)', 'Draft ($n)');
+  static String paymentsApprovedTab(int n) => _t('معتمدة ($n)', 'Approved ($n)');
+  static String get paymentsDraftEmpty =>
+      _t('لا توجد دفعات مسودة', 'No draft payments');
+  static String get paymentsApprovedEmpty =>
+      _t('لا توجد دفعات معتمدة', 'No approved payments');
+  static String get paymentsLoadFailed =>
+      _t('تعذّر تحميل الدفعات', 'Could not load the payments');
+  static String get paymentStatusDraft => _t('مسودة', 'Draft');
+  static String get paymentStatusApproved => _t('معتمدة', 'Approved');
+  static String get paymentApprove => _t('اعتماد', 'Approve');
+  static String get paymentCancel => _t('إلغاء', 'Cancel');
+  static String get paymentDetails => _t('تفاصيل الدفعة', 'Payment details');
+  static String paymentApproveTitle(String id) =>
+      _t('اعتماد الدفعة $id؟', 'Approve payment $id?');
+  static String get paymentApproveMessage => _t(
+        'ستُعتمد الدفعة في ERPNext وتُخصم من رصيد العميل، ولا يمكن تعديلها بعد ذلك.',
+        'The payment will be submitted in ERPNext and deducted from the customer balance; it cannot be edited afterwards.',
+      );
+  static String paymentCancelTitle(String id) =>
+      _t('إلغاء الدفعة $id؟', 'Cancel payment $id?');
+  static String get paymentCancelMessage => _t(
+        'ستُحذف الدفعة المسودة من ERPNext.',
+        'The draft payment will be deleted from ERPNext.',
+      );
+  static String get paymentApproved => _t('اعتُمدت الدفعة', 'Payment approved');
+  static String get paymentCancelled => _t('أُلغيت الدفعة', 'Payment cancelled');
+  static String get paymentApproveFailed =>
+      _t('تعذّر اعتماد الدفعة', 'Could not approve the payment');
+  static String get paymentCancelFailed =>
+      _t('تعذّر إلغاء الدفعة', 'Could not cancel the payment');
+  static String get paymentSavedDraft => _t(
+        'حُفظت الدفعة مسودة. اعتمدها من تبويب «مسودة».',
+        'Payment saved as a draft. Approve it from the “Draft” tab.',
+      );
+  static String paymentCredited(String amount) =>
+      _t('على حساب العميل: $amount', 'Credited: $amount');
   static String get debt => _t('دين', 'Debt');
   static String get payment => _t('دفعة', 'Payment');
   static String get debtAdded => _t('تمت إضافة الدين', 'Debt added');
@@ -501,6 +602,53 @@ class AppStrings {
   static String get invoiceCustomer => _t('اسم العميل', 'Customer name');
   static String get invoiceAmount => _t('مبلغ الفاتورة', 'Invoice amount');
   static String get viewInvoicePdf => _t('عرض الفاتورة PDF', 'View invoice PDF');
+
+  // ───────── القيود المحاسبية (GL Entries) ─────────
+  static String get glEntriesTitle => _t('القيود المحاسبية', 'Accounting entries');
+  static String get glEntriesLoading =>
+      _t('جارٍ تحميل القيود...', 'Loading entries...');
+  static String get glEntriesLoadFailed =>
+      _t('تعذّر تحميل القيود المحاسبية', 'Could not load the accounting entries');
+  static String get glEntriesEmptyTitle =>
+      _t('لا توجد قيود', 'No entries');
+  static String get glEntriesEmptyMessage => _t(
+        'لا قيود على العميل بعد: تُسجَّل عند اعتماد الفاتورة في ERPNext.',
+        'No entries for the customer yet: they are recorded once the invoice is submitted in ERPNext.',
+      );
+  static String get glDescription => _t('البيان', 'Description');
+  static String get glDebit => _t('مدين', 'Debit');
+  static String get glCredit => _t('دائن', 'Credit');
+  static String get glTotalDebit => _t('مجموع المدين', 'Total debit');
+  static String get glTotalCredit => _t('مجموع الدائن', 'Total credit');
+  static String get glBalanced => _t(
+        'القيود متوازنة: الفاتورة مسددة بالكامل',
+        'Entries are balanced: the invoice is fully paid',
+      );
+  static String glDraftsPending(String docs) => _t(
+        'الفاتورة مسودة بانتظار الاعتماد في ERPNext، ولا قيود لها قبل اعتمادها: $docs',
+        'The invoice is a draft awaiting approval in ERPNext, no entries until submitted: $docs',
+      );
+  static String glOverpaid(String diff) => _t(
+        'الدائن أكبر من المدين بـ $diff: دفع العميل أكثر من قيمة الفاتورة (رصيد له)',
+        'Credit exceeds debit by $diff: the customer paid more than the invoice (credit to them)',
+      );
+  static String voucherTypeLabel(String doctype) => switch (doctype) {
+        'Sales Invoice' => _t('فاتورة مبيعات', 'Sales invoice'),
+        'Delivery Note' => _t('سند تسليم', 'Delivery note'),
+        'Payment Entry' => _t('دفعة', 'Payment'),
+        'Journal Entry' => _t('قيد يومية', 'Journal entry'),
+        _ => doctype,
+      };
+
+  // قيمة الفاتورة والمسدد منها والمتبقي
+  static String get invoiceTotalValue => _t('قيمة الفاتورة', 'Invoice total');
+  static String get invoicePaidFromCredit =>
+      _t('مسدد من رصيد سابق', 'Paid from previous credit');
+  static String get invoicePaid => _t('المدفوع', 'Paid');
+  static String glUnbalanced(String diff) => _t(
+        'القيود غير متوازنة: المتبقي على العميل $diff (لم تُسدد الفاتورة بالكامل)',
+        'Entries are not balanced: $diff still due from the customer (invoice not fully paid)',
+      );
   static String get invoicePdfFailed =>
       _t('تعذّر إنشاء ملف PDF', 'Could not create the PDF file');
 
@@ -768,7 +916,18 @@ class AppStrings {
         'رفع الطلبيات المحفوظة على الجهاز إلى ERPNext، ثم جلب فواتير العملاء وحفظها.',
         'Upload the orders saved on this device to ERPNext, then fetch and keep customer invoices.',
       );
-  static String get syncNow => _t('مزامنة الآن', 'Sync now');
+  static String get autoSyncRunning => _t(
+        'جارٍ مزامنة العملاء والأصناف والفواتير تلقائيًا...',
+        'Syncing customers, items and invoices automatically...',
+      );
+  static String get autoSyncOnline => _t(
+        'المزامنة تلقائية: تتم وحدها ما دام الإنترنت متاحًا (كل 15 دقيقة وعند عودة الاتصال).',
+        'Sync is automatic while online (every 15 minutes and when the connection returns).',
+      );
+  static String get autoSyncOffline => _t(
+        'لا يوجد اتصال بالخادم. ستبدأ المزامنة تلقائيًا فور عودة الإنترنت.',
+        'No connection to the server. Sync will start automatically once you are back online.',
+      );
   static String get syncRunning => _t('جارٍ المزامنة...', 'Syncing...');
   static String get neverSynced =>
       _t('لم تتم المزامنة بعد', 'Not synced yet');

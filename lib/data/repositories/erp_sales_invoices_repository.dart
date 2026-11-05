@@ -99,6 +99,15 @@ class ErpSalesInvoicesRepository {
     'status',
     'currency',
     'docstatus',
+    // قيمة الفاتورة والمسدد من رصيد سابق (InvoiceSettlement.fields)
+    'party_account_currency',
+    'rounded_total',
+    'base_grand_total',
+    'base_rounded_total',
+    'disable_rounded_total',
+    'total_advance',
+    'write_off_amount',
+    'base_write_off_amount',
   ];
 
   /// المحفوظ محليًا من آخر جلب ناجح (null إن لم يُحفظ شيء بعد).
