@@ -7,4 +7,17 @@ abstract class Routes {
   static const gate = '/';
   static const login = '/login';
   static const home = '/home';
+
+  /// خدمات الموظف (R5/R6): المدخل وكل خدمة بمسار مسمى (Get.toNamed)
+  static const hr = '/hr';
+  static const hrProfile = '/hr/profile';
+  static const hrPunch = '/hr/punch';
+  static const hrAttendance = '/hr/attendance';
+  static const hrCorrection = '/hr/attendance/correction';
+  static const hrLeaves = '/hr/leaves';
+  static const hrOvertime = '/hr/overtime';
+  static const hrAdvances = '/hr/advances';
+  static const hrExpenses = '/hr/expenses';
+  static const hrPayslips = '/hr/payslips';
+  static const hrTeam = '/hr/team';
 }

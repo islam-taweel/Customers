@@ -12,7 +12,7 @@ import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/advance_models.dart';
 import '../../../data/repositories/erp_employee_repository.dart';
 import '../controllers/advances_controller.dart';
-import '../employee_service.dart';
+import '../../../modules/hr/home/employee_service.dart';
 
 const _green = Color(0xFF2E7D32);
 const _orange = Color(0xFFEF6C00);

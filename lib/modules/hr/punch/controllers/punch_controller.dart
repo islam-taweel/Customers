@@ -1,30 +1,60 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/employee_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/palestine_time.dart';
+import '../../shared/hr_errors.dart';
+import '../../shared/models/employee_models.dart';
+import '../repository/punch_repository.dart';
 
 /// حالة الموظف اليوم حسب آخر بصمة
 enum CheckinStatus { notCheckedIn, onDuty, finished }
 
 /// تسجيل الحضور والانصراف في ERPNext (Employee Checkin): بصمات اليوم، والزر
 /// المتاح حسب آخر بصمة (آخرها IN ← انصراف، غير ذلك ← حضور).
-class CheckinController extends ChangeNotifier {
-  CheckinController(this._repository) {
+class CheckinController extends GetxController {
+  CheckinController(this._repository, {DateTime Function()? clock})
+    : _clock = clock ?? PalestineTime.now;
+
+  final PunchRepository _repository;
+  final DateTime Function() _clock;
+
+  /// الساعة المعروضة بتوقيت فلسطين، تتحدث كل ثانية (كانت Timer في الواجهة)
+  late final now = _clock().obs;
+  Timer? _ticker;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      now.value = _clock();
+    });
     load();
   }
 
-  final ErpEmployeeRepository _repository;
+  @override
+  void onClose() {
+    _ticker?.cancel();
+    super.onClose();
+  }
 
   bool _loading = false;
   Object? _error;
   bool _punching = false;
-  bool _disposed = false;
   List<EmployeeCheckin> _punches = const [];
 
   bool get loading => _loading;
+
+  /// رسالة الخطأ للعرض (غير مرتبط ← notLinked، 403 ← noPermission)
+  String? get errorMessage {
+    final e = _error;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.punchesLoadFailed);
+  }
+
   Object? get error => _error;
   bool get punching => _punching;
 
@@ -100,26 +130,15 @@ class CheckinController extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('CheckinController.punch failed: $e');
-      final detail = e is ErpApiException && e.type == ErpErrorType.server
-          ? e.detail
-          : null;
-      final base = describeError(e, fallback: EssStrings.punchFailed);
-      return (detail == null || detail.isEmpty)
-          ? base
-          : '${EssStrings.punchFailed}\n$detail';
+      return hrServerError(e, fallback: EssStrings.punchFailed);
     } finally {
       _punching = false;
       _notify();
     }
   }
 
+  /// GetBuilder يُعاد بناؤه (نفس توقيت notifyListeners السابق)
   void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
+    if (!isClosed) update();
   }
 }

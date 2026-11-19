@@ -1,73 +1,38 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/employee_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
-import '../employee_service.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../../home/employee_service.dart';
+import '../../shared/models/employee_models.dart';
+import '../controllers/profile_controller.dart';
 
 /// حسابي: بيانات الموظف المرتبط بالمستخدم الحالي من ERPNext — الصورة والاسم
 /// والرقم الوظيفي والقسم والمسمى والبريد والهاتف، ثم الوردية ووقتا الدوام.
-class MyAccountScreen extends StatefulWidget {
+///
+/// (R5) الحالة في [ProfileController] (StateMixin): الواجهة تعرض فقط.
+class MyAccountScreen extends GetView<ProfileController> {
   const MyAccountScreen({super.key});
-
-  @override
-  State<MyAccountScreen> createState() => _MyAccountScreenState();
-}
-
-class _MyAccountScreenState extends State<MyAccountScreen> {
-  late Future<EmployeeProfile> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  void _load() {
-    _future = context.read<ErpEmployeeRepository>().fetchProfile();
-  }
-
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.profileLoadFailed);
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(EmployeeService.profile.title)),
-      body: FutureBuilder<EmployeeProfile>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return LoadingView(message: EssStrings.loadingProfile);
-          }
-          if (snapshot.hasError) {
-            return ErrorView(
-              message: _message(snapshot.error!),
-              onRetry: () => setState(_load),
-            );
-          }
-          final p = snapshot.data!;
+      body: controller.obx(
+        onLoading: LoadingView(message: EssStrings.loadingProfile),
+        onError: (message) =>
+            ErrorView(message: message!, onRetry: controller.load),
+        (data) {
+          final p = data!;
           return RefreshIndicator(
-            onRefresh: () async {
-              setState(_load);
-              await _future.then((_) {}, onError: (_) {});
-            },
+            onRefresh: controller.load,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
-                _Header(profile: p),
+                _Header(profile: p, image: controller.image),
                 const SizedBox(height: 16),
                 _Section(
                   title: EssStrings.jobInfo,
@@ -117,32 +82,19 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
 }
 
 /// الصورة (أو أيقونة) والاسم والمسمى
-class _Header extends StatefulWidget {
+class _Header extends StatelessWidget {
   final EmployeeProfile profile;
 
-  const _Header({required this.profile});
+  /// تُحمَّل في ProfileController بعد البيانات (null = الأيقونة)
+  final Rxn<Uint8List> image;
 
-  @override
-  State<_Header> createState() => _HeaderState();
-}
-
-class _HeaderState extends State<_Header> {
-  Future<Uint8List>? _image;
-
-  @override
-  void initState() {
-    super.initState();
-    final path = widget.profile.image;
-    if (path.isNotEmpty) {
-      _image = context.read<ErpEmployeeRepository>().fetchImage(path);
-    }
-  }
+  const _Header({required this.profile, required this.image});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final p = widget.profile;
+    final p = profile;
 
     final placeholder = Icon(Icons.person, size: 52, color: scheme.onPrimary);
     final avatar = CircleAvatar(
@@ -152,19 +104,16 @@ class _HeaderState extends State<_Header> {
         child: SizedBox(
           width: 88,
           height: 88,
-          child: _image == null
-              ? placeholder
-              : FutureBuilder<Uint8List>(
-                  future: _image,
-                  builder: (_, snap) => snap.hasData
-                      ? Image.memory(
-                          snap.data!,
-                          fit: BoxFit.cover,
-                          // ملف ليس صورة: الأيقونة بدلًا منه
-                          errorBuilder: (_, _, _) => placeholder,
-                        )
-                      : placeholder,
-                ),
+          child: Obx(
+            () => image.value == null
+                ? placeholder
+                : Image.memory(
+                    image.value!,
+                    fit: BoxFit.cover,
+                    // ملف ليس صورة: الأيقونة بدلًا منه
+                    errorBuilder: (_, _, _) => placeholder,
+                  ),
+          ),
         ),
       ),
     );

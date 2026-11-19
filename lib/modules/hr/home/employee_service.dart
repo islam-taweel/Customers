@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/ess_strings.dart';
-import 'screens/advances_screen.dart';
-import 'screens/attendance_correction_screen.dart';
-import 'screens/attendance_log_screen.dart';
-import 'screens/expenses_screen.dart';
-import 'screens/checkin_screen.dart';
-import 'screens/leaves_screen.dart';
-import 'screens/my_account_screen.dart';
-import 'screens/overtime_screen.dart';
-import 'screens/payslips_screen.dart';
-import 'screens/team_screen.dart';
+import '../../../core/constants/ess_strings.dart';
+import '../../../app/routes/app_routes.dart';
 
 /// خدمات الموظف بترتيب ظهورها: الأيقونة والعنوان والوصف واللون والشاشة.
 enum EmployeeService {
@@ -80,18 +71,18 @@ enum EmployeeService {
     team => scheme.primary,
   };
 
-  Widget get screen => switch (this) {
-    profile => const MyAccountScreen(),
-    checkin => const CheckinScreen(),
-    attendance => const AttendanceLogScreen(),
-    correction => const AttendanceCorrectionScreen(),
-    leaves => const LeavesScreen(),
-    overtime => const OvertimeScreen(),
-    advances => const AdvancesScreen(),
-    expenses => const ExpensesScreen(),
-    payslips => const PayslipsScreen(),
-    team => const TeamScreen(),
+  /// (R5) المسار المسمى للخدمة: الشاشة وBinding وMiddleware في AppPages.
+  /// كان `route`/`screen` (MaterialPageRoute)، والمدخل ينتقل الآن بـ Get.toNamed.
+  String get routeName => switch (this) {
+    profile => Routes.hrProfile,
+    checkin => Routes.hrPunch,
+    attendance => Routes.hrAttendance,
+    correction => Routes.hrCorrection,
+    leaves => Routes.hrLeaves,
+    overtime => Routes.hrOvertime,
+    advances => Routes.hrAdvances,
+    expenses => Routes.hrExpenses,
+    payslips => Routes.hrPayslips,
+    team => Routes.hrTeam,
   };
-
-  Route<void> get route => MaterialPageRoute<void>(builder: (_) => screen);
 }

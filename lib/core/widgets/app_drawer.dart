@@ -17,7 +17,7 @@ import '../constants/statement_strings.dart';
 import '../constants/ess_strings.dart';
 import '../constants/van_strings.dart';
 import '../constants/visit_strings.dart';
-import '../../features/employee_services/screens/employee_services_screen.dart';
+import '../../modules/hr/home/views/hr_home_view.dart';
 import '../constants/warehouse_strings.dart';
 import '../../features/home/screens/main_shell.dart';
 import '../../features/van_sales/screens/van_sales_screen.dart';

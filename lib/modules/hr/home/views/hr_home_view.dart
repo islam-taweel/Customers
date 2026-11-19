@@ -2,44 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
-import '../../auth/controllers/auth_controller.dart';
-import '../controllers/team_controller.dart';
+import '../../../../app/routes/app_routes.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../features/auth/controllers/auth_controller.dart';
+import '../bindings/hr_home_binding.dart';
+import '../controllers/hr_access_controller.dart';
 import '../employee_service.dart';
 
 /// قسم «خدمات الموظف»: رأس باسم المستخدم، ثم بطاقة لكل خدمة (أيقونة وعنوان
 /// ووصف قصير). الضغط على البطاقة يفتح شاشة الخدمة. صلاحيات المستخدم تُفحص عند
 /// فتح القسم: «فريقي» يظهر فقط لمعتمِدي الإجازات أو المصاريف.
-class EmployeeServicesScreen extends StatefulWidget {
+///
+/// (R5) الصلاحيات في [HrAccessController] (HrHomeBinding)، والانتقال إلى كل خدمة
+/// بـ Get.toNamed(service.routeName).
+class EmployeeServicesScreen extends GetView<HrAccessController> {
   const EmployeeServicesScreen({super.key});
 
-  static Route<void> route() =>
-      MaterialPageRoute<void>(builder: (_) => const EmployeeServicesScreen());
-
-  @override
-  State<EmployeeServicesScreen> createState() => _EmployeeServicesScreenState();
-}
-
-class _EmployeeServicesScreenState extends State<EmployeeServicesScreen> {
-  late final HrAccessController _access;
-
-  @override
-  void initState() {
-    super.initState();
-    _access = Get.put(
-      HrAccessController(context.read<ErpEmployeeRepository>()),
-    );
-  }
-
-  @override
-  void dispose() {
-    Get.delete<HrAccessController>();
-    super.dispose();
-  }
+  /// نفس الواجهة القديمة (القائمة الجانبية تستدعيها)، بمسار GetX يربط المتحكم
+  /// بعمر الشاشة.
+  static Route<void> route() => GetPageRoute<void>(
+    settings: const RouteSettings(name: Routes.hr),
+    page: () => const EmployeeServicesScreen(),
+    binding: HrHomeBinding(),
+    transition: Transition.native,
+  );
 
   @override
   Widget build(BuildContext context) {
+    final access = controller;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final name = context.select<AuthController, String?>((a) => a.fullName);
@@ -119,7 +109,7 @@ class _EmployeeServicesScreenState extends State<EmployeeServicesScreen> {
                 children: [
                   for (final s in EmployeeService.values)
                     // «فريقي» لا يظهر نهائيًا لمن لا يملك صلاحية الموافقة
-                    if (s != EmployeeService.team || _access.canSeeTeam)
+                    if (s != EmployeeService.team || access.canSeeTeam)
                       _ServiceCard(service: s),
                 ],
               ),
@@ -146,7 +136,7 @@ class _ServiceCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(service.route),
+        onTap: () => Get.toNamed(service.routeName),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

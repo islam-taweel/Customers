@@ -1,34 +1,25 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/constants/visit_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/palestine_time.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/employee_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
-import '../controllers/checkin_controller.dart';
-import '../employee_service.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/constants/visit_strings.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../../home/employee_service.dart';
+import '../../shared/models/employee_models.dart';
+import '../controllers/punch_controller.dart';
 
 /// تسجيل الحضور والانصراف في ERPNext (Employee Checkin) بتوقيت فلسطين: التاريخ
 /// والوقت الحاليان، حالة الموظف من آخر بصمة، زرا IN و OUT (المتاح حسب آخر
 /// بصمة)، أوقات اليوم ومدة العمل، مكان لعرض الموقع (دون إذن موقع أو GPS)،
 /// وبصمات اليوم.
+///
+/// (R5) الحالة والساعة في [CheckinController] (PunchBinding)؛ الواجهة تعرض فقط.
 class CheckinScreen extends StatelessWidget {
   const CheckinScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider<CheckinController>(
-      create: (ctx) => CheckinController(ctx.read<ErpEmployeeRepository>()),
-      child: const _CheckinView(),
-    );
-  }
+  Widget build(BuildContext context) => const _CheckinView();
 }
 
 class _CheckinView extends StatefulWidget {
@@ -39,25 +30,8 @@ class _CheckinView extends StatefulWidget {
 }
 
 class _CheckinViewState extends State<_CheckinView> {
-  late final Timer _clock;
-  DateTime _now = PalestineTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = PalestineTime.now());
-    });
-  }
-
-  @override
-  void dispose() {
-    _clock.cancel();
-    super.dispose();
-  }
-
   Future<void> _act(bool isIn) async {
-    final c = context.read<CheckinController>();
+    final c = Get.find<CheckinController>();
     final messenger = ScaffoldMessenger.of(context);
     final error = await c.punch(isIn: isIn);
     messenger
@@ -72,17 +46,13 @@ class _CheckinViewState extends State<_CheckinView> {
       );
   }
 
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.punchesLoadFailed);
-  }
-
+  /// GetBuilder: نفس نقاط التحديث السابقة (update)؛ Obx: الساعة كل ثانية
   @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckinController>();
+  Widget build(BuildContext context) => GetBuilder<CheckinController>(
+    builder: (c) => Obx(() => _build(context, c, c.now.value)),
+  );
+
+  Widget _build(BuildContext context, CheckinController c, DateTime now) {
     if (c.loading && !c.hasLoaded) {
       return Scaffold(
         appBar: AppBar(title: Text(EmployeeService.checkin.title)),
@@ -92,7 +62,7 @@ class _CheckinViewState extends State<_CheckinView> {
     if (c.error != null) {
       return Scaffold(
         appBar: AppBar(title: Text(EmployeeService.checkin.title)),
-        body: ErrorView(message: _message(c.error!), onRetry: c.load),
+        body: ErrorView(message: c.errorMessage!, onRetry: c.load),
       );
     }
     final theme = Theme.of(context);
@@ -122,7 +92,7 @@ class _CheckinViewState extends State<_CheckinView> {
       ),
     };
 
-    final worked = c.worked(_now);
+    final worked = c.worked(now);
 
     return Scaffold(
       appBar: AppBar(title: Text(EmployeeService.checkin.title)),
@@ -173,14 +143,14 @@ class _CheckinViewState extends State<_CheckinView> {
               child: Column(
                 children: [
                   Text(
-                    '${VisitStrings.weekday(_now.weekday)}  ${loc.formatMediumDate(_now)}',
+                    '${VisitStrings.weekday(now.weekday)}  ${loc.formatMediumDate(now)}',
                     style: TextStyle(
                       color: scheme.onPrimary.withValues(alpha: 0.9),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    clock(_now),
+                    clock(now),
                     textDirection: TextDirection.ltr,
                     style: theme.textTheme.displaySmall?.copyWith(
                       color: scheme.onPrimary,

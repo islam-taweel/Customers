@@ -12,7 +12,7 @@ import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/payslip_models.dart';
 import '../../../data/repositories/erp_employee_repository.dart';
 import '../controllers/payslips_controller.dart';
-import '../employee_service.dart';
+import '../../../modules/hr/home/employee_service.dart';
 import 'payslip_detail_screen.dart';
 
 /// كشوف رواتبي: كشوف الموظف المسجّل دخوله المعتمدة فقط (لا مسودات)، تُحدَّث

@@ -1,5 +1,5 @@
 import 'expense_models.dart';
-import 'leave_models.dart';
+import '../../modules/hr/leaves/models/leave_models.dart';
 
 String _s(Object? v) => v?.toString() ?? '';
 

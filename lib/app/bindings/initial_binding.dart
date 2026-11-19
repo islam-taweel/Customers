@@ -2,9 +2,16 @@ import 'package:get/get.dart';
 
 import '../../data/api/erp_api_client.dart';
 import '../../data/api/erp_auth_service.dart';
+import '../../data/repositories/erp_employee_repository.dart';
 import '../../data/repositories/invoice_repository.dart';
 import '../../modules/collections/repository/erp_payment_repository.dart';
 import '../../modules/collections/repository/invoice_collections_repository.dart';
+import '../../modules/hr/attendance/repository/attendance_repository.dart';
+import '../../modules/hr/leaves/repository/leaves_repository.dart';
+import '../../modules/hr/profile/repository/profile_repository.dart';
+import '../../modules/hr/punch/repository/punch_repository.dart';
+import '../../modules/hr/shared/hr_repositories.dart';
+import '../../modules/hr/shared/repository/hr_employee_identity.dart';
 import '../../modules/invoices/repository/sales_invoices_repository.dart';
 import '../../modules/statement/repository/erp_ledger_repository.dart';
 import '../../modules/statement/repository/erp_statement_repository.dart';
@@ -26,6 +33,7 @@ class InitialBinding extends Bindings {
     required this.invoiceCollections,
     required this.payments,
     required this.localInvoices,
+    required this.hr,
   });
 
   final SessionService session;
@@ -50,6 +58,9 @@ class InitialBinding extends Bindings {
   /// فواتير الطلبيات المحلية (ما زالت في MultiProvider أيضًا لمستهلكيها القدامى)
   final InvoiceRepository localInvoices;
 
+  /// R5: repositories الموارد البشرية (وhr.legacy لوحدات R6 حتى ترحيلها)
+  final HrRepositories hr;
+
   @override
   void dependencies() {
     _putOnce<SessionService>(session);
@@ -61,6 +72,12 @@ class InitialBinding extends Bindings {
     _putOnce<ErpInvoiceCollectionsRepository>(invoiceCollections);
     _putOnce<ErpPaymentRepository>(payments);
     _putOnce<InvoiceRepository>(localInvoices);
+    _putOnce<HrEmployeeIdentity>(hr.identity);
+    _putOnce<ProfileRepository>(hr.profile);
+    _putOnce<PunchRepository>(hr.punch);
+    _putOnce<AttendanceRepository>(hr.attendance);
+    _putOnce<LeavesRepository>(hr.leaves);
+    _putOnce<ErpEmployeeRepository>(hr.legacy);
   }
 
   static void _putOnce<T>(T instance) {

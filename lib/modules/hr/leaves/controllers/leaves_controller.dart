@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/leave_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../data/api/erp_api_client.dart';
+import '../../shared/hr_errors.dart';
+import '../models/leave_models.dart';
+import '../repository/leaves_repository.dart';
 
 /// رسالة رفض الخادم بالعربية: الرصيد غير كافٍ، تداخل مع طلب آخر، لا تخصيص.
 /// غير ذلك: الرسالة العامة مع نص ERPNext نفسه.
@@ -32,16 +34,19 @@ String _leaveError(Object e) {
 
 /// الإجازات من ERPNext: الأرصدة، نموذج الطلب (مع عدد الأيام من ERPNext)،
 /// والطلبات السابقة.
-class LeavesController extends ChangeNotifier {
-  LeavesController(this._repository) {
+class LeavesController extends GetxController {
+  LeavesController(this._repository);
+
+  final LeavesRepository _repository;
+
+  @override
+  void onInit() {
+    super.onInit();
     load();
   }
 
-  final ErpEmployeeRepository _repository;
-
   bool _loading = false;
   Object? _error;
-  bool _disposed = false;
   LeaveDetails _details = const LeaveDetails(balances: [], withoutPayTypes: []);
   List<LeaveRequest> _requests = const [];
 
@@ -57,6 +62,15 @@ class LeavesController extends ChangeNotifier {
   String reason = '';
 
   bool get loading => _loading;
+
+  /// رسالة الخطأ للعرض (غير مرتبط ← notLinked، 403 ← noPermission)
+  String? get errorMessage {
+    final e = _error;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.leavesLoadFailed);
+  }
+
   Object? get error => _error;
   LeaveDetails get details => _details;
   List<LeaveRequest> get requests => _requests;
@@ -197,13 +211,8 @@ class LeavesController extends ChangeNotifier {
     }
   }
 
+  /// GetBuilder يُعاد بناؤه (نفس توقيت notifyListeners السابق)
   void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
+    if (!isClosed) update();
   }
 }

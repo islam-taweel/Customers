@@ -4,38 +4,6 @@ import 'package:get/get.dart';
 import '../../../data/models/team_models.dart';
 import '../../../data/repositories/erp_employee_repository.dart';
 
-/// صلاحيات قسم الموارد البشرية (GetX): تُفحص عند فتح القسم. «فريقي» يظهر فقط
-/// لمن لديه دور Leave Approver أو Expense Approver، ويبقى مخفيًا أثناء الفحص
-/// وعند فشله.
-class HrAccessController extends GetxController {
-  HrAccessController(this._repository);
-
-  final ErpEmployeeRepository _repository;
-
-  final canApproveLeaves = false.obs;
-  final canApproveExpenses = false.obs;
-
-  bool get canSeeTeam => canApproveLeaves.value || canApproveExpenses.value;
-
-  @override
-  void onInit() {
-    super.onInit();
-    check();
-  }
-
-  Future<void> check() async {
-    try {
-      final access = await _repository.fetchApproverAccess();
-      canApproveLeaves.value = access.leaves;
-      canApproveExpenses.value = access.expenses;
-    } catch (e) {
-      debugPrint('HrAccessController.check failed: $e');
-      canApproveLeaves.value = false;
-      canApproveExpenses.value = false;
-    }
-  }
-}
-
 /// فريقي (GetX، للعرض فقط): طلبات الإجازات والمصاريف المعلقة للموظفين الذين
 /// المستخدم معتمِدهم فقط. تُفحص الصلاحية أولًا، ولا يُجلب قسم بلا صلاحيته.
 class TeamController extends GetxController {

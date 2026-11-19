@@ -10,10 +10,10 @@ import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/attendance_models.dart';
+import '../../../modules/hr/attendance/models/attendance_models.dart';
 import '../../../data/repositories/erp_employee_repository.dart';
-import '../employee_service.dart';
-import '../widgets/month_year_picker.dart';
+import '../../../modules/hr/home/employee_service.dart';
+import '../../../modules/hr/shared/widgets/month_year_picker.dart';
 
 /// العمل الإضافي للشهر المختار، كما حسبه ERPNext دون أي حساب في التطبيق:
 /// الساعات من Overtime Slip المعتمد إن كانت نسخة HRMS تدعمه، والمبلغ بالشيكل من

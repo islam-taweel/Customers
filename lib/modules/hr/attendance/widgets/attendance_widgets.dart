@@ -1,158 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/constants/visit_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/attendance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
-import '../employee_service.dart';
-import '../widgets/month_year_picker.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/constants/visit_strings.dart';
+import '../models/attendance_models.dart';
+
+/// (R5) أجزاء عرض «حضوري» نُقلت كما هي من AttendanceLogScreen.
 
 /// لون وأيقونة واسم كل حالة حضور
-(Color, IconData, String) _statusStyle(
-  AttendanceStatus s,
-  ColorScheme scheme,
-) => switch (s) {
-  AttendanceStatus.present => (
-    const Color(0xFF2E7D32),
-    Icons.check_circle_outline,
-    EssStrings.statusPresent,
-  ),
-  AttendanceStatus.absent => (
-    scheme.error,
-    Icons.cancel_outlined,
-    EssStrings.statusAbsent,
-  ),
-  AttendanceStatus.halfDay => (
-    const Color(0xFFEF6C00),
-    Icons.timelapse,
-    EssStrings.statusHalfDay,
-  ),
-  AttendanceStatus.onLeave => (
-    const Color(0xFF1565C0),
-    Icons.beach_access_outlined,
-    EssStrings.statusOnLeave,
-  ),
-  AttendanceStatus.workFromHome => (
-    const Color(0xFF00838F),
-    Icons.home_work_outlined,
-    EssStrings.statusWorkFromHome,
-  ),
-};
-
-/// سجل حضوري من ERPNext (Attendance المعتمد): اختيار الشهر والسنة، ملخص الشهر
-/// (الحضور والغياب والتأخير وساعات العمل)، ثم سجل كل يوم الأحدث أولًا.
-class AttendanceLogScreen extends StatefulWidget {
-  const AttendanceLogScreen({super.key});
-
-  @override
-  State<AttendanceLogScreen> createState() => _AttendanceLogScreenState();
-}
-
-class _AttendanceLogScreenState extends State<AttendanceLogScreen> {
-  late int _year;
-  late int _month;
-  late Future<List<AttendanceRecord>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _year = now.year;
-    _month = now.month;
-    _load();
-  }
-
-  void _load() {
-    _future = context.read<ErpEmployeeRepository>().fetchAttendance(
-      _year,
-      _month,
-    );
-  }
-
-  void _setPeriod(int year, int month) {
-    if (year == _year && month == _month) return;
-    setState(() {
-      _year = year;
-      _month = month;
-      _load();
-    });
-  }
-
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.attendanceLoadFailed);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(EmployeeService.attendance.title)),
-      body: Column(
-        children: [
-          MonthYearPicker(year: _year, month: _month, onChanged: _setPeriod),
-          Expanded(
-            child: FutureBuilder<List<AttendanceRecord>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return LoadingView(message: EssStrings.loadingAttendance);
-                }
-                if (snapshot.hasError) {
-                  return ErrorView(
-                    message: _message(snapshot.error!),
-                    onRetry: () => setState(_load),
-                  );
-                }
-                final records = snapshot.data!;
-                Future<void> refresh() async {
-                  setState(_load);
-                  await _future.then((_) {}, onError: (_) {});
-                }
-
-                return RefreshIndicator(
-                  onRefresh: refresh,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    children: [
-                      _SummaryGrid(summary: AttendanceSummary.of(records)),
-                      const SizedBox(height: 16),
-                      if (records.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 32),
-                          child: EmptyView(
-                            icon: Icons.event_busy_outlined,
-                            title: EssStrings.noAttendance,
-                            message: EssStrings.noAttendanceHint,
-                          ),
-                        )
-                      else
-                        for (final r in records) _RecordCard(record: r),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+(Color, IconData, String) statusStyle(AttendanceStatus s, ColorScheme scheme) =>
+    switch (s) {
+      AttendanceStatus.present => (
+        const Color(0xFF2E7D32),
+        Icons.check_circle_outline,
+        EssStrings.statusPresent,
       ),
-    );
-  }
-}
+      AttendanceStatus.absent => (
+        scheme.error,
+        Icons.cancel_outlined,
+        EssStrings.statusAbsent,
+      ),
+      AttendanceStatus.halfDay => (
+        const Color(0xFFEF6C00),
+        Icons.timelapse,
+        EssStrings.statusHalfDay,
+      ),
+      AttendanceStatus.onLeave => (
+        const Color(0xFF1565C0),
+        Icons.beach_access_outlined,
+        EssStrings.statusOnLeave,
+      ),
+      AttendanceStatus.workFromHome => (
+        const Color(0xFF00838F),
+        Icons.home_work_outlined,
+        EssStrings.statusWorkFromHome,
+      ),
+    };
 
 /// ملخص الشهر في أربع بطاقات
-class _SummaryGrid extends StatelessWidget {
+class SummaryGrid extends StatelessWidget {
   final AttendanceSummary summary;
 
-  const _SummaryGrid({required this.summary});
+  const SummaryGrid({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {
@@ -161,25 +49,25 @@ class _SummaryGrid extends StatelessWidget {
         d == d.roundToDouble() ? d.toInt().toString() : d.toStringAsFixed(1);
 
     final tiles = [
-      _SummaryTile(
+      SummaryTile(
         icon: Icons.check_circle_outline,
         color: const Color(0xFF2E7D32),
         label: EssStrings.presentDays,
         value: days(summary.presentDays),
       ),
-      _SummaryTile(
+      SummaryTile(
         icon: Icons.cancel_outlined,
         color: scheme.error,
         label: EssStrings.absentDays,
         value: '${summary.absentDays}',
       ),
-      _SummaryTile(
+      SummaryTile(
         icon: Icons.alarm,
         color: const Color(0xFFEF6C00),
         label: EssStrings.lateDays,
         value: '${summary.lateDays}',
       ),
-      _SummaryTile(
+      SummaryTile(
         icon: Icons.schedule,
         color: scheme.primary,
         label: EssStrings.workHours,
@@ -197,13 +85,14 @@ class _SummaryGrid extends StatelessWidget {
   }
 }
 
-class _SummaryTile extends StatelessWidget {
+class SummaryTile extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
   final String value;
 
-  const _SummaryTile({
+  const SummaryTile({
+    super.key,
     required this.icon,
     required this.color,
     required this.label,
@@ -253,10 +142,10 @@ class _SummaryTile extends StatelessWidget {
 
 /// يوم واحد: التاريخ واليوم، الحالة، الحضور والانصراف والساعات، والتأخير
 /// أو الخروج المبكر
-class _RecordCard extends StatelessWidget {
+class RecordCard extends StatelessWidget {
   final AttendanceRecord record;
 
-  const _RecordCard({required this.record});
+  const RecordCard({super.key, required this.record});
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +153,7 @@ class _RecordCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final loc = MaterialLocalizations.of(context);
     final r = record;
-    final (color, icon, label) = _statusStyle(r.status, scheme);
+    final (color, icon, label) = statusStyle(r.status, scheme);
 
     String time(DateTime? d) =>
         d == null ? '—' : loc.formatTimeOfDay(TimeOfDay.fromDateTime(d));

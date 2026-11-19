@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/attendance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../shared/hr_errors.dart';
+import '../models/attendance_models.dart';
+import '../repository/attendance_repository.dart';
 
 /// نوع التصحيح (يُكتب في explanation لأن Attendance Request لا يحفظه)
 enum CorrectionType { forgotCheckIn, forgotCheckOut }
@@ -21,20 +21,32 @@ CorrectionStatus correctionStatusOf(AttendanceRequestRecord r) =>
 
 /// «نسيت البصمة» عبر Attendance Request في ERPNext: الإرسال (مسودة = قيد
 /// المراجعة) وقائمة طلباتي. لا موافقة ولا رفض من التطبيق.
-class CorrectionController extends ChangeNotifier {
-  CorrectionController(this._repository) {
+class CorrectionController extends GetxController {
+  CorrectionController(this._repository);
+
+  final AttendanceRepository _repository;
+
+  @override
+  void onInit() {
+    super.onInit();
     load();
   }
-
-  final ErpEmployeeRepository _repository;
 
   bool _loading = false;
   Object? _error;
   bool _sending = false;
-  bool _disposed = false;
   List<AttendanceRequestRecord> _requests = const [];
 
   bool get loading => _loading;
+
+  /// رسالة الخطأ للعرض (غير مرتبط ← notLinked، 403 ← noPermission)
+  String? get errorMessage {
+    final e = _error;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.requestsLoadFailed);
+  }
+
   Object? get error => _error;
   bool get sending => _sending;
   List<AttendanceRequestRecord> get requests => _requests;
@@ -94,26 +106,15 @@ class CorrectionController extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('CorrectionController.submit failed: $e');
-      final detail = e is ErpApiException && e.type == ErpErrorType.server
-          ? e.detail
-          : null;
-      final base = describeError(e, fallback: EssStrings.requestSendFailed);
-      return (detail == null || detail.isEmpty)
-          ? base
-          : '${EssStrings.requestSendFailed}\n$detail';
+      return hrServerError(e, fallback: EssStrings.requestSendFailed);
     } finally {
       _sending = false;
       _notify();
     }
   }
 
+  /// GetBuilder يُعاد بناؤه (نفس توقيت notifyListeners السابق)
   void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
+    if (!isClosed) update();
   }
 }

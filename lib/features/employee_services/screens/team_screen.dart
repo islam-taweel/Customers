@@ -13,7 +13,7 @@ import '../../../data/models/expense_models.dart';
 import '../../../data/models/team_models.dart';
 import '../../../data/repositories/erp_employee_repository.dart';
 import '../controllers/team_controller.dart';
-import '../employee_service.dart';
+import '../../../modules/hr/home/employee_service.dart';
 
 const _orange = Color(0xFFEF6C00);
 

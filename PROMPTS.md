@@ -248,3 +248,33 @@
 | عمل الفلاتر والتواريخ | لم يتأثر: R2 U ✅ | U ✅ (فلاتر posting_date والترتيب) |
 | معالجة أخطاء الشبكة | U ✅ (الدفع، التحميل، الفواتير، reconcile) | U ✅، W ✅ (الكشف والقيود دون انهيار) |
 | عدم تأثر R1 وR2 | U/W ✅ (الـ 31 السابقة)، M ⛔ | U/W ✅ (كل الـ 56 السابقة)، M ⛔ |
+
+---
+
+## R5 — HR Core Modules (Profile، Punch، Attendance، Leaves)
+
+### الطلب (مختصر)
+- فحص HR أولًا، وكتابة R5_ANALYSIS.md.
+- `lib/modules/hr/{profile,punch,attendance,leaves}`: لكل وحدة Binding بـ lazyPut، وController بلا BuildContext ولا HTTP، وView للعرض فقط.
+- الحفاظ على كل البيانات والحقول، وتوقيت فلسطين في البصمة، وقواعد الإجازات وتحذير LWP.
+- StateMixin لشاشة الحضور.
+- اختبارات Unit وRepository وController وWidget، ثم commit مستقل.
+
+### الملفات
+- **نُقلت (git mv):** الشاشات الخمس وثلاثة متحكمات وثلاثة ملفات models و`month_year_picker` و`employee_service` ومدخل HR.
+- **جديدة:**
+  - `hr/shared/{repository/hr_employee_identity, hr_errors, hr_repositories}.dart`
+  - repositories الوحدات الأربع.
+  - `profile_controller` و`attendance_controller`.
+  - Bindings (6).
+  - `attendance_widgets` و`leave_widgets`.
+  - `home/controllers/hr_access_controller` (مفصول من `team_controller`).
+- **عُدّلت:**
+  - `erp_employee_repository.dart`: ما بقي لـ R6 فقط، فوق `HrEmployeeIdentity`.
+  - `app_routes`، `app_pages` (12 GetPage لـ HR)، `initial_binding` (`hr`)، `main.dart`.
+  - `app_drawer` (import).
+  - شاشات R6 (import فقط).
+  - `team_models` (import).
+
+### النتائج
+التفاصيل في [R5_REPORT.md](R5_REPORT.md). analyze 23 (قديمة)، test **101 ناجحة**.

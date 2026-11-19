@@ -29,6 +29,7 @@ import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
 import 'data/repositories/erp_draft_repository.dart';
 import 'data/repositories/erp_employee_repository.dart';
+import 'modules/hr/shared/hr_repositories.dart';
 import 'data/repositories/erp_fulfillment_repository.dart';
 import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
@@ -212,7 +213,10 @@ Future<void> main() async {
   );
 
   // خدمات الموظف: بيانات الموظف المرتبط بالمستخدم (حسابي)
-  final employeeRepository = ErpEmployeeRepository(erpApi);
+  // خدمات الموظف (R5): كل repositories الـ HR مرة واحدة فوق نفس ErpApiClient؛
+  // legacy (ما بقي لوحدات R6) هو نفس الكائن في MultiProvider
+  final hrRepositories = HrRepositories(erpApi);
+  final employeeRepository = hrRepositories.legacy;
 
   // القيود المحاسبية (GL Entry) للقراءة فقط: شاشة القيود وملخص فواتير الطلبية
   final ledgerRepository = ErpLedgerRepository(erpApi);
@@ -268,6 +272,7 @@ Future<void> main() async {
     invoiceCollections: invoiceCollectionsRepository,
     payments: paymentRepository,
     localInvoices: invoiceRepository,
+    hr: hrRepositories,
   ).dependencies();
 
   runApp(

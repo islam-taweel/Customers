@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/constants/visit_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/palestine_time.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/attendance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/constants/visit_strings.dart';
+import '../../../../core/utils/palestine_time.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../../home/employee_service.dart';
 import '../controllers/correction_controller.dart';
-import '../employee_service.dart';
+import '../models/attendance_models.dart';
 
 /// «نسيت البصمة»: طلب حضور (Attendance Request) في ERPNext. نموذج الطلب
 /// (التاريخ، نوع التصحيح، الوقت الصحيح، نوع الطلب، السبب، توضيحات) مع التحقق،
@@ -21,27 +18,18 @@ class AttendanceCorrectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<CorrectionController>(
-      create: (ctx) => CorrectionController(ctx.read<ErpEmployeeRepository>()),
-      child: const _CorrectionView(),
-    );
+    return const _CorrectionView();
   }
 }
 
 class _CorrectionView extends StatelessWidget {
   const _CorrectionView();
 
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.requestsLoadFailed);
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CorrectionController>();
+  Widget build(BuildContext context) =>
+      GetBuilder<CorrectionController>(builder: (c) => _build(context, c));
+
+  Widget _build(BuildContext context, CorrectionController c) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final requests = c.requests;
@@ -55,7 +43,7 @@ class _CorrectionView extends StatelessWidget {
     } else if (c.error != null && requests.isEmpty) {
       history = SizedBox(
         height: 260,
-        child: ErrorView(message: _message(c.error!), onRetry: c.load),
+        child: ErrorView(message: c.errorMessage!, onRetry: c.load),
       );
     } else if (requests.isEmpty) {
       history = Padding(
@@ -176,7 +164,7 @@ class _RequestFormState extends State<_RequestForm> {
   }
 
   Future<void> _submit() async {
-    final c = context.read<CorrectionController>();
+    final c = Get.find<CorrectionController>();
     final messenger = ScaffoldMessenger.of(context);
     final loc = MaterialLocalizations.of(context);
     setState(() => _tried = true);
@@ -214,8 +202,10 @@ class _RequestFormState extends State<_RequestForm> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CorrectionController>();
+  Widget build(BuildContext context) =>
+      GetBuilder<CorrectionController>(builder: (c) => _build(context, c));
+
+  Widget _build(BuildContext context, CorrectionController c) {
     final theme = Theme.of(context);
     final loc = MaterialLocalizations.of(context);
     final isIn = _type == CorrectionType.forgotCheckIn;

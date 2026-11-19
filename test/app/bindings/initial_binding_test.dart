@@ -10,6 +10,10 @@ import 'package:customer/data/repositories/erp_lookup_repository.dart';
 import 'package:customer/data/repositories/invoice_repository.dart';
 import 'package:customer/modules/collections/repository/erp_payment_repository.dart';
 import 'package:customer/modules/collections/repository/invoice_collections_repository.dart';
+import 'package:customer/data/repositories/erp_employee_repository.dart';
+import 'package:customer/modules/hr/punch/repository/punch_repository.dart';
+import 'package:customer/modules/hr/shared/hr_repositories.dart';
+import 'package:customer/modules/hr/shared/repository/hr_employee_identity.dart';
 import 'package:customer/modules/invoices/repository/sales_invoices_repository.dart';
 import 'package:customer/modules/statement/repository/erp_ledger_repository.dart';
 import 'package:customer/modules/statement/repository/erp_statement_repository.dart';
@@ -39,6 +43,7 @@ void main() {
     final payments = ErpPaymentRepository(api);
     final ledger = ErpLedgerRepository(api);
     final localInvoices = InvoiceRepository(db);
+    final hr = HrRepositories(api);
     InitialBinding(
       session: session,
       api: api,
@@ -49,6 +54,7 @@ void main() {
       invoiceCollections: collections,
       payments: payments,
       localInvoices: localInvoices,
+      hr: hr,
     ).dependencies();
 
     expect(identical(Get.find<SessionService>(), session), isTrue);
@@ -67,5 +73,8 @@ void main() {
     expect(identical(Get.find<ErpPaymentRepository>(), payments), isTrue);
     expect(identical(Get.find<ErpLedgerRepository>(), ledger), isTrue);
     expect(identical(Get.find<InvoiceRepository>(), localInvoices), isTrue);
+    expect(identical(Get.find<HrEmployeeIdentity>(), hr.identity), isTrue);
+    expect(identical(Get.find<PunchRepository>(), hr.punch), isTrue);
+    expect(identical(Get.find<ErpEmployeeRepository>(), hr.legacy), isTrue);
   });
 }
