@@ -3,8 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
+import 'app/bindings/initial_binding.dart';
+import 'app/routes/app_pages.dart';
+import 'app/routes/app_routes.dart';
+import 'app/services/session_service.dart';
 import 'core/constants/app_constants.dart';
 import 'core/constants/app_strings.dart';
 import 'core/localization/language_controller.dart';
@@ -43,7 +48,6 @@ import 'data/repositories/invoice_repository.dart';
 import 'data/repositories/operation_repository.dart';
 import 'data/repositories/pending_order_repository.dart';
 import 'features/auth/controllers/auth_controller.dart';
-import 'features/auth/screens/auth_gate.dart';
 import 'features/customers/controllers/customer_details_controller.dart';
 import 'features/customers/controllers/customers_controller.dart';
 import 'features/inventory/controllers/inventory_controller.dart';
@@ -75,14 +79,19 @@ Future<void> main() async {
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
   final dbHelper = DatabaseHelper.instance;
   final customerRepository = CustomerRepository(dbHelper);
-  // جلسة الدخول (كوكي sid) محفوظة بأمان على الجهاز، وتُحمَّل قبل أول طلب
-  final session = SessionStore();
-  await session.load();
-  final authController = AuthController(ErpAuthService(session), session);
-  final erpApi = ErpApiClient(session: session);
-  final outstandingRepository = OutstandingRepository(erpApi);
+  // جلسة الدخول (كوكي sid) محفوظة بأمان على الجهاز، وتُحمَّل قبل أول طلب.
+  // SessionStore هو المصدر الوحيد لـ sid، ويشترك فيه كل ما يلي (نسخة واحدة).
+  final sessionStore = SessionStore();
+  final authService = ErpAuthService(sessionStore);
+  final sessionService = SessionService(sessionStore, authService);
+  // الموضع الوحيد الذي يحمّل الجلسة المحفوظة
+  await sessionService.init();
+  final erpApi = ErpApiClient(session: sessionStore);
   // رفض الخادم الجلسة (انتهت): نعود إلى شاشة الدخول
-  erpApi.onSessionExpired = authController.handleSessionExpired;
+  erpApi.onSessionExpired = sessionService.handleSessionExpired;
+  // محوّل Provider: الشاشات القديمة تقرأ الجلسة من AuthController كما كانت
+  final authController = AuthController(sessionService);
+  final outstandingRepository = OutstandingRepository(erpApi);
   // العملاء المحفوظون محليًا يُستخدمون عند انقطاع الاتصال (الطلبيات)
   final erpCustomers = ErpCustomerRepository(erpApi, customerRepository);
   final cacheStore = ErpCacheStore(dbHelper);
@@ -154,11 +163,7 @@ Future<void> main() async {
 
   // قسم «الفواتير»: فواتير المبيعات لكل العملاء ودفعاتها (تُحفظ مسودة في ERPNext)
   final salesInvoicesFactory = SalesInvoicesControllerFactory(
-    ErpSalesInvoicesRepository(
-      erpApi,
-      cacheStore,
-      lookupRepository,
-    ),
+    ErpSalesInvoicesRepository(erpApi, cacheStore, lookupRepository),
     invoiceRepository,
   );
 
@@ -227,8 +232,8 @@ Future<void> main() async {
       // بالتتابع حتى لا تكتب المزامنتان جدول العملاء معًا
       unawaited(
         customersController.syncFromApi().whenComplete(
-              () => syncService.setEnabled(authController.isAuthenticated),
-            ),
+          () => syncService.setEnabled(authController.isAuthenticated),
+        ),
       );
     }
     if (!isAuthenticated) {
@@ -243,6 +248,14 @@ Future<void> main() async {
 
   // آخر أوقات المزامنة + مؤقّت الرفع التلقائي للطلبيات المعلّقة
   unawaited(syncService.init());
+
+  // الخدمات الدائمة في GetX: نفس الكائنات أعلاه، مرة واحدة قبل runApp
+  // (لا تُمرَّر initialBinding إلى GetMaterialApp: هو داخل Consumer2)
+  InitialBinding(
+    session: sessionService,
+    api: erpApi,
+    auth: authService,
+  ).dependencies();
 
   runApp(
     DebtsApp(
@@ -377,28 +390,35 @@ class DebtsApp extends StatelessWidget {
         ChangeNotifierProvider<ThemeController>.value(value: themeController),
       ],
       child: Consumer2<LanguageController, ThemeController>(
-        builder: (context, language, theme, _) => MaterialApp(
-          title: AppStrings.appName,
-          navigatorKey: navigatorKey,
-          debugShowCheckedModeBanner: false,
-          theme: theme.theme,
-          locale: language.locale,
-          supportedLocales: const [Locale('ar'), Locale('en')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          // الاتجاه يتبع اللغة: عربي = من اليمين لليسار، إنجليزي = العكس
-          builder: (context, child) => _LanguageScope(
-            language: language.language,
-            child: Directionality(
-              textDirection: language.direction,
-              child: child!,
+        builder: (context, language, theme, _) {
+          // GetMaterialApp يحفظ اللغة الأولى في Get.locale ويستخدمها في كل بناء
+          // لاحق: نحدّثها هنا حتى يطبَّق تغيير اللغة القادم من LanguageController
+          Get.locale = language.locale;
+          return GetMaterialApp(
+            title: AppStrings.appName,
+            navigatorKey: navigatorKey,
+            debugShowCheckedModeBanner: false,
+            theme: theme.theme,
+            locale: language.locale,
+            supportedLocales: const [Locale('ar'), Locale('en')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            // الاتجاه يتبع اللغة: عربي = من اليمين لليسار، إنجليزي = العكس
+            builder: (context, child) => _LanguageScope(
+              language: language.language,
+              child: Directionality(
+                textDirection: language.direction,
+                child: child!,
+              ),
             ),
-          ),
-          home: const AuthGate(),
-        ),
+            // البوابة هي المسار الجذري (AuthGate)، والتنقل القديم يبقى Navigator.push
+            initialRoute: Routes.gate,
+            getPages: AppPages.pages,
+          );
+        },
       ),
     );
   }

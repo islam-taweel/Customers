@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/localization/language_controller.dart';
 import '../../../data/api/erp_auth_service.dart';
 import '../../../data/api/erp_config.dart';
-import '../controllers/auth_controller.dart';
+import '../controllers/login_controller.dart';
 
 /// شاشة تسجيل الدخول: ترويسة متدرجة بشعار التطبيق في دائرة مضيئة،
 /// وتحتها بطاقة الدخول (البريد وكلمة المرور) بحركة دخول ناعمة.
@@ -30,6 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordFocus = FocusNode();
   bool _obscurePassword = true;
 
+  /// يُنشأ عند أول استخدام (lazyPut في AuthBinding)
+  late final LoginController _c = Get.find<LoginController>();
+
   @override
   void dispose() {
     _siteController.dispose();
@@ -43,28 +47,29 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
 
-    final auth = context.read<AuthController>();
-    // يجب ضبط الموقع قبل الدخول: ترويسة Host تحدد أي موقع يتصل به الطلب
-    await ErpConfig.setTarget(_siteController.text);
-    await auth.login(_emailController.text, _passwordController.text);
+    // يضبط الموقع قبل الدخول (داخل submit)، ثم يدخل
+    await _c.submit(
+      target: _siteController.text,
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
 
-    TextInput.finishAutofillContext(shouldSave: auth.isAuthenticated);
+    TextInput.finishAutofillContext(shouldSave: _c.isAuthenticated);
     // عند النجاح تستبدل البوابة هذه الشاشة. عند الخطأ في البيانات نفرّغ كلمة المرور.
-    if (mounted && auth.failure == AuthFailure.invalidCredentials) {
+    if (mounted && _c.failure.value == AuthFailure.invalidCredentials) {
       _passwordController.clear();
     }
   }
 
-  String? _failureMessage(AuthController auth) => switch (auth.failure) {
-        AuthFailure.invalidCredentials => AppStrings.loginInvalid,
-        AuthFailure.network => AppStrings.loginNetworkError,
-        AuthFailure.server => AppStrings.loginServerError,
-        null => null,
-      };
+  String? _failureMessage(AuthFailure? failure) => switch (failure) {
+    AuthFailure.invalidCredentials => AppStrings.loginInvalid,
+    AuthFailure.network => AppStrings.loginNetworkError,
+    AuthFailure.server => AppStrings.loginServerError,
+    null => null,
+  };
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -93,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const _Logo(logoAsset: _logoAsset),
                       const SizedBox(height: 26),
-                      _EntranceFade(child: _buildCard(auth, scheme)),
+                      _EntranceFade(child: Obx(() => _buildCard(scheme))),
                     ],
                   ),
                 ),
@@ -105,12 +110,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildCard(AuthController auth, ColorScheme scheme) {
+  /// تُبنى داخل Obx: تتحدث مع حالة LoginController وحالة الجلسة
+  Widget _buildCard(ColorScheme scheme) {
     final text = Theme.of(context).textTheme;
-    final message = _failureMessage(auth);
-    final showLockWarning =
-        auth.failure == AuthFailure.invalidCredentials &&
-        auth.failedAttempts >= AuthController.lockWarningAfter;
+    final busy = _c.isBusy.value;
+    final message = _failureMessage(_c.failure.value);
+    final showLockWarning = _c.showLockWarning;
 
     return Material(
       color: scheme.surface,
@@ -138,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (auth.sessionExpired)
+                  if (_c.sessionExpired)
                     _Banner(
                       icon: Icons.lock_clock_outlined,
                       text: AppStrings.sessionExpiredNotice,
@@ -166,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     TextFormField(
                       controller: _siteController,
-                      enabled: !auth.isBusy,
+                      enabled: !busy,
                       keyboardType: TextInputType.url,
                       textInputAction: TextInputAction.next,
                       textDirection: TextDirection.ltr,
@@ -174,23 +179,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       enableSuggestions: false,
                       onFieldSubmitted: (_) =>
                           FocusScope.of(context).nextFocus(),
-                      decoration: _fieldDecoration(
-                        scheme,
-                        label: AppStrings.siteLabel,
-                        icon: Icons.dns_outlined,
-                      ).copyWith(
-                        helperText: AppStrings.siteHelper,
-                        helperMaxLines: 3,
-                      ),
+                      decoration:
+                          _fieldDecoration(
+                            scheme,
+                            label: AppStrings.siteLabel,
+                            icon: Icons.dns_outlined,
+                          ).copyWith(
+                            helperText: AppStrings.siteHelper,
+                            helperMaxLines: 3,
+                          ),
                       validator: (value) =>
                           ErpConfig.parseTarget(value ?? '') == null
-                              ? AppStrings.siteInvalid
-                              : null,
+                          ? AppStrings.siteInvalid
+                          : null,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _emailController,
-                      enabled: !auth.isBusy,
+                      enabled: !busy,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       textDirection: TextDirection.ltr,
@@ -207,14 +213,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       validator: (value) =>
                           (value == null || value.trim().isEmpty)
-                              ? AppStrings.emailRequired
-                              : null,
+                          ? AppStrings.emailRequired
+                          : null,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _passwordController,
                       focusNode: _passwordFocus,
-                      enabled: !auth.isBusy,
+                      enabled: !busy,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
                       textDirection: TextDirection.ltr,
@@ -250,14 +256,14 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: auth.isBusy ? null : _submit,
+              onPressed: busy ? null : _submit,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(54),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: auth.isBusy
+              child: busy
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
@@ -330,9 +336,7 @@ class _Header extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
 
     return ClipRRect(
-      borderRadius: BorderRadius.vertical(
-        bottom: Radius.elliptical(width, 70),
-      ),
+      borderRadius: BorderRadius.vertical(bottom: Radius.elliptical(width, 70)),
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(

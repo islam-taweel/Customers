@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../../home/screens/main_shell.dart';
-import '../controllers/auth_controller.dart';
+import '../../../app/services/session_service.dart';
 import 'login_screen.dart';
 
 /// بوابة التطبيق: مسجَّل الدخول ← الرئيسية (مع الشريط السفلي)، وإلا ← شاشة الدخول.
@@ -12,15 +12,16 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAuthenticated = context.select<AuthController, bool>(
-      (auth) => auth.isAuthenticated,
-    );
+    final session = Get.find<SessionService>();
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: isAuthenticated
-          ? const MainShell(key: ValueKey('shell'))
-          : const LoginScreen(key: ValueKey('login')),
-    );
+    return Obx(() {
+      final isAuthenticated = session.isAuthenticated.value;
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 350),
+        child: isAuthenticated
+            ? const MainShell(key: ValueKey('shell'))
+            : const LoginScreen(key: ValueKey('login')),
+      );
+    });
   }
 }

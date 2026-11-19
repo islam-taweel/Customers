@@ -1,46 +1,53 @@
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
+import '../../../app/services/session_service.dart';
 import '../../../data/api/erp_auth_service.dart';
-import '../../../data/api/session_store.dart';
 
 /// حالة تسجيل الدخول في التطبيق كله: داخل أم لا، وأخطاء الدخول.
 /// لا تحفظ كلمة المرور: تمرّرها للخدمة فقط.
+///
+/// (R1) محوّل لـ Provider فوق [SessionService]: نفس الواجهة العامة السابقة حتى
+/// لا تتغير الشاشات القديمة التي تقرؤها عبر Provider. حالة الجلسة (داخل، الاسم،
+/// انتهاء الجلسة) من الخدمة؛ عامل واحد يبلّغ المستمعين عند تغيّرها ويُلغى في
+/// [dispose]. حالة نموذج الدخول هنا للتوافق فقط: شاشة الدخول تستخدم LoginController.
 class AuthController extends ChangeNotifier {
-  AuthController(this._service, this._session)
-      : _authenticated = _session.hasSession;
+  AuthController(this._session) {
+    _worker = everAll([
+      _session.isAuthenticated,
+      _session.fullName,
+      _session.sessionExpired,
+    ], (_) => _notify());
+  }
 
-  final ErpAuthService _service;
-  final SessionStore _session;
+  final SessionService _session;
+  late final Worker _worker;
 
-  bool _authenticated;
   bool _busy = false;
   AuthFailure? _failure;
-  bool _sessionExpired = false;
   int _failedAttempts = 0;
   bool _disposed = false;
 
   /// بعد هذا العدد من المحاولات الخاطئة المتتالية نحذّر من قفل الحساب
   static const int lockWarningAfter = 3;
 
-  bool get isAuthenticated => _authenticated;
+  bool get isAuthenticated => _session.isAuthenticated.value;
   bool get isBusy => _busy;
   AuthFailure? get failure => _failure;
 
   /// انتهت الجلسة (يعرض شاشة الدخول تنبيهًا بذلك)
-  bool get sessionExpired => _sessionExpired;
+  bool get sessionExpired => _session.sessionExpired.value;
   int get failedAttempts => _failedAttempts;
-  String? get fullName => _session.fullName;
+  String? get fullName => _session.fullName.value;
 
   Future<void> login(String email, String password) async {
     if (_busy) return;
     _busy = true;
     _failure = null;
-    _sessionExpired = false;
     _notify();
 
     try {
-      await _service.login(email: email.trim(), password: password);
-      _authenticated = true;
+      await _session.login(email: email.trim(), password: password);
       _failedAttempts = 0;
     } on AuthException catch (e) {
       _failure = e.failure;
@@ -55,23 +62,15 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    if (!_authenticated) return;
-    await _service.logout();
-    _authenticated = false;
+    if (!isAuthenticated) return;
+    await _session.logout();
     _failure = null;
-    _sessionExpired = false;
     _failedAttempts = 0;
     _notify();
   }
 
-  /// يستدعيه عميل الـ API حين يتأكد أن الجلسة انتهت (الكوكي حُذف أصلًا).
-  void handleSessionExpired() {
-    if (!_authenticated) return;
-    _authenticated = false;
-    _failure = null;
-    _sessionExpired = true;
-    _notify();
-  }
+  /// يمرّر إلى [SessionService.handleSessionExpired] (الجلسة حُذفت أصلًا).
+  void handleSessionExpired() => _session.handleSessionExpired();
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -80,6 +79,7 @@ class AuthController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _worker.dispose();
     super.dispose();
   }
 }
