@@ -3,7 +3,14 @@ import 'package:customer/app/services/session_service.dart';
 import 'package:customer/data/api/erp_api_client.dart';
 import 'package:customer/data/api/erp_auth_service.dart';
 import 'package:customer/data/api/session_store.dart';
+import 'package:customer/data/database/database_helper.dart';
+import 'package:customer/data/repositories/erp_cache_store.dart';
 import 'package:customer/data/repositories/erp_customer_repository.dart';
+import 'package:customer/data/repositories/erp_lookup_repository.dart';
+import 'package:customer/data/repositories/invoice_repository.dart';
+import 'package:customer/modules/collections/repository/erp_payment_repository.dart';
+import 'package:customer/modules/collections/repository/invoice_collections_repository.dart';
+import 'package:customer/modules/invoices/repository/sales_invoices_repository.dart';
 import 'package:customer/modules/statement/repository/erp_statement_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -17,13 +24,28 @@ void main() {
     final auth = ErpAuthService(store);
     final session = SessionService(store, auth);
     final api = ErpApiClient(session: store);
+    // لا يُفتح ملف قاعدة البيانات: الكائنات تُنشأ فقط ولا تُستدعى
+    final db = DatabaseHelper.instance;
+    final cache = ErpCacheStore(db);
 
     final statement = ErpStatementRepository(api, ErpCustomerRepository(api));
+    final salesInvoices = ErpSalesInvoicesRepository(api, cache);
+    final collections = ErpInvoiceCollectionsRepository(
+      api,
+      cache,
+      ErpLookupRepository(api, cache),
+    );
+    final payments = ErpPaymentRepository(api);
+    final localInvoices = InvoiceRepository(db);
     InitialBinding(
       session: session,
       api: api,
       auth: auth,
       statement: statement,
+      salesInvoices: salesInvoices,
+      invoiceCollections: collections,
+      payments: payments,
+      localInvoices: localInvoices,
     ).dependencies();
 
     expect(identical(Get.find<SessionService>(), session), isTrue);
@@ -31,5 +53,15 @@ void main() {
     expect(identical(Get.find<ErpAuthService>(), auth), isTrue);
     expect(identical(Get.find<SessionService>().store, store), isTrue);
     expect(identical(Get.find<ErpStatementRepository>(), statement), isTrue);
+    expect(
+      identical(Get.find<ErpSalesInvoicesRepository>(), salesInvoices),
+      isTrue,
+    );
+    expect(
+      identical(Get.find<ErpInvoiceCollectionsRepository>(), collections),
+      isTrue,
+    );
+    expect(identical(Get.find<ErpPaymentRepository>(), payments), isTrue);
+    expect(identical(Get.find<InvoiceRepository>(), localInvoices), isTrue);
   });
 }

@@ -9,7 +9,7 @@ import '../api/erp_config.dart';
 import '../models/purchase_models.dart';
 import 'erp_cache_store.dart';
 import 'erp_lookup_repository.dart';
-import 'erp_sales_invoices_repository.dart' show PendingPayment;
+import '../../modules/collections/models/collection_models.dart' show PendingPayment;
 
 /// كل ما يخص المشتريات في ERPNext: أوامر الشراء ← الاستلامات ← الفواتير ← الدفعات.
 ///

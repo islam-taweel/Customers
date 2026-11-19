@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -12,21 +13,30 @@ import '../controllers/customer_details_controller.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/operation_dialog.dart';
 import '../widgets/operation_tile.dart';
-import '../widgets/payments_tabs.dart';
+import '../../../modules/collections/bindings/collections_bindings.dart';
+import '../../../modules/collections/controllers/customer_collections_controller.dart';
+import '../../../modules/collections/widgets/payments_tabs.dart';
 
 /// شاشة عمليات العميل (ديون ودفعات وسجلّها). كانت تبويبًا في تفاصيل العميل
 /// وصارت شاشة مستقلة تُفتح من زر «العمليات».
 class CustomerOperationsScreen extends StatelessWidget {
-  const CustomerOperationsScreen({super.key});
+  /// وسم [CustomerCollectionsController] لهذا المسار
+  final String collectionsTag;
+
+  const CustomerOperationsScreen({super.key, required this.collectionsTag});
 
   /// تشارك المتحكم نفسه مع شاشة التفاصيل، فيبقى الرصيد واحدًا في الشاشتين.
+  /// (R3) تحصيلات ERPNext (مسودة/معتمدة) في CustomerCollectionsController: يُنشأ
+  /// مع المسار ويحمّلها عند فتح الشاشة (onInit)، ويُحذف عند إغلاقها.
   static Route<void> route(CustomerDetailsController controller) {
-    // دفعات ERPNext (مسودة/معتمدة) تُحمَّل عند فتح الشاشة
-    controller.loadPayments();
-    return MaterialPageRoute<void>(
-      builder: (_) => ChangeNotifierProvider<CustomerDetailsController>.value(
+    final tag = nextCollectionsTag('customer:${controller.customer.id}');
+    return GetPageRoute<void>(
+      settings: const RouteSettings(name: '/customer/operations'),
+      binding: CustomerCollectionsBinding(controller, tag: tag),
+      transition: Transition.native,
+      page: () => ChangeNotifierProvider<CustomerDetailsController>.value(
         value: controller,
-        child: const CustomerOperationsScreen(),
+        child: CustomerOperationsScreen(collectionsTag: tag),
       ),
     );
   }
@@ -101,6 +111,9 @@ class CustomerOperationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CustomerDetailsController>();
+    final collections = Get.find<CustomerCollectionsController>(
+      tag: collectionsTag,
+    );
 
     return Scaffold(
       // لوحة مفاتيح نافذة الدين/الدفعة لا تضغط هذه الشاشة خلفها (النافذة تتعامل
@@ -109,25 +122,33 @@ class CustomerOperationsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${controller.customer.name} • ${AppStrings.tabOperations}'),
       ),
-      body: _buildBodyGuard(context, controller),
+      body: Obx(
+        () => _buildBodyGuard(
+          context,
+          controller,
+          collections.isErpCustomer.value,
+        ),
+      ),
     );
   }
 
   Widget _buildBodyGuard(
     BuildContext context,
     CustomerDetailsController controller,
+    bool isErpCustomer,
   ) {
     if (controller.isLoading) return const LoadingView();
     if (controller.error != null) {
       return ErrorView(message: controller.error!, onRetry: controller.load);
     }
-    return _buildOperations(context, controller);
+    return _buildOperations(context, controller, isErpCustomer);
   }
 
   /// الرصيد، إضافة دفعة، واتساب، سجل العمليات
   Widget _buildOperations(
     BuildContext context,
     CustomerDetailsController controller,
+    bool isErpCustomer,
   ) {
     final operations = controller.operations;
 
@@ -173,9 +194,9 @@ class CustomerOperationsScreen extends StatelessWidget {
             ),
           ),
         // عميل ERPNext: تحت زر الدفعة تبويبا «مسودة» و«معتمدة» من ERPNext
-        if (controller.isErpCustomer) ...[
+        if (isErpCustomer) ...[
           const SizedBox(height: 12),
-          const PaymentsTabs(),
+          PaymentsTabs(tag: collectionsTag),
         ] else ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -193,7 +214,7 @@ class CustomerOperationsScreen extends StatelessWidget {
           ),
         ),
         // العميل المحلي (غير المرتبط بـ ERPNext): سجل العمليات المحلي كما كان
-        if (controller.isErpCustomer)
+        if (isErpCustomer)
           const SliverToBoxAdapter(child: SizedBox.shrink())
         else if (operations.isEmpty)
           // ارتفاع ثابت: EmptyView يستخدم LayoutBuilder، وهو لا يعمل داخل

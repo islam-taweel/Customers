@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -8,7 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/models/invoice.dart';
 import '../../customers/widgets/confirm_dialog.dart';
 import '../controllers/orders_controller.dart';
-import '../controllers/sales_invoices_controller.dart';
+import '../../../modules/invoices/controllers/sales_invoices_controller.dart';
 
 /// أي تبويب في قسم التسليمات تُعرض فيه البطاقة
 enum DeliveryTileMode {
@@ -63,7 +64,7 @@ class _DeliveryTileState extends State<DeliveryTile> {
   Future<void> _bill() async {
     if (_busy) return;
     final orders = context.read<OrdersController>();
-    final invoices = context.read<SalesInvoicesController>();
+    final invoices = Get.find<SalesInvoicesController>();
     final messenger = ScaffoldMessenger.of(context);
 
     final confirmed = await ConfirmDialog.show(
@@ -82,7 +83,7 @@ class _DeliveryTileState extends State<DeliveryTile> {
 
     if (error == null) {
       // الفاتورة المسودة تظهر فورًا في تبويب «غير مدفوعة» بقسم الفواتير
-      invoices.refresh();
+      invoices.reload();
       messenger.showSnackBar(SnackBar(content: Text(AppStrings.orderBilled)));
       widget.onBilled?.call();
     } else {

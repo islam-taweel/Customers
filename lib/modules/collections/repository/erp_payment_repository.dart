@@ -1,6 +1,6 @@
-import '../../core/constants/app_strings.dart';
-import '../api/erp_api_client.dart';
-import '../api/erp_config.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
 import '../models/payment_entry.dart';
 
 /// نتيجة تسجيل دفعة في ERPNext: رقم المستند، وما يقابلها بعملة حساب العميل.

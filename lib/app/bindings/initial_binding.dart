@@ -2,6 +2,10 @@ import 'package:get/get.dart';
 
 import '../../data/api/erp_api_client.dart';
 import '../../data/api/erp_auth_service.dart';
+import '../../data/repositories/invoice_repository.dart';
+import '../../modules/collections/repository/erp_payment_repository.dart';
+import '../../modules/collections/repository/invoice_collections_repository.dart';
+import '../../modules/invoices/repository/sales_invoices_repository.dart';
 import '../../modules/statement/repository/erp_statement_repository.dart';
 import '../services/session_service.dart';
 
@@ -16,15 +20,29 @@ class InitialBinding extends Bindings {
     required this.api,
     required this.auth,
     required this.statement,
+    required this.salesInvoices,
+    required this.invoiceCollections,
+    required this.payments,
+    required this.localInvoices,
   });
 
   final SessionService session;
   final ErpApiClient api;
   final ErpAuthService auth;
 
-  /// R2: أول repository يُنقل إلى GetX (وحدة statement). بقية الـ repositories
-  /// ما زالت في MultiProvider حتى تُنقل وحداتها.
+  /// R2: وحدة statement
   final ErpStatementRepository statement;
+
+  /// R3: وحدة invoices (قائمة فواتير المبيعات)
+  final ErpSalesInvoicesRepository salesInvoices;
+
+  /// R3: وحدة collections (تحصيل الفواتير، ودفعات العميل في ERPNext).
+  /// [payments] نفس الكائن الذي يستخدمه CustomerDetailsController (Provider).
+  final ErpInvoiceCollectionsRepository invoiceCollections;
+  final ErpPaymentRepository payments;
+
+  /// فواتير الطلبيات المحلية (ما زالت في MultiProvider أيضًا لمستهلكيها القدامى)
+  final InvoiceRepository localInvoices;
 
   @override
   void dependencies() {
@@ -32,6 +50,10 @@ class InitialBinding extends Bindings {
     _putOnce<ErpApiClient>(api);
     _putOnce<ErpAuthService>(auth);
     _putOnce<ErpStatementRepository>(statement);
+    _putOnce<ErpSalesInvoicesRepository>(salesInvoices);
+    _putOnce<ErpInvoiceCollectionsRepository>(invoiceCollections);
+    _putOnce<ErpPaymentRepository>(payments);
+    _putOnce<InvoiceRepository>(localInvoices);
   }
 
   static void _putOnce<T>(T instance) {

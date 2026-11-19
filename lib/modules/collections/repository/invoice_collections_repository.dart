@@ -1,159 +1,31 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
-import '../../core/constants/app_strings.dart';
-import '../api/erp_api_client.dart';
-import '../api/erp_config.dart';
-import '../models/sales_invoice.dart';
-import 'erp_cache_store.dart';
-import 'erp_lookup_repository.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
+import '../../../data/models/sales_invoice.dart';
+import '../../../data/repositories/erp_cache_store.dart';
+import '../../../data/repositories/erp_lookup_repository.dart';
+import '../models/collection_models.dart';
 
-/// فواتير المبيعات لكل العملاء، مع وقت حفظ النسخة المحلية إن كانت منها.
-class SalesInvoicesResult {
-  final List<SalesInvoice> invoices;
-
-  /// null = جاءت للتو من ERPNext، وإلا وقت حفظ النسخة المحلية
-  final DateTime? savedAt;
-
-  const SalesInvoicesResult({required this.invoices, this.savedAt});
-}
-
-/// تفاصيل الدفعة غير النقدية. لا يُرسل ولا يُحفظ رقم البطاقة كاملًا ولا تاريخ
-/// انتهائها ولا CVV: آخر 4 أرقام فقط (في [extra] باسم custom_card_last4).
-class PaymentDetails {
-  /// رقم الشيك، أو رمز الموافقة، أو مرجع التحويل
-  final String? referenceNo;
-
-  /// تاريخ الشيك أو العملية أو التحويل
-  final DateTime? referenceDate;
-
-  /// حقول إضافية بحسب طريقة الدفع (custom_cheque_bank، custom_card_last4...)
-  final Map<String, String> extra;
-
-  const PaymentDetails({
-    this.referenceNo,
-    this.referenceDate,
-    this.extra = const {},
-  });
-}
-
-/// دفعة حُفظت مسودة في ERPNext وتنتظر اعتمادها هناك. الفاتورة لا يتغير مستحقها
-/// ولا حالتها إلا بعد الاعتماد، فنتذكرها محليًا لنعرضها على الفاتورة.
-class PendingPayment {
-  final String invoice;
-  final String entry;
-  final double amount;
-  final String currency;
-
-  const PendingPayment({
-    required this.invoice,
-    required this.entry,
-    required this.amount,
-    required this.currency,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'invoice': invoice,
-    'entry': entry,
-    'amount': amount,
-    'currency': currency,
-  };
-
-  factory PendingPayment.fromJson(Map<String, dynamic> json) => PendingPayment(
-    invoice: json['invoice']?.toString() ?? '',
-    entry: json['entry']?.toString() ?? '',
-    amount: (json['amount'] as num?)?.toDouble() ?? 0,
-    currency: json['currency']?.toString() ?? '',
-  );
-}
-
-/// فواتير المبيعات (قسم «الفواتير») ودفعاتها في ERPNext.
+/// تحصيل فاتورة مبيعات: ينشئ Payment Entry **مسودة** مربوطة بالفاتورة
+/// (get_payment_entry) ويتذكرها محليًا حتى تُعتمد في ERPNext. حالة الفاتورة
+/// ومستحقها يتغيران من ERPNext وحده بعد أن يعتمد المسؤول الدفعة.
 ///
-/// القراءة: كل رد ناجح يُحفظ محليًا فتظهر النسخة المحفوظة دون إنترنت.
-/// الدفع: ينشئ Payment Entry **مسودة** مربوطة بالفاتورة (get_payment_entry)؛
-/// حالة الفاتورة ومستحقها يتغيران من ERPNext وحده بعد أن يعتمد المسؤول الدفعة.
-class ErpSalesInvoicesRepository {
-  ErpSalesInvoicesRepository(this._api, this._cache, this._lookup);
+/// (R3) نُقل كما هو من ErpSalesInvoicesRepository: نفس الطلبات والمفتاح المحلي.
+class ErpInvoiceCollectionsRepository {
+  ErpInvoiceCollectionsRepository(this._api, this._cache, this._lookup);
 
   final ErpApiClient _api;
   final ErpCacheStore _cache;
   final ErpLookupRepository _lookup;
 
-  static const _listKey = 'sales_invoices:all';
   static const _pendingKey = 'sales_invoices:pending_payments';
-
-  static const List<String> _fields = [
-    'name',
-    'customer',
-    'customer_name',
-    'posting_date',
-    'due_date',
-    'grand_total',
-    'outstanding_amount',
-    'status',
-    'currency',
-    'docstatus',
-    // قيمة الفاتورة والمسدد من رصيد سابق (InvoiceSettlement.fields)
-    'party_account_currency',
-    'rounded_total',
-    'base_grand_total',
-    'base_rounded_total',
-    'disable_rounded_total',
-    'total_advance',
-    'write_off_amount',
-    'base_write_off_amount',
-  ];
-
-  /// المحفوظ محليًا من آخر جلب ناجح (null إن لم يُحفظ شيء بعد).
-  Future<SalesInvoicesResult?> readCached() async {
-    final entry = await _cache.read(_listKey);
-    if (entry == null) return null;
-    try {
-      final rows = jsonDecode(entry.json) as List;
-      return SalesInvoicesResult(
-        invoices: _parse([
-          for (final r in rows) Map<String, dynamic>.from(r as Map),
-        ]),
-        savedAt: entry.savedAt,
-      );
-    } catch (e) {
-      debugPrint('نسخة الفواتير المحفوظة تالفة: $e');
-      return null;
-    }
-  }
-
-  /// الجلب من ERPNext (يرمي [ErpApiException] عند الفشل) ثم الحفظ محليًا.
-  Future<SalesInvoicesResult> fetchAll() async {
-    final rows = await _api.getAll(
-      'Sales Invoice',
-      fields: _fields,
-      filters: [
-        [
-          'docstatus',
-          'in',
-          [0, 1],
-        ],
-      ],
-    );
-    await _cache.write(_listKey, jsonEncode(rows));
-    return SalesInvoicesResult(invoices: _parse(rows));
-  }
-
-  List<SalesInvoice> _parse(List<Map<String, dynamic>> rows) {
-    return [for (final row in rows) SalesInvoice.fromJson(row)]..sort((a, b) {
-      final byDate = b.postingDate.compareTo(a.postingDate);
-      return byDate != 0 ? byDate : b.name.compareTo(a.name);
-    });
-  }
 
   /// طرق الدفع المفعّلة في ERPNext (مع نسخة محلية عند انقطاع الاتصال).
   Future<List<String>> fetchModesOfPayment() => _lookup.fetchModesOfPayment();
-
-  /// ملف PDF للفاتورة من ERPNext للطباعة.
-  Future<Uint8List> downloadInvoicePdf(String name) =>
-      _api.downloadPdf('Sales Invoice', name);
 
   // ───────────────────────── الدفعات بانتظار الاعتماد ─────────────────────────
 

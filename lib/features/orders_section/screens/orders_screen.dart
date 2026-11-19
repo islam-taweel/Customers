@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -9,11 +10,12 @@ import '../../customers/widgets/draft_list.dart';
 import '../../customers/widgets/offline_banner.dart';
 import '../../order/controllers/order_controller.dart';
 import '../../order/screens/new_order_screen.dart';
+import '../../../modules/collections/bindings/collections_bindings.dart';
+import '../../../modules/invoices/bindings/invoices_bindings.dart';
+import '../../../modules/invoices/views/invoices_tabs_view.dart';
 import '../controllers/orders_controller.dart';
-import '../controllers/sales_invoices_controller.dart';
 import '../widgets/delivery_tile.dart';
 import '../widgets/order_list_tile.dart';
-import 'invoices_tabs_view.dart';
 import 'order_details_screen.dart';
 
 /// قسم «الطلبات»: شريط تنقل سفلي بثلاثة أقسام (الطلبيات، التسليمات، الفواتير).
@@ -22,18 +24,18 @@ import 'order_details_screen.dart';
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
 
+  /// (R3) فواتير المبيعات وتحصيلاتها (تبويب «الفواتير») صارت متحكمات GetX
+  /// تُسجَّل مع هذا المسار وتُحذف عند إغلاقه؛ الطلبيات ما زالت Provider.
   static Route<void> route() {
-    return MaterialPageRoute<void>(
-      builder: (_) => MultiProvider(
+    return GetPageRoute<void>(
+      settings: const RouteSettings(name: '/orders'),
+      bindings: [InvoiceCollectionsBinding(), SalesInvoicesBinding()],
+      transition: Transition.native,
+      page: () => MultiProvider(
         providers: [
           ChangeNotifierProvider<OrdersController>(
             create: (ctx) =>
                 ctx.read<OrdersControllerFactory>().create()..load(),
-          ),
-          // فواتير المبيعات ودفعاتها (تبويب «الفواتير»)
-          ChangeNotifierProvider<SalesInvoicesController>(
-            create: (ctx) =>
-                ctx.read<SalesInvoicesControllerFactory>().create()..load(),
           ),
         ],
         child: const OrdersScreen(),

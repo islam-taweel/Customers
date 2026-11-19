@@ -38,9 +38,10 @@ import 'data/repositories/erp_van_sales_repository.dart';
 import 'data/repositories/erp_visit_repository.dart';
 import 'data/repositories/erp_warehouse_repository.dart';
 import 'data/repositories/erp_lookup_repository.dart';
-import 'data/repositories/erp_payment_repository.dart';
+import 'modules/collections/repository/erp_payment_repository.dart';
+import 'modules/collections/repository/invoice_collections_repository.dart';
 import 'data/repositories/erp_purchases_repository.dart';
-import 'data/repositories/erp_sales_invoices_repository.dart';
+import 'modules/invoices/repository/sales_invoices_repository.dart';
 import 'data/repositories/erp_sales_returns_repository.dart';
 import 'data/repositories/outstanding_repository.dart';
 import 'data/repositories/erp_order_repository.dart';
@@ -53,7 +54,6 @@ import 'features/customers/controllers/customers_controller.dart';
 import 'features/inventory/controllers/inventory_controller.dart';
 import 'features/order/controllers/order_controller.dart';
 import 'features/orders_section/controllers/orders_controller.dart';
-import 'features/orders_section/controllers/sales_invoices_controller.dart';
 import 'features/purchases/controllers/purchases_controller.dart';
 import 'features/sales_returns/controllers/sales_returns_controller.dart';
 import 'features/visits/controllers/visits_controller.dart';
@@ -113,6 +113,8 @@ Future<void> main() async {
   final pendingRepository = PendingOrderRepository(dbHelper);
   // تعديل المسودات وحذفها واعتمادها في ERPNext (يشترك فيها قسم «الطلبات»)
   final draftRepository = ErpDraftRepository(erpApi);
+  // تسجيل الدفعة كـ Payment Entry في ERPNext (كائن واحد: العمليات + التحصيلات)
+  final paymentRepository = ErpPaymentRepository(erpApi);
   final detailsFactory = CustomerDetailsControllerFactory(
     OperationRepository(dbHelper),
     customerRepository,
@@ -128,7 +130,7 @@ Future<void> main() async {
     // العملات وطرق الدفع من ERPNext (مع نسخة محلية)
     lookupRepository,
     // تسجيل الدفعة كـ Payment Entry في ERPNext
-    ErpPaymentRepository(erpApi),
+    paymentRepository,
   );
 
   // طلبيات العملاء: العملاء والأصناف والأسعار والمخزون وإنشاء الطلبية من ERPNext
@@ -161,10 +163,15 @@ Future<void> main() async {
     ErpFulfillmentRepository(erpApi),
   );
 
-  // قسم «الفواتير»: فواتير المبيعات لكل العملاء ودفعاتها (تُحفظ مسودة في ERPNext)
-  final salesInvoicesFactory = SalesInvoicesControllerFactory(
-    ErpSalesInvoicesRepository(erpApi, cacheStore, lookupRepository),
-    invoiceRepository,
+  // قسم «الفواتير»: فواتير المبيعات لكل العملاء (R3: GetX)، وتحصيلاتها مسودة في ERPNext
+  final salesInvoicesRepository = ErpSalesInvoicesRepository(
+    erpApi,
+    cacheStore,
+  );
+  final invoiceCollectionsRepository = ErpInvoiceCollectionsRepository(
+    erpApi,
+    cacheStore,
+    lookupRepository,
   );
 
   // قسم «مردود المبيعات»: فاتورة العميل ← إشعار دائن وإرجاع بضاعة (مسودات) ← رد المال
@@ -256,6 +263,10 @@ Future<void> main() async {
     api: erpApi,
     auth: authService,
     statement: statementRepository,
+    salesInvoices: salesInvoicesRepository,
+    invoiceCollections: invoiceCollectionsRepository,
+    payments: paymentRepository,
+    localInvoices: invoiceRepository,
   ).dependencies();
 
   runApp(
@@ -268,7 +279,6 @@ Future<void> main() async {
       invoiceRepository: invoiceRepository,
       orderFactory: orderFactory,
       ordersFactory: ordersFactory,
-      salesInvoicesFactory: salesInvoicesFactory,
       salesReturnsFactory: salesReturnsFactory,
       purchasesFactory: purchasesFactory,
       inventoryFactory: inventoryFactory,
@@ -296,7 +306,6 @@ class DebtsApp extends StatelessWidget {
   final InvoiceRepository invoiceRepository;
   final OrderControllerFactory orderFactory;
   final OrdersControllerFactory ordersFactory;
-  final SalesInvoicesControllerFactory salesInvoicesFactory;
   final SalesReturnsControllerFactory salesReturnsFactory;
   final PurchasesControllerFactory purchasesFactory;
   final InventoryControllerFactory inventoryFactory;
@@ -319,7 +328,6 @@ class DebtsApp extends StatelessWidget {
     required this.invoiceRepository,
     required this.orderFactory,
     required this.ordersFactory,
-    required this.salesInvoicesFactory,
     required this.salesReturnsFactory,
     required this.purchasesFactory,
     required this.inventoryFactory,
@@ -352,10 +360,6 @@ class DebtsApp extends StatelessWidget {
         Provider<OrderControllerFactory>.value(value: orderFactory),
         // ينشئ متحكم قسم «الطلبات» كلما فُتح
         Provider<OrdersControllerFactory>.value(value: ordersFactory),
-        // ينشئ متحكم فواتير المبيعات ودفعاتها (تبويب «الفواتير»)
-        Provider<SalesInvoicesControllerFactory>.value(
-          value: salesInvoicesFactory,
-        ),
         // ينشئ متحكمات قسم «مردود المبيعات» كلما فُتح
         Provider<SalesReturnsControllerFactory>.value(
           value: salesReturnsFactory,

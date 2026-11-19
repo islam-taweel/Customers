@@ -4,7 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/api/erp_config.dart';
-import '../../../data/repositories/erp_payment_repository.dart';
+import '../../../modules/collections/repository/erp_payment_repository.dart';
 
 /// القيم التي يُدخلها المستخدم في نافذة الدفعة.
 class OperationInput {

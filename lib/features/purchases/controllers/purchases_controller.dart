@@ -10,7 +10,7 @@ import '../../../core/utils/error_messages.dart';
 import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/purchase_models.dart';
 import '../../../data/repositories/erp_purchases_repository.dart';
-import '../../../data/repositories/erp_sales_invoices_repository.dart'
+import '../../../modules/collections/models/collection_models.dart'
     show PendingPayment;
 
 /// ينشئ متحكمًا جديدًا كلما فُتح قسم «المشتريات».

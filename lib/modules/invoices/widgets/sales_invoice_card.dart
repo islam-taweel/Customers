@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -6,11 +7,11 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/sales_invoice.dart';
-import '../../customers/screens/gl_entries_screen.dart';
-import '../../customers/widgets/confirm_dialog.dart';
-import '../controllers/orders_controller.dart';
+import '../../../features/customers/screens/gl_entries_screen.dart';
+import '../../../features/customers/widgets/confirm_dialog.dart';
+import '../../../features/orders_section/controllers/orders_controller.dart';
+import '../../collections/widgets/payment_sheet.dart';
 import '../controllers/sales_invoices_controller.dart';
-import 'payment_sheet.dart';
 
 /// بطاقة فاتورة مبيعات في قسم «الفواتير»: رقمها واسم العميل والمجموع وتاريخ
 /// الاستحقاق والمبلغ المستحق، وتحتها الأزرار بحسب التبويب:
@@ -42,13 +43,8 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
   SalesInvoice get _invoice => widget.invoice;
 
   Future<void> _pay() async {
-    final controller = context.read<SalesInvoicesController>();
     final messenger = ScaffoldMessenger.of(context);
-    final saved = await showPaymentSheet(
-      context,
-      invoice: _invoice,
-      controller: controller,
-    );
+    final saved = await showPaymentSheet(context, invoice: _invoice);
     if (saved) {
       messenger.showSnackBar(
         SnackBar(content: Text(AppStrings.paymentSavedPending)),
@@ -61,7 +57,7 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
   Future<void> _reopen() async {
     if (_reopening) return;
     final orders = context.read<OrdersController>();
-    final invoices = context.read<SalesInvoicesController>();
+    final invoices = Get.find<SalesInvoicesController>();
     final messenger = ScaffoldMessenger.of(context);
 
     final confirmed = await ConfirmDialog.show(
@@ -88,12 +84,12 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
       ),
     );
     // الفاتورة أُلغيت أو حُذفت: تختفي من التبويبات
-    if (result.result != null) await invoices.refresh();
+    if (result.result != null) await invoices.reload();
   }
 
   Future<void> _print() async {
     if (_printing) return;
-    final controller = context.read<SalesInvoicesController>();
+    final controller = Get.find<SalesInvoicesController>();
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _printing = true);
     try {
@@ -133,8 +129,8 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
     final statusLabel = bucket == InvoiceBucket.draft
         ? AppStrings.tabDraft
         : awaitingApproval
-            ? AppStrings.invoiceAwaitingApproval
-            : AppStrings.invoiceStatus(_invoice.status);
+        ? AppStrings.invoiceAwaitingApproval
+        : AppStrings.invoiceStatus(_invoice.status);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -158,12 +154,16 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
-                  color: (bucket == InvoiceBucket.paid
-                          ? AppColors.payment
-                          : scheme.primary)
-                      .withValues(alpha: 0.12),
+                  color:
+                      (bucket == InvoiceBucket.paid
+                              ? AppColors.payment
+                              : scheme.primary)
+                          .withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -179,11 +179,18 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
             ],
           ),
           const SizedBox(height: 6),
-          _Line(label: AppStrings.invoiceNumber, value: _invoice.name, isLtr: true),
+          _Line(
+            label: AppStrings.invoiceNumber,
+            value: _invoice.name,
+            isLtr: true,
+          ),
           // قيمة الفاتورة كاملة، ثم المسدد منها، ثم المتبقي (كلها من ERPNext)
           _Line(
             label: AppStrings.invoiceTotalValue,
-            value: formatSignedAmount(_invoice.invoiceTotal, currency: currency),
+            value: formatSignedAmount(
+              _invoice.invoiceTotal,
+              currency: currency,
+            ),
             isLtr: true,
           ),
           if (due.isNotEmpty)
@@ -192,7 +199,10 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
             if (settlement.fromAdvance > 0.005)
               _Line(
                 label: AppStrings.invoicePaidFromCredit,
-                value: formatAmount(settlement.fromAdvance, currency: dueCurrency),
+                value: formatAmount(
+                  settlement.fromAdvance,
+                  currency: dueCurrency,
+                ),
                 isLtr: true,
               ),
             if (settlement.paid > 0.005)
@@ -259,7 +269,10 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   AppStrings.payWaitingInvoiceApproval,
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             // غير مدفوعة / مدفوعة جزئيًا / مدفوعة: إرجاع الطلبية للتعديل
@@ -278,9 +291,9 @@ class _SalesInvoiceCardState extends State<SalesInvoiceCard> {
           ],
           // كل الحالات (حتى المسودة: تظهر «بانتظار الاعتماد» دون طلب قيودها)
           TextButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              GlEntriesScreen.forInvoice(_invoice.name),
-            ),
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(GlEntriesScreen.forInvoice(_invoice.name)),
             icon: const Icon(Icons.account_balance_outlined),
             label: Text(AppStrings.glEntriesTitle),
           ),

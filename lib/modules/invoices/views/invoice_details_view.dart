@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:printing/printing.dart';
-import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_strings.dart';
@@ -12,45 +12,52 @@ import '../../../core/services/invoice_pdf_service.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/sales_invoice.dart';
+import '../../../features/customers/screens/gl_entries_screen.dart';
+import '../../../features/customers/screens/invoice_pdf_screen.dart';
+import '../../../features/customers/widgets/invoice_card.dart';
+import '../../../features/customers/widgets/offline_banner.dart';
+import '../bindings/invoices_bindings.dart';
 import '../controllers/invoice_details_controller.dart';
-import '../widgets/invoice_card.dart';
-import '../widgets/offline_banner.dart';
-import 'gl_entries_screen.dart';
-import 'invoice_pdf_screen.dart';
 
 /// تفاصيل فاتورة معتمدة (عند الضغط عليها): رقمها واسم العميل وهاتفه والمبلغ
 /// وأصنافها، مع زرّين: عرضها كملف PDF وطباعتها، وزر «القيود المحاسبية» للفاتورة المعتمدة.
 /// الملف هو PDF الرسمي من ERPNext (download_pdf)، وعند تعذّره (دون اتصال مثلًا)
 /// نولّد ملفًا من الفاتورة المعروضة على الشاشة.
 class InvoiceDetailsScreen extends StatelessWidget {
-  const InvoiceDetailsScreen({super.key});
+  /// وسم المتحكم لهذا المسار
+  final String tag;
 
+  const InvoiceDetailsScreen({super.key, required this.tag});
+
+  /// نفس الواجهة القديمة: المتحكم يصنعه CustomerDetailsController. (R3) يُسجَّل
+  /// مع المسار (GetPageRoute) فيبدأ التحميل عند فتحه ويُحذف عند إغلاقه.
   static Route<void> route(InvoiceDetailsController controller) {
-    return MaterialPageRoute<void>(
-      builder: (_) => ChangeNotifierProvider<InvoiceDetailsController>(
-        create: (_) => controller..load(),
-        child: const InvoiceDetailsScreen(),
-      ),
+    final tag = nextInvoicesTag('invoice:${controller.invoiceName}');
+    return GetPageRoute<void>(
+      settings: const RouteSettings(name: '/invoice'),
+      binding: InvoiceDetailsBinding(controller, tag: tag),
+      transition: Transition.native,
+      page: () => InvoiceDetailsScreen(tag: tag),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<InvoiceDetailsController>();
+    final controller = Get.find<InvoiceDetailsController>(tag: tag);
 
     return Scaffold(
       appBar: AppBar(title: Text(controller.invoiceName)),
-      body: _buildBody(controller),
+      body: Obx(() => _buildBody(controller)),
     );
   }
 
   Widget _buildBody(InvoiceDetailsController controller) {
-    if (controller.isLoading) return const LoadingView();
+    if (controller.isLoading.value) return const LoadingView();
 
-    final detail = controller.detail;
-    if (controller.error != null || detail == null) {
+    final detail = controller.detail.value;
+    if (controller.error.value != null || detail == null) {
       return ErrorView(
-        message: controller.error ?? AppStrings.loadInvoiceError,
+        message: controller.error.value ?? AppStrings.loadInvoiceError,
         onRetry: controller.load,
       );
     }
@@ -58,15 +65,15 @@ class InvoiceDetailsScreen extends StatelessWidget {
     return _InvoiceView(
       detail: detail,
       customerPhone: controller.customerPhone,
-      notice: controller.notice,
+      notice: controller.notice.value,
       fetchServerPdf: controller.downloadServerPdf,
       // كل الحالات: الفاتورة (وقيود دفعاتها) أو الطلبية (تسليم/فوترة/دفعات)
       openGlEntries: controller.hasGlEntries
           ? (context) => Navigator.of(context).push(
-                controller.doctype == 'Sales Invoice'
-                    ? GlEntriesScreen.forInvoice(controller.invoiceName)
-                    : GlEntriesScreen.forOrder(controller.invoiceName),
-              )
+              controller.doctype == 'Sales Invoice'
+                  ? GlEntriesScreen.forInvoice(controller.invoiceName)
+                  : GlEntriesScreen.forOrder(controller.invoiceName),
+            )
           : null,
     );
   }

@@ -11,7 +11,7 @@ import '../controllers/customer_invoices_controller.dart';
 import '../widgets/draft_list.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/sales_invoice_tile.dart';
-import 'invoice_details_screen.dart';
+import '../../../modules/invoices/views/invoice_details_view.dart';
 
 /// فواتير العميل في تبويبين:
 /// * **مسودة**: طلبيات لم تُعتمد بعد، تقبل التعديل والحذف والاعتماد.

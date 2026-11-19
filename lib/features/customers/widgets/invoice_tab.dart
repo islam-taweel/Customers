@@ -8,7 +8,7 @@ import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/sales_invoice.dart';
 import '../controllers/customer_details_controller.dart';
 import '../controllers/customer_invoices_controller.dart';
-import '../screens/invoice_details_screen.dart';
+import '../../../modules/invoices/views/invoice_details_view.dart';
 import 'offline_banner.dart';
 import 'sales_invoice_tile.dart';
 

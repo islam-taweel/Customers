@@ -1,90 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/sales_invoice.dart';
-import '../../../data/repositories/erp_sales_invoices_repository.dart';
-import '../controllers/sales_invoices_controller.dart';
+import '../bindings/collections_bindings.dart';
+import '../controllers/payment_sheet_controller.dart';
 
 /// نافذة الدفع من الأسفل: رقم الفاتورة والمبلغ المستحق، ثم المبلغ المراد دفعه وطريقة
 /// الدفع (من ERPNext) وحقولها الخاصة (شيك، بطاقة، تحويل) وملاحظة، وفي آخرها زر
 /// حفظ الدفعة. تُرجع true إن حُفظت الدفعة.
+///
+/// الحالة والتحقق في [PaymentSheetController] (يُسجَّل لهذه النافذة فقط ويُحذف عند
+/// إغلاقها)؛ هنا العرض وحقول النص فقط.
 Future<bool> showPaymentSheet(
   BuildContext context, {
   required SalesInvoice invoice,
-  required SalesInvoicesController controller,
 }) async {
+  final tag = nextCollectionsTag('pay:${invoice.name}');
+  PaymentSheetBinding(invoice, tag: tag).dependencies();
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => _PaymentSheet(invoice: invoice, controller: controller),
+    builder: (_) => _PaymentSheet(tag: tag),
   );
   return saved == true;
 }
 
-/// نوع طريقة الدفع بحسب اسمها في ERPNext: يحدد الحقول المطلوبة.
-/// أي طريقة غير نقدية لا تُعرف تُعامل كتحويل عام: رقم مرجع وتاريخ مطلوبان.
-enum _ModeKind { cash, cheque, card, transfer, other }
-
-_ModeKind _kindOf(String? mode) {
-  final m = (mode ?? '').toLowerCase().trim();
-  if (m.isEmpty) return _ModeKind.cash;
-  if (m.contains('cheque') || m.contains('check')) return _ModeKind.cheque;
-  if (m.contains('card')) return _ModeKind.card;
-  if (m.contains('transfer')) return _ModeKind.transfer;
-  if (m == 'cash') return _ModeKind.cash;
-  return _ModeKind.other;
-}
-
 class _PaymentSheet extends StatefulWidget {
-  final SalesInvoice invoice;
-  final SalesInvoicesController controller;
+  final String tag;
 
-  const _PaymentSheet({required this.invoice, required this.controller});
+  const _PaymentSheet({required this.tag});
 
   @override
   State<_PaymentSheet> createState() => _PaymentSheetState();
 }
 
 class _PaymentSheetState extends State<_PaymentSheet> {
+  /// يُنشأ عند أول طلب (lazyPut في PaymentSheetBinding)، لا داخل build
+  late final PaymentSheetController _c = Get.find<PaymentSheetController>(
+    tag: widget.tag,
+  );
+
+  // حقول النص (عناصر واجهة): قيمها تُرسل إلى المتحكم مع كل تغيير
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
-
-  // حقول الطرق غير النقدية
   final _refController = TextEditingController();
   final _chequeBankController = TextEditingController();
   final _drawerController = TextEditingController();
   final _cardLast4Controller = TextEditingController();
   final _cardBrandController = TextEditingController();
   final _senderBankController = TextEditingController();
-  DateTime? _refDate;
-
-  List<String> _modes = [];
-  bool _modesLoading = true;
-  bool _modesFailed = false;
-  String? _mode;
-
-  bool _saving = false;
-  String? _saveError;
-
-  SalesInvoice get _invoice => widget.invoice;
-  double get _due => _invoice.outstandingAmount;
-  String get _dueText =>
-      formatAmount(
-        _due,
-        currency: displayCurrency(
-          _invoice.settlement?.displayIn(_invoice.currency) ?? _invoice.currency,
-        ),
-      );
-  _ModeKind get _kind => _kindOf(_mode);
 
   @override
   void initState() {
     super.initState();
-    _loadModes();
+    _c; // يبدأ تحميل طرق الدفع (onInit) كما كان في initState
   }
 
   @override
@@ -101,143 +74,38 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     ]) {
       c.dispose();
     }
+    // بعد إزالة النافذة من الشجرة (لا أثناء حركة الإغلاق)
+    Get.delete<PaymentSheetController>(tag: widget.tag);
     super.dispose();
-  }
-
-  Future<void> _loadModes() async {
-    setState(() {
-      _modesLoading = true;
-      _modesFailed = false;
-    });
-    try {
-      final modes = await widget.controller.modesOfPayment();
-      if (!mounted) return;
-      setState(() {
-        _modes = modes;
-        _modesFailed = modes.isEmpty;
-        _modesLoading = false;
-        // طريقة واحدة فقط: نختارها تلقائيًا
-        if (modes.length == 1) _mode = modes.first;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _modesFailed = true;
-        _modesLoading = false;
-      });
-    }
-  }
-
-  /// null = لم يُكتب شيء بعد (بلا تحذير)
-  double? get _amount => parseAmount(_amountController.text);
-
-  /// تحذير المبلغ: صفر أو سالب، أو أكثر من المستحق، أو نص غير صالح
-  String? get _amountWarning {
-    if (_amountController.text.trim().isEmpty) return null;
-    final value = _amount;
-    if (value == null) return AppStrings.payAmountRequired;
-    if (value <= 0) return AppStrings.payAmountPositive;
-    if (value > _due + 0.005) return AppStrings.payAmountExceeds(_dueText);
-    return null;
-  }
-
-  String get _last4 => normalizeDigits(_cardLast4Controller.text.trim());
-
-  bool get _last4Valid => RegExp(r'^\d{4}$').hasMatch(_last4);
-
-  /// الحقول الخاصة بطريقة الدفع مكتملة؟
-  bool get _extrasValid {
-    final kind = _kind;
-    if (kind == _ModeKind.cash) return true;
-    if (_refController.text.trim().isEmpty || _refDate == null) return false;
-    if (kind == _ModeKind.cheque) {
-      return _chequeBankController.text.trim().isNotEmpty &&
-          _drawerController.text.trim().isNotEmpty;
-    }
-    if (kind == _ModeKind.card) {
-      return _last4Valid && _cardBrandController.text.trim().isNotEmpty;
-    }
-    return true;
-  }
-
-  bool get _canSave {
-    final value = _amount;
-    return !_saving &&
-        value != null &&
-        value > 0 &&
-        value <= _due + 0.005 &&
-        _mode != null &&
-        _extrasValid;
-  }
-
-  PaymentDetails _details() {
-    final kind = _kind;
-    if (kind == _ModeKind.cash) return const PaymentDetails();
-    return PaymentDetails(
-      referenceNo: _refController.text.trim(),
-      referenceDate: _refDate,
-      extra: switch (kind) {
-        _ModeKind.cheque => {
-            'custom_cheque_bank': _chequeBankController.text.trim(),
-            'custom_drawer_name': _drawerController.text.trim(),
-          },
-        // آخر 4 أرقام فقط: لا رقم بطاقة كاملًا ولا تاريخ انتهاء ولا CVV
-        _ModeKind.card => {
-            'custom_card_last4': _last4,
-            'custom_card_brand': _cardBrandController.text.trim(),
-          },
-        _ModeKind.transfer => {
-            'custom_sender_bank': _senderBankController.text.trim(),
-          },
-        _ => const <String, String>{},
-      },
-    );
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _refDate ?? now,
+      initialDate: _c.referenceDate.value ?? now,
       firstDate: DateTime(now.year - 2),
       lastDate: DateTime(now.year + 2),
     );
-    if (picked != null && mounted) setState(() => _refDate = picked);
+    if (picked != null && mounted) _c.referenceDate.value = picked;
   }
 
   Future<void> _save() async {
-    final value = _amount;
-    if (!_canSave || value == null) return;
-    setState(() {
-      _saving = true;
-      _saveError = null;
-    });
-    final note = _noteController.text.trim();
-    final error = await widget.controller.pay(
-      _invoice,
-      amount: value,
-      modeOfPayment: _mode!,
-      note: note.isEmpty ? null : note,
-      details: _details(),
-    );
-    if (!mounted) return;
-    if (error == null) {
-      Navigator.pop(context, true);
-    } else {
-      setState(() {
-        _saving = false;
-        _saveError = error;
-      });
-    }
+    final saved = await _c.save();
+    if (saved && mounted) Navigator.pop(context, true);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() => _build(context));
+
+  Widget _build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final warning = _amountWarning;
+    final warning = _c.amountWarning;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(
@@ -250,23 +118,25 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             const SizedBox(height: 16),
             _InfoLine(
               label: AppStrings.invoiceNumber,
-              value: _invoice.name,
+              value: _c.invoice.name,
               isLtr: true,
             ),
             _InfoLine(
               label: AppStrings.amountDue,
-              value: _dueText,
+              value: _c.dueText,
               isLtr: true,
               emphasize: true,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _amountController,
-              enabled: !_saving,
+              enabled: !_c.saving.value,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               textDirection: TextDirection.ltr,
-              onChanged: (_) => setState(() {}),
+              onChanged: (v) => _c.amountText.value = v,
               decoration: InputDecoration(
                 labelText: AppStrings.payAmountLabel,
                 border: const OutlineInputBorder(),
@@ -281,23 +151,24 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             const SizedBox(height: 16),
             TextField(
               controller: _noteController,
-              enabled: !_saving,
+              enabled: !_c.saving.value,
               minLines: 2,
               maxLines: 3,
               textInputAction: TextInputAction.newline,
+              onChanged: (v) => _c.note.value = v,
               decoration: InputDecoration(
                 labelText: AppStrings.payNoteLabel,
                 border: const OutlineInputBorder(),
               ),
             ),
-            if (_saveError != null) ...[
+            if (_c.saveError.value != null) ...[
               const SizedBox(height: 12),
-              Text(_saveError!, style: TextStyle(color: scheme.error)),
+              Text(_c.saveError.value!, style: TextStyle(color: scheme.error)),
             ],
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _canSave ? _save : null,
-              icon: _saving
+              onPressed: _c.canSave ? _save : null,
+              icon: _c.saving.value
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -315,7 +186,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   Widget _buildModeField(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    if (_modesLoading) {
+    if (_c.modesLoading.value) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
         child: Center(
@@ -328,7 +199,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       );
     }
 
-    if (_modesFailed) {
+    if (_c.modesFailed.value) {
       return Row(
         children: [
           Expanded(
@@ -339,7 +210,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           ),
           IconButton(
             tooltip: AppStrings.retry,
-            onPressed: _loadModes,
+            onPressed: _c.loadModes,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -347,31 +218,34 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     }
 
     return DropdownButtonFormField<String>(
-      initialValue: _mode,
+      initialValue: _c.mode.value,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: AppStrings.modeOfPayment,
         border: const OutlineInputBorder(),
       ),
       items: [
-        for (final m in _modes) DropdownMenuItem(value: m, child: Text(m)),
+        for (final m in _c.modes) DropdownMenuItem(value: m, child: Text(m)),
       ],
-      onChanged: _saving ? null : (v) => setState(() => _mode = v),
+      onChanged: _c.saving.value ? null : _c.selectMode,
     );
   }
 
   /// الحقول الخاصة بالطريقة المختارة (النقد بلا حقول إضافية)
   List<Widget> _buildModeFields(BuildContext context) {
-    final kind = _kind;
-    if (_mode == null || kind == _ModeKind.cash) return const [];
+    final kind = _c.kind;
+    if (_c.mode.value == null || kind == PaymentModeKind.cash) return const [];
 
     final (refLabel, dateLabel) = switch (kind) {
-      _ModeKind.cheque => (AppStrings.payRefCheque, AppStrings.payDateCheque),
-      _ModeKind.card => (AppStrings.payRefCard, AppStrings.payDateCard),
-      _ModeKind.transfer => (
-          AppStrings.payRefTransfer,
-          AppStrings.payDateTransfer,
-        ),
+      PaymentModeKind.cheque => (
+        AppStrings.payRefCheque,
+        AppStrings.payDateCheque,
+      ),
+      PaymentModeKind.card => (AppStrings.payRefCard, AppStrings.payDateCard),
+      PaymentModeKind.transfer => (
+        AppStrings.payRefTransfer,
+        AppStrings.payDateTransfer,
+      ),
       _ => (AppStrings.payRefGeneric, AppStrings.payDateGeneric),
     };
 
@@ -379,25 +253,38 @@ class _PaymentSheetState extends State<_PaymentSheet> {
 
     return [
       gap(),
-      _textField(_refController, refLabel, ltr: true),
+      _textField(
+        _refController,
+        refLabel,
+        (v) => _c.referenceNo.value = v,
+        ltr: true,
+      ),
       gap(),
       _DateField(
         label: dateLabel,
-        value: _refDate,
-        enabled: !_saving,
+        value: _c.referenceDate.value,
+        enabled: !_c.saving.value,
         onTap: _pickDate,
       ),
-      if (kind == _ModeKind.cheque) ...[
+      if (kind == PaymentModeKind.cheque) ...[
         gap(),
-        _textField(_chequeBankController, AppStrings.payChequeBank),
+        _textField(
+          _chequeBankController,
+          AppStrings.payChequeBank,
+          (v) => _c.chequeBank.value = v,
+        ),
         gap(),
-        _textField(_drawerController, AppStrings.payDrawerName),
+        _textField(
+          _drawerController,
+          AppStrings.payDrawerName,
+          (v) => _c.drawerName.value = v,
+        ),
       ],
-      if (kind == _ModeKind.card) ...[
+      if (kind == PaymentModeKind.card) ...[
         gap(),
         TextField(
           controller: _cardLast4Controller,
-          enabled: !_saving,
+          enabled: !_c.saving.value,
           keyboardType: TextInputType.number,
           textDirection: TextDirection.ltr,
           // أربعة أرقام كحد أقصى: لا يمكن إدخال رقم بطاقة كاملًا
@@ -405,37 +292,47 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]')),
             LengthLimitingTextInputFormatter(4),
           ],
-          onChanged: (_) => setState(() {}),
+          onChanged: (v) => _c.cardLast4.value = v,
           decoration: InputDecoration(
             labelText: AppStrings.payCardLast4,
             helperText: AppStrings.payCardLast4Helper,
             helperMaxLines: 2,
             border: const OutlineInputBorder(),
-            errorText: _cardLast4Controller.text.isNotEmpty && !_last4Valid
+            errorText: _c.cardLast4.value.isNotEmpty && !_c.last4Valid
                 ? AppStrings.payCardLast4Invalid
                 : null,
           ),
         ),
         gap(),
-        _textField(_cardBrandController, AppStrings.payCardBrand, ltr: true),
+        _textField(
+          _cardBrandController,
+          AppStrings.payCardBrand,
+          (v) => _c.cardBrand.value = v,
+          ltr: true,
+        ),
       ],
-      if (kind == _ModeKind.transfer) ...[
+      if (kind == PaymentModeKind.transfer) ...[
         gap(),
-        _textField(_senderBankController, AppStrings.paySenderBank),
+        _textField(
+          _senderBankController,
+          AppStrings.paySenderBank,
+          (v) => _c.senderBank.value = v,
+        ),
       ],
     ];
   }
 
   Widget _textField(
     TextEditingController controller,
-    String label, {
+    String label,
+    ValueChanged<String> onChanged, {
     bool ltr = false,
   }) {
     return TextField(
       controller: controller,
-      enabled: !_saving,
+      enabled: !_c.saving.value,
       textDirection: ltr ? TextDirection.ltr : null,
-      onChanged: (_) => setState(() {}),
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),

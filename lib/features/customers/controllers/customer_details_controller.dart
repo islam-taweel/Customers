@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
@@ -12,12 +11,12 @@ import '../../../data/api/erp_api_client.dart';
 import '../../../data/api/erp_config.dart';
 import '../../../data/models/customer.dart';
 import '../../../data/models/operation.dart';
-import '../../../data/models/payment_entry.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../../data/models/invoice.dart';
 import '../../../data/repositories/erp_draft_repository.dart';
 import '../../../data/repositories/erp_lookup_repository.dart';
-import '../../../data/repositories/erp_payment_repository.dart';
+import '../../../modules/collections/controllers/customer_collections_controller.dart';
+import '../../../modules/collections/repository/erp_payment_repository.dart';
 import '../../../data/repositories/erp_invoice_repository.dart';
 import '../../../data/repositories/pending_order_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
@@ -26,12 +25,13 @@ import '../../../data/repositories/operation_repository.dart';
 import '../../../data/repositories/outstanding_repository.dart';
 import 'customer_invoices_controller.dart';
 import 'draft_invoice_controller.dart';
-import 'invoice_details_controller.dart';
+import '../../../modules/invoices/controllers/invoice_details_controller.dart';
 
 /// حالة ومنطق عميل واحد: بياناته ورصيده وعملياته، وتعديل بياناته، وإضافة دين أو دفعة.
 /// يُنشأ لكل عميل عند فتح شاشة التفاصيل ويُتلف عند إغلاقها، فلا تختلط بيانات عميل بآخر.
 /// لا يعرف شيئًا عن الواجهة ولا عن SQL، ووصوله للبيانات عبر الـ repositories.
-class CustomerDetailsController extends ChangeNotifier {
+class CustomerDetailsController extends ChangeNotifier
+    implements CustomerCollectionsHost {
   CustomerDetailsController(
     this._operationRepository,
     this._customerRepository,
@@ -90,14 +90,9 @@ class CustomerDetailsController extends ChangeNotifier {
   /// سبب فشل آخر عملية حفظ (null = لا يوجد)، لتعرضه الواجهة
   String? _saveError;
 
-  /// دفعات ERPNext للعميل (تبويبا «مسودة» و«معتمدة»)
-  List<PaymentEntrySummary> _payments = const [];
-  bool _paymentsLoading = false;
-  String? _paymentsError;
-  final Set<String> _busyPayments = {};
-
-  /// null = لم يُعرف بعد، false = عميل محلي غير مرتبط بـ ERPNext
-  bool? _isErpCustomer;
+  /// (R3) دفعات ERPNext (مسودة/معتمدة) انتقلت إلى CustomerCollectionsController؛
+  /// هنا فقط من يُبلَّغ بعد حفظ دفعة مسودة
+  final List<VoidCallback> _draftSavedListeners = [];
 
   /// آخر دفعة حُفظت مسودة في ERPNext (لا في السجل المحلي)
   bool _lastSavedAsDraft = false;
@@ -131,15 +126,6 @@ class CustomerDetailsController extends ChangeNotifier {
   /// سبب فشل آخر حفظ، أو null
   String? get saveError => _saveError;
 
-  List<PaymentEntrySummary> get draftPayments =>
-      [for (final p in _payments) if (p.isDraft) p];
-  List<PaymentEntrySummary> get approvedPayments =>
-      [for (final p in _payments) if (!p.isDraft) p];
-  bool get paymentsLoading => _paymentsLoading;
-  String? get paymentsError => _paymentsError;
-
-  /// عميل مرتبط بـ ERPNext: دفعاته في تبويبين بدل السجل المحلي
-  bool get isErpCustomer => _isErpCustomer ?? false;
   bool get lastSavedAsDraft => _lastSavedAsDraft;
 
   bool get isLoading => _isLoading;
@@ -408,7 +394,7 @@ class CustomerDetailsController extends ChangeNotifier {
             return false;
           }
           // تُحفظ مسودة في ERPNext وتظهر في تبويب «مسودة»؛ لا تُسجَّل في السجل المحلي
-          // ولا تُخصم من الرصيد إلا عند اعتمادها ([approvePayment])
+          // ولا تُخصم من الرصيد إلا عند اعتمادها (CustomerCollectionsController.approve)
           await _paymentRepository.createPaymentEntry(
             customerErpId: erpId,
             amount: amount,
@@ -419,7 +405,10 @@ class CustomerDetailsController extends ChangeNotifier {
             submit: false,
           );
           _lastSavedAsDraft = true;
-          unawaited(loadPayments());
+          // تبويب «مسودة» يعيد التحميل (CustomerCollectionsController)
+          for (final listener in [..._draftSavedListeners]) {
+            listener();
+          }
           return true;
         } else if (chosen == null && currency != ErpConfig.priceListCurrency) {
           // عميل محلي غير مرتبط بـ ERPNext: لا حساب له هناك، فنحوّل إلى عملة الشركة
@@ -464,75 +453,26 @@ class CustomerDetailsController extends ChangeNotifier {
     return true;
   }
 
-  // ───────────────────────── دفعات ERPNext (مسودة / معتمدة) ─────────────────────────
+  // ───────────── تحصيلات ERPNext (CustomerCollectionsHost) ─────────────
 
-  /// دفعات العميل في ERPNext (مسودة ومعتمدة، بما فيها المسجلة من الفواتير)
-  Future<void> loadPayments() async {
-    final erpId = await _customerRepository.getErpId(_customerId);
-    if (_disposed) return;
-    _isErpCustomer = erpId != null;
-    if (erpId == null) {
-      _notify();
-      return;
-    }
-    _paymentsLoading = true;
-    _paymentsError = null;
-    _notify();
-    try {
-      _payments = await _paymentRepository.fetchCustomerPayments(erpId);
-    } catch (e) {
-      debugPrint('CustomerDetailsController.loadPayments failed: $e');
-      _paymentsError = describeError(e, fallback: AppStrings.paymentsLoadFailed);
-    } finally {
-      _paymentsLoading = false;
-      _notify();
-    }
+  @override
+  Future<String?> erpId() => _customerRepository.getErpId(_customerId);
+
+  /// بعد اعتماد دفعة في ERPNext: تسجيلها في السجل المحلي ثم تحديث الرصيد
+  /// (نفس ما كان يحدث داخل approvePayment).
+  @override
+  Future<void> recordApprovedPayment(Map<String, dynamic> doc) async {
+    await _recordApprovedPayment(doc);
+    await refresh();
   }
 
-  /// يعتمد دفعة مسودة في ERPNext، ثم يسجّلها في السجل المحلي فتُخصم من الرصيد.
-  /// يعيد null عند النجاح، وإلا رسالة الخطأ (مثل رفض ERPNext).
-  Future<String?> approvePayment(PaymentEntrySummary payment) =>
-      _paymentAction(payment, () async {
-        final doc = await _paymentRepository.submitPaymentEntry(payment.name);
-        await _recordApprovedPayment(doc);
-        await refresh();
-      }, AppStrings.paymentApproveFailed);
+  @override
+  void addDraftSavedListener(VoidCallback listener) =>
+      _draftSavedListeners.add(listener);
 
-  /// يلغي دفعة مسودة (يحذفها من ERPNext). يعيد null أو رسالة الخطأ.
-  Future<String?> cancelPayment(PaymentEntrySummary payment) =>
-      _paymentAction(
-        payment,
-        () => _paymentRepository.deletePaymentEntry(payment.name),
-        AppStrings.paymentCancelFailed,
-      );
-
-  bool isPaymentBusy(PaymentEntrySummary p) => _busyPayments.contains(p.name);
-
-  Future<String?> _paymentAction(
-    PaymentEntrySummary payment,
-    Future<void> Function() task,
-    String fallback,
-  ) async {
-    if (!_busyPayments.add(payment.name)) return null;
-    _notify();
-    try {
-      await task();
-      await loadPayments();
-      return null;
-    } catch (e) {
-      debugPrint('CustomerDetailsController payment action failed: $e');
-      // نص ERPNext نفسه إن رفض (مثل: المبلغ أكبر من المستحق)، وإلا رسالة عامة
-      if (e is ErpApiException &&
-          e.type == ErpErrorType.server &&
-          (e.detail ?? '').isNotEmpty) {
-        return '$fallback\n${e.detail}';
-      }
-      return describeError(e, fallback: fallback);
-    } finally {
-      _busyPayments.remove(payment.name);
-      _notify();
-    }
-  }
+  @override
+  void removeDraftSavedListener(VoidCallback listener) =>
+      _draftSavedListeners.remove(listener);
 
   /// يضيف الدفعة المعتمدة إلى السجل المحلي (مرة واحدة) بمبالغها من ERPNext:
   /// المستلم بعملة الدفعة، وما يقابله بعملة حساب العميل إن اختلفت.
