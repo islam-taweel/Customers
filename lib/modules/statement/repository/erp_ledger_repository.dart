@@ -1,6 +1,6 @@
-import '../api/erp_api_client.dart';
+import '../../../data/api/erp_api_client.dart';
 import '../models/gl_entry.dart';
-import '../models/sales_invoice.dart';
+import '../../../data/models/sales_invoice.dart';
 
 /// فاتورة مبيعات من فواتير طلبية، بمبالغها من ERPNext.
 class OrderInvoice {

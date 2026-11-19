@@ -6,6 +6,7 @@ import '../../data/repositories/invoice_repository.dart';
 import '../../modules/collections/repository/erp_payment_repository.dart';
 import '../../modules/collections/repository/invoice_collections_repository.dart';
 import '../../modules/invoices/repository/sales_invoices_repository.dart';
+import '../../modules/statement/repository/erp_ledger_repository.dart';
 import '../../modules/statement/repository/erp_statement_repository.dart';
 import '../services/session_service.dart';
 
@@ -20,6 +21,7 @@ class InitialBinding extends Bindings {
     required this.api,
     required this.auth,
     required this.statement,
+    required this.ledger,
     required this.salesInvoices,
     required this.invoiceCollections,
     required this.payments,
@@ -32,6 +34,10 @@ class InitialBinding extends Bindings {
 
   /// R2: وحدة statement
   final ErpStatementRepository statement;
+
+  /// R4: القيود المحاسبية (GL Entries). نفس الكائن ما زال في MultiProvider لأن
+  /// order_details_screen يقرؤه منه (orderInvoices).
+  final ErpLedgerRepository ledger;
 
   /// R3: وحدة invoices (قائمة فواتير المبيعات)
   final ErpSalesInvoicesRepository salesInvoices;
@@ -50,6 +56,7 @@ class InitialBinding extends Bindings {
     _putOnce<ErpApiClient>(api);
     _putOnce<ErpAuthService>(auth);
     _putOnce<ErpStatementRepository>(statement);
+    _putOnce<ErpLedgerRepository>(ledger);
     _putOnce<ErpSalesInvoicesRepository>(salesInvoices);
     _putOnce<ErpInvoiceCollectionsRepository>(invoiceCollections);
     _putOnce<ErpPaymentRepository>(payments);

@@ -12,7 +12,7 @@ import '../../../core/services/invoice_pdf_service.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/sales_invoice.dart';
-import '../../../features/customers/screens/gl_entries_screen.dart';
+import '../../statement/views/gl_entries_view.dart';
 import '../../../features/customers/screens/invoice_pdf_screen.dart';
 import '../../../features/customers/widgets/invoice_card.dart';
 import '../../../features/customers/widgets/offline_banner.dart';

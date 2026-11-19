@@ -32,7 +32,7 @@ import 'data/repositories/erp_employee_repository.dart';
 import 'data/repositories/erp_fulfillment_repository.dart';
 import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
-import 'data/repositories/erp_ledger_repository.dart';
+import 'modules/statement/repository/erp_ledger_repository.dart';
 import 'modules/statement/repository/erp_statement_repository.dart';
 import 'data/repositories/erp_van_sales_repository.dart';
 import 'data/repositories/erp_visit_repository.dart';
@@ -263,6 +263,7 @@ Future<void> main() async {
     api: erpApi,
     auth: authService,
     statement: statementRepository,
+    ledger: ledgerRepository,
     salesInvoices: salesInvoicesRepository,
     invoiceCollections: invoiceCollectionsRepository,
     payments: paymentRepository,

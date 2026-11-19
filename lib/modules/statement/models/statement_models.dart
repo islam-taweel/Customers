@@ -67,6 +67,30 @@ class CustomerStatement {
     this.to,
   });
 
+  /// يبني الكشف من صفوف GL Entry **بالترتيب الذي جاءت به** (posting_date ثم
+  /// creation، يرتّبها ERPNext): الرصيد = الافتتاحي + مجموع (مدين − دائن) سطرًا بسطر.
+  /// (R4) نفس الحلقة التي كانت داخل ErpStatementRepository.fetchStatement حرفيًا،
+  /// نُقلت هنا فقط لتُختبر وحدها.
+  factory CustomerStatement.fromGlRows(
+    List<Map<String, dynamic>> rows, {
+    required double opening,
+    DateTime? from,
+    DateTime? to,
+  }) {
+    var balance = opening;
+    final lines = <StatementLine>[];
+    for (final r in rows) {
+      balance += _toDouble(r['debit']) - _toDouble(r['credit']);
+      lines.add(StatementLine.fromJson(r, balance));
+    }
+    return CustomerStatement(
+      opening: opening,
+      lines: lines,
+      from: from,
+      to: to,
+    );
+  }
+
   double get totalDebit => lines.fold(0.0, (s, l) => s + l.debit);
   double get totalCredit => lines.fold(0.0, (s, l) => s + l.credit);
 

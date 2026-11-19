@@ -160,25 +160,91 @@
 - **مقارنة الواجهة** (بعد حذف المسافات والفواصل): `_PaymentCard` و`SalesInvoiceCard.build` و`_InvoiceView` و`_InvoicesPage._empty` و`_DateField` و`_InfoLine` متطابقة. الفروق الوحيدة: `refresh` صارت `reload`، و`pendingAmount` يُقرأ من collections.
 - **التكرار:** كل repository يُنشأ مرة واحدة في `main.dart` (الأسطر 109 و117 و167 و171). لا Repository ولا `Get.put` داخل views وwidgets، ولا BuildContext ولا http في المتحكمات.
 
-### جدول الاختبارات (بعد R3)
+
+---
+
+## R4 — Customer Statement & GL Entries
+
+### الطلب (مختصر)
+إعادة هيكلة كشف الحساب والقيود المحاسبية في `lib/modules/statement`. الرصيد الجاري يبقى كما كان تمامًا. اختبارات Unit مستقلة للرصيد الجاري. لا نقل لحساب يقوم به ERPNext إلى التطبيق.
+
+### ما وُجد فعليًا
+| المطلوب | الموجود |
+|---|---|
+| كشف حساب العميل | CustomerStatementScreen (رُحّل في R2) |
+| GL Entries | GlEntriesScreen.forInvoice / forOrder (Payment Ledger Entry، واحتياطًا GL Entry). الشاشة كانت FutureBuilder مع `context.read` |
+| الرصيد الافتتاحي | من ERPNext: `get_balance_on` لليوم السابق للفترة (0 دون فترة) |
+| Running Balance | يحسبه **التطبيق** من GL Entry: الافتتاحي + Σ(مدين − دائن)، داخل `fetchStatement`. ERPNext لا يعيده جاهزًا هنا، فبقي في التطبيق |
+| الفلاتر والتواريخ | فترة من/إلى (`showDateRangePicker`) ← فلاتر `posting_date` |
+| تفاصيل القيود | VoucherDetailsScreen (R2) |
+| البحث | قائمة العملاء فقط (تصفية محلية، بلا debounce لأنه لا طلبات) |
+
+### الملفات
+- **نُقلت (git mv):**
+  - `data/repositories/erp_ledger_repository.dart` إلى `statement/repository/`.
+  - `data/models/gl_entry.dart` إلى `statement/models/`.
+  - `features/customers/screens/gl_entries_screen.dart` إلى `statement/views/gl_entries_view.dart`.
+- **جديدة:**
+  - `statement/controllers/gl_entries_controller.dart`
+  - `statement/widgets/{gl_ledger_table,statement_summary}.dart`: نُقلت من الشاشتين كما هي.
+- **عُدّلت:**
+  - `statement_models.dart`: `CustomerStatement.fromGlRows`.
+  - `erp_statement_repository.dart`: يستدعيها.
+  - `statement_bindings.dart`: `GlEntriesBinding`.
+  - `customer_statement_view.dart`: يستخدم widgets.
+  - `initial_binding.dart` و`main.dart`: `ErpLedgerRepository`.
+  - سطر import فقط في: `order_details_screen`، `sales_invoice_card`، `invoice_details_view`.
+
+### نتائج R4
+- **`dart format`:** على `lib/modules` والاختبارات فقط.
+- **`flutter analyze`:** 23 ملاحظة info، كلها قديمة. ظهر تحذيران جديدان (import غير مستخدم بعد نقل widgets) وأُصلحا.
+- **`flutter test`:** 74 ناجحة (56 + 18 جديدة).
+  - `test/modules/statement/running_balance_test.dart` (10):
+    - افتتاحي + مدين ودائن معًا.
+    - مدين فقط.
+    - دائن فقط (سالب).
+    - بلا حركات (الختامي = الافتتاحي).
+    - تواريخ مختلفة وقيدان بنفس اليوم: الترتيب كما من ERPNext.
+    - قيم نصية أو null.
+    - **مطابقة الحساب القديم حرفيًا** على 20 × 300 صف عشوائي.
+    - repository حقيقي:
+      - مع فترة: فلاتر التاريخ والترتيب، و`get_balance_on` بتاريخ اليوم السابق (2025-12-31)، والختامي.
+      - كل الفترات: بلا طلب افتتاحي.
+      - الصفحات: 100 + 30 صفًا، والرصيد مستمر.
+  - `test/modules/statement/gl_entries_test.dart` (8):
+    - مسودة: طلب واحد ولا قيود.
+    - معتمدة: فلاتر Payment Ledger Entry، وحذف السطور الصفرية، والمدين والدائن والفرق.
+    - 403 ← احتياط GL Entry، والشبكة لا تُحتاط.
+    - طلبية: فواتير مكررة مرة واحدة.
+    - المتحكم: طلب واحد، ورسالة المسودة، والشبكة ثم إعادة المحاولة.
+    - Widget:
+      - GlEntriesScreen: Loading ثم الجدول و«متوازنة»، والمتحكم يُحذف مع المسار.
+      - كشف الحساب: Empty ثم Error دون انهيار، ثم «إعادة المحاولة».
+- **مقارنة الواجهة:** `GlLedgerTable` و`GlTotals` و`_num` و`StatementSummary` و`StatementLineTile` متطابقة مع الأصل بعد حذف المسافات والفواصل.
+- **التكرار:**
+  - `ErpLedgerRepository` يُنشأ مرة واحدة (`main.dart:218`). المستهلكان: GetX (`GlEntriesBinding`) وProvider (`order_details_screen`)، ونفس الكائن.
+  - لا FutureBuilder في `lib/modules`.
+- **ملاحظة سلوك قائم (لم يُغيَّر):** `forInvoice` لفاتورة غير موجودة في ERPNext يعاملها كمسودة (`rows.isEmpty ← docstatus 0`)، فتظهر رسالة «بانتظار الاعتماد». ثبّتناها في الاختبار كما هي.
+
+### جدول الاختبارات (بعد R3 وR4)
 
 **الرموز:**
 - U = Unit test، W = Widget test، I = Integration test (على ERPNext حقيقي)، M = اختبار يدوي على الجهاز.
 - ✅ نُفّذ ونجح، ⛔ لم يُنفَّذ، — لا ينطبق.
-- **لم يُنفَّذ أي اختبار Integration ولا يدوي:** لا يوجد اتصال فعلي بـ ERPNext من بيئة التطوير.
+- **لم يُنفَّذ أي اختبار Integration ولا يدوي في R3 ولا R4:** لا يوجد اتصال فعلي بـ ERPNext من بيئة التطوير. كل الطلبات اختُبرت على ErpApiClient حقيقي فوق MockClient.
 
 | الاختبار | R3 | R4 |
 |---|---|---|
-| عرض الفواتير غير المدفوعة | U ✅، W ✅، I ⛔، M ⛔ | — (بعد R4) |
-| إنشاء مسودة تحصيل | U ✅ (الطلبات + الجسم)، W ✅ (فتح النافذة والتحقق)، I ⛔، M ⛔ | |
-| تعديل مسودة تحصيل | — غير موجود في المشروع | |
-| حذف مسودة تحصيل | U ✅، W ✅، I ⛔، M ⛔ | |
-| صحة مبالغ التحصيل | U ✅ (party_amount، allocated_amount، مجموع المعلّقة، حد المستحق) | |
-| عرض كشف حساب العميل | لم يتأثر: اختبارات R2 (U/W) ✅ | |
-| عرض GL Entries | — (R4) | |
-| صحة الرصيد الافتتاحي | لم يتأثر: R2 U ✅ | |
-| صحة Running Balance | لم يتأثر: R2 U ✅ | |
-| تطابق الرصيد النهائي مع ERPNext | I ⛔، M ⛔ | |
-| عمل الفلاتر والتواريخ | لم يتأثر: R2 U ✅ | |
-| معالجة أخطاء الشبكة | U ✅ (الدفع، التحميل، الفواتير، reconcile) | |
-| عدم تأثر R1 وR2 | U/W ✅ (كل الاختبارات الـ 31 السابقة ناجحة)، M ⛔ | |
+| عرض الفواتير غير المدفوعة | U ✅، W ✅، I ⛔، M ⛔ | لم يتأثر (اختبارات R3 ناجحة) |
+| إنشاء مسودة تحصيل | U ✅ (الطلبات + الجسم)، W ✅ (فتح النافذة والتحقق)، I ⛔، M ⛔ | لم يتأثر |
+| تعديل مسودة تحصيل | — غير موجود في المشروع | — |
+| حذف مسودة تحصيل | U ✅، W ✅، I ⛔، M ⛔ | لم يتأثر |
+| صحة مبالغ التحصيل | U ✅ (party_amount، allocated_amount، مجموع المعلّقة، حد المستحق) | لم يتأثر |
+| عرض كشف حساب العميل | لم يتأثر: R2 U/W ✅ | U ✅، W ✅ (Empty/Error/Retry)، I ⛔، M ⛔ |
+| عرض GL Entries | — | U ✅ (repository + controller)، W ✅ (الجدول، متوازنة، عمر المتحكم)، I ⛔، M ⛔ |
+| صحة الرصيد الافتتاحي | لم يتأثر: R2 U ✅ | U ✅ (get_balance_on لليوم السابق، 0 دون فترة) |
+| صحة Running Balance | لم يتأثر: R2 U ✅ | U ✅ (7 حالات + مطابقة الحساب القديم على 6000 صف) |
+| تطابق الرصيد النهائي مع ERPNext | I ⛔، M ⛔ | U ✅ للمعادلة فقط (الختامي = الافتتاحي + Σ مدين − Σ دائن)؛ **المطابقة مع خادم حقيقي: I ⛔، M ⛔** |
+| عمل الفلاتر والتواريخ | لم يتأثر: R2 U ✅ | U ✅ (فلاتر posting_date والترتيب) |
+| معالجة أخطاء الشبكة | U ✅ (الدفع، التحميل، الفواتير، reconcile) | U ✅، W ✅ (الكشف والقيود دون انهيار) |
+| عدم تأثر R1 وR2 | U/W ✅ (الـ 31 السابقة)، M ⛔ | U/W ✅ (كل الـ 56 السابقة)، M ⛔ |

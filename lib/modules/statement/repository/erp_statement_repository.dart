@@ -54,15 +54,9 @@ class ErpStatementRepository {
       opening = _num(res['message']);
     }
 
-    var balance = opening;
-    final lines = <StatementLine>[];
-    for (final r in rows) {
-      balance += _num(r['debit']) - _num(r['credit']);
-      lines.add(StatementLine.fromJson(r, balance));
-    }
-    return CustomerStatement(
+    return CustomerStatement.fromGlRows(
+      rows,
       opening: opening,
-      lines: lines,
       from: from,
       to: to,
     );

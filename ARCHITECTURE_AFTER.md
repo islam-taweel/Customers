@@ -9,8 +9,8 @@
 |---|---|---|
 | R1: GetMaterialApp + SessionService + LoginController + Bindings + Middleware | ✅ مكتمل | `c92ca8c` |
 | R2.1: وحدة `statement` (كشف حساب العملاء + تفاصيل المستند) | ✅ مكتمل | `fb9bf00` |
-| R3: وحدتا `invoices` و`collections` | ✅ مكتمل | `refactor: migrate collections and invoices to GetX` |
-| R4: `statement` — الرصيد الجاري + القيود المحاسبية (GL Entries) | ⏳ | — |
+| R3: وحدتا `invoices` و`collections` | ✅ مكتمل | `12c99df` |
+| R4: `statement` — الرصيد الجاري + القيود المحاسبية (GL Entries) | ✅ مكتمل | `refactor: migrate customer statement and GL entries to GetX` |
 
 ## البنية المستهدفة لكل Feature
 
@@ -104,16 +104,54 @@ lib/modules/collections/
 | `customer_invoices_screen.dart`، `invoice_tab.dart` | `InvoiceDetailsScreen.route(details.openInvoice(...))` |
 | `delivery_tile.dart` | `Get.find<SalesInvoicesController>().reload()` بعد الفوترة |
 
-## وحدة statement (R2)
+## وحدة statement (R2 + R4)
 
 ```
 lib/modules/statement/
-  bindings/statement_bindings.dart   StatementCustomers / CustomerStatement / VoucherDetails
-  controllers/                       العملاء والبحث، الكشف والفترة، المستند
-  views/                             CustomerStatementListScreen، CustomerStatementScreen، VoucherDetailsScreen
-  repository/erp_statement_repository.dart
-  models/statement_models.dart
+  bindings/statement_bindings.dart
+      StatementCustomersBinding   → StatementCustomersController
+      CustomerStatementBinding    → CustomerStatementController   (tag)
+      VoucherDetailsBinding       → VoucherDetailsController      (tag)
+      GlEntriesBinding            → GlEntriesController           (tag) ← R4
+  controllers/
+      statement_customers_controller.dart   العملاء + البحث (تصفية محلية)
+      customer_statement_controller.dart    الفترة + الكشف + رسالة 403
+      voucher_details_controller.dart       المستند الخام
+      gl_entries_controller.dart            ← R4: القيود لفاتورة/طلبية، الخطأ، رسالة المسودات
+  views/
+      customer_statement_list_view.dart     CustomerStatementListScreen
+      customer_statement_view.dart          CustomerStatementScreen
+      voucher_details_view.dart             VoucherDetailsScreen
+      gl_entries_view.dart                  ← R4: GlEntriesScreen.forInvoice / forOrder
+  widgets/                                  ← R4: أجزاء العرض نُقلت كما هي
+      statement_summary.dart                StatementSummary، StatementLineTile
+      gl_ledger_table.dart                  GlLedgerTable، GlTotals
+  repository/
+      erp_statement_repository.dart         GL Entry + get_balance_on
+      erp_ledger_repository.dart            ← R4 (نُقل): Payment Ledger Entry (احتياط GL Entry)، orderInvoices
+  models/
+      statement_models.dart                 StatementLine، CustomerStatement (+ fromGlRows ← R4)
+      gl_entry.dart                         ← R4 (نُقل): CustomerLedgerLine، CustomerLedger
 ```
+
+### الرصيد الجاري (R4)
+- **المصدر:**
+  - حركات GL Entry على حساب العميل، بترتيب ERPNext (`posting_date asc, creation asc`). التطبيق لا يعيد ترتيبها.
+  - الرصيد الافتتاحي من ERPNext (`get_balance_on` لليوم السابق لبداية الفترة)، أو 0 دون فترة.
+- **المعادلة (لم تتغير):** `الرصيد = الافتتاحي + Σ (مدين − دائن)` سطرًا بسطر. الختامي = آخر رصيد، أو الافتتاحي إن لم توجد حركات.
+- الحلقة نفسها نُقلت من `ErpStatementRepository.fetchStatement` إلى `CustomerStatement.fromGlRows`، وهي دالة نقية بلا شبكة. الـ repository يستدعيها كما كان يستدعي الحلقة، ولا Widget يحسب رصيدًا.
+- **القيود لفاتورة (GL Entries):** المجاميع والتوازن والفرق في `CustomerLedger`، كما كانت.
+
+### البحث
+- البحث الوحيد في كشف الحساب هو قائمة العملاء، وهو تصفية محلية على قائمة محمّلة، بلا طلب شبكة.
+- لذلك لم يُضف `debounce`: لا يوجد طلب يُوفَّر، والتأخير سيغيّر سلوك الكتابة الحالي.
+
+### نقاط الدخول (التوقيع نفسه)
+| المستدعي | الاستدعاء |
+|---|---|
+| `sales_invoice_card.dart`، `invoice_details_view.dart` | `GlEntriesScreen.forInvoice(name)` / `forOrder(id)` |
+| `order_details_screen.dart` | `GlEntriesScreen.forOrder(id)`؛ و`context.read<ErpLedgerRepository>().orderInvoices` (Provider: نفس الكائن المسجّل في GetX) |
+| `app_drawer.dart`، `payments_tabs.dart` | `CustomerStatementListScreen.route()`، `VoucherDetailsScreen.route(...)` |
 
 ## ما لم تتم إعادة هيكلته بعد
 - **في customers:**
@@ -121,6 +159,6 @@ lib/modules/statement/
   - فواتير العميل (`CustomerInvoicesScreen` و`CustomerInvoicesController`).
   - مسودات الطلبيات (`DraftInvoiceController` و`EditDraftScreen`): مسودة Sales Order، وليست مسودة تحصيل.
   - نافذة «إضافة دفعة» (`OperationDialog`) و`addOperation`: إنشاء مسودة تحصيل العميل باقٍ في `CustomerDetailsController`، لأنه نفس مسار الديون والدفعات المحلية.
-- **في orders_section:** الطلبيات والتسليمات (`OrdersController`، Provider).
+- **في orders_section:** الطلبيات والتسليمات (`OrdersController`، Provider)، و`OrderDetailsScreen` (FutureBuilder على `orderInvoices`).
 - **وحدات أخرى:** purchases وsales_returns وvisits وwarehouses وinventory وvan_sales وemployee_services.
 - **تعديل مسودة التحصيل:** غير موجود في المشروع أصلًا، فلا يوجد شيء يُرحَّل.

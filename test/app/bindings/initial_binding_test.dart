@@ -11,6 +11,7 @@ import 'package:customer/data/repositories/invoice_repository.dart';
 import 'package:customer/modules/collections/repository/erp_payment_repository.dart';
 import 'package:customer/modules/collections/repository/invoice_collections_repository.dart';
 import 'package:customer/modules/invoices/repository/sales_invoices_repository.dart';
+import 'package:customer/modules/statement/repository/erp_ledger_repository.dart';
 import 'package:customer/modules/statement/repository/erp_statement_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -36,12 +37,14 @@ void main() {
       ErpLookupRepository(api, cache),
     );
     final payments = ErpPaymentRepository(api);
+    final ledger = ErpLedgerRepository(api);
     final localInvoices = InvoiceRepository(db);
     InitialBinding(
       session: session,
       api: api,
       auth: auth,
       statement: statement,
+      ledger: ledger,
       salesInvoices: salesInvoices,
       invoiceCollections: collections,
       payments: payments,
@@ -62,6 +65,7 @@ void main() {
       isTrue,
     );
     expect(identical(Get.find<ErpPaymentRepository>(), payments), isTrue);
+    expect(identical(Get.find<ErpLedgerRepository>(), ledger), isTrue);
     expect(identical(Get.find<InvoiceRepository>(), localInvoices), isTrue);
   });
 }

@@ -2,8 +2,10 @@ import 'package:get/get.dart';
 
 import '../../../data/models/erp_customer.dart';
 import '../controllers/customer_statement_controller.dart';
+import '../controllers/gl_entries_controller.dart';
 import '../controllers/statement_customers_controller.dart';
 import '../controllers/voucher_details_controller.dart';
+import '../repository/erp_ledger_repository.dart';
 import '../repository/erp_statement_repository.dart';
 
 /// كل الـ Bindings تسجّل المتحكم كدالة إنشاء (lazyPut) فوق نفس
@@ -52,6 +54,22 @@ class VoucherDetailsBinding extends Bindings {
         doctype: doctype,
         name: name,
       ),
+      tag: tag,
+    );
+  }
+}
+
+/// القيود المحاسبية لفاتورة أو طلبية (R4): فوق نفس ErpLedgerRepository الدائم
+class GlEntriesBinding extends Bindings {
+  GlEntriesBinding(this.loader, {required this.tag});
+
+  final LedgerLoader loader;
+  final String tag;
+
+  @override
+  void dependencies() {
+    Get.lazyPut<GlEntriesController>(
+      () => GlEntriesController(Get.find<ErpLedgerRepository>(), loader),
       tag: tag,
     );
   }

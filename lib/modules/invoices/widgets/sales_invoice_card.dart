@@ -7,7 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/sales_invoice.dart';
-import '../../../features/customers/screens/gl_entries_screen.dart';
+import '../../statement/views/gl_entries_view.dart';
 import '../../../features/customers/widgets/confirm_dialog.dart';
 import '../../../features/orders_section/controllers/orders_controller.dart';
 import '../../collections/widgets/payment_sheet.dart';
