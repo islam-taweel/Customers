@@ -5,7 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/payment_entry.dart';
-import '../../statement/screens/voucher_details_screen.dart';
+import '../../../modules/statement/views/voucher_details_view.dart';
 import '../controllers/customer_details_controller.dart';
 import 'confirm_dialog.dart';
 

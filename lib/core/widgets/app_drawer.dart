@@ -23,7 +23,7 @@ import '../../features/home/screens/main_shell.dart';
 import '../../features/van_sales/screens/van_sales_screen.dart';
 import '../../features/visits/screens/visits_screen.dart';
 import '../../features/warehouses/screens/warehouses_screen.dart';
-import '../../features/statement/screens/customer_statement_list_screen.dart';
+import '../../modules/statement/views/customer_statement_list_view.dart';
 
 /// القائمة الجانبية: الشعار بالأعلى، الرئيسية ولوحة التحكم وبقية الأقسام، ومبدّل اللغة بالأسفل.
 class AppDrawer extends StatelessWidget {

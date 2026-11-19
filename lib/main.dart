@@ -33,7 +33,7 @@ import 'data/repositories/erp_fulfillment_repository.dart';
 import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
 import 'data/repositories/erp_ledger_repository.dart';
-import 'data/repositories/erp_statement_repository.dart';
+import 'modules/statement/repository/erp_statement_repository.dart';
 import 'data/repositories/erp_van_sales_repository.dart';
 import 'data/repositories/erp_visit_repository.dart';
 import 'data/repositories/erp_warehouse_repository.dart';
@@ -255,6 +255,7 @@ Future<void> main() async {
     session: sessionService,
     api: erpApi,
     auth: authService,
+    statement: statementRepository,
   ).dependencies();
 
   runApp(
@@ -264,7 +265,6 @@ Future<void> main() async {
       languageController: languageController,
       themeController: themeController,
       ledgerRepository: ledgerRepository,
-      statementRepository: statementRepository,
       invoiceRepository: invoiceRepository,
       orderFactory: orderFactory,
       ordersFactory: ordersFactory,
@@ -293,7 +293,6 @@ class DebtsApp extends StatelessWidget {
   final LanguageController languageController;
   final ThemeController themeController;
   final ErpLedgerRepository ledgerRepository;
-  final ErpStatementRepository statementRepository;
   final InvoiceRepository invoiceRepository;
   final OrderControllerFactory orderFactory;
   final OrdersControllerFactory ordersFactory;
@@ -317,7 +316,6 @@ class DebtsApp extends StatelessWidget {
     required this.languageController,
     required this.themeController,
     required this.ledgerRepository,
-    required this.statementRepository,
     required this.invoiceRepository,
     required this.orderFactory,
     required this.ordersFactory,
@@ -350,8 +348,6 @@ class DebtsApp extends StatelessWidget {
         Provider<InvoiceRepository>.value(value: invoiceRepository),
         // القيود المحاسبية من ERPNext (قراءة فقط)
         Provider<ErpLedgerRepository>.value(value: ledgerRepository),
-        // كشف حساب العملاء وتفاصيل المستندات (قراءة فقط)
-        Provider<ErpStatementRepository>.value(value: statementRepository),
         // ينشئ متحكم طلبية جديدة كلما فُتحت شاشة «طلبيات العملاء»
         Provider<OrderControllerFactory>.value(value: orderFactory),
         // ينشئ متحكم قسم «الطلبات» كلما فُتح

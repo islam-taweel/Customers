@@ -1,8 +1,8 @@
-import '../api/erp_api_client.dart';
-import '../api/erp_config.dart';
-import '../models/erp_customer.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/api/erp_config.dart';
+import '../../../data/models/erp_customer.dart';
 import '../models/statement_models.dart';
-import 'erp_customer_repository.dart';
+import '../../../data/repositories/erp_customer_repository.dart';
 
 /// كشف حساب العملاء من ERPNext (GL Entry على حساب العميل)، وفتح أي مستند فيه.
 /// يحتاج المستخدم صلاحية قراءة GL Entry (دور محاسبة). للقراءة فقط.

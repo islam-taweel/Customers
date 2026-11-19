@@ -1,86 +1,72 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../../../core/constants/statement_strings.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
 import '../../../data/models/erp_customer.dart';
-import '../../../data/models/statement_models.dart';
-import '../../../data/repositories/erp_statement_repository.dart';
-import 'voucher_details_screen.dart';
+import '../bindings/statement_bindings.dart';
+import '../controllers/customer_statement_controller.dart';
+import '../models/statement_models.dart';
+import 'voucher_details_view.dart';
 
 /// كشف حساب عميل من ERPNext (بالشيكل): الرصيد الافتتاحي (لفترة محددة)، ثم كل
 /// حركة بمدينها ودائنها والرصيد الجاري بعدها، وفي الأعلى المجاميع والرصيد الختامي.
 /// موجب = مستحق على العميل. الضغط على حركة يفتح مستندها.
-class CustomerStatementScreen extends StatefulWidget {
+class CustomerStatementScreen extends StatelessWidget {
   final ErpCustomer customer;
 
-  const CustomerStatementScreen({super.key, required this.customer});
+  /// وسم متحكم هذا المسار في GetX
+  final String tag;
 
-  static Route<void> route(ErpCustomer customer) => MaterialPageRoute<void>(
-        builder: (_) => CustomerStatementScreen(customer: customer),
-      );
+  const CustomerStatementScreen({
+    super.key,
+    required this.customer,
+    required this.tag,
+  });
 
-  @override
-  State<CustomerStatementScreen> createState() =>
-      _CustomerStatementScreenState();
-}
-
-class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
-  DateTimeRange? _range;
-  late Future<CustomerStatement> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
+  static Route<void> route(ErpCustomer customer) {
+    final tag = nextStatementTag('statement:${customer.id}');
+    return GetPageRoute<void>(
+      settings: const RouteSettings(name: '/statement/customer'),
+      page: () => CustomerStatementScreen(customer: customer, tag: tag),
+      binding: CustomerStatementBinding(customer, tag: tag),
+      transition: Transition.native,
+    );
   }
 
-  void _load() {
-    _future = context.read<ErpStatementRepository>().fetchStatement(
-          widget.customer.id,
-          from: _range?.start,
-          to: _range?.end,
-        );
-  }
-
-  Future<void> _pickRange() async {
+  /// منتقي التاريخ يحتاج BuildContext فيبقى هنا؛ المتحكم يستلم الفترة فقط
+  Future<void> _pickRange(
+    BuildContext context,
+    CustomerStatementController c,
+  ) async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 1),
-      initialDateRange: _range ??
+      initialDateRange:
+          c.range.value ??
           DateTimeRange(start: DateTime(now.year, now.month, 1), end: now),
     );
-    if (picked == null || !mounted) return;
-    setState(() {
-      _range = picked;
-      _load();
-    });
+    if (picked == null || !context.mounted) return;
+    await c.setRange(picked);
   }
-
-  void _clearRange() => setState(() {
-        _range = null;
-        _load();
-      });
 
   String _day(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
-    final range = _range;
+    final c = Get.find<CustomerStatementController>(tag: tag);
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.customer.name),
+            Text(customer.name),
             Text(
               StatementStrings.section,
               style: Theme.of(context).textTheme.bodySmall,
@@ -93,80 +79,69 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
           // الفترة: كل الفترات (افتراضيًا) أو من/إلى
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickRange,
-                    icon: const Icon(Icons.date_range_outlined),
-                    label: Text(
-                      range == null
-                          ? StatementStrings.allPeriods
-                          : '${_day(range.start)}  →  ${_day(range.end)}',
-                      textDirection: TextDirection.ltr,
+            child: Obx(() {
+              final range = c.range.value;
+              return Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickRange(context, c),
+                      icon: const Icon(Icons.date_range_outlined),
+                      label: Text(
+                        range == null
+                            ? StatementStrings.allPeriods
+                            : '${_day(range.start)}  →  ${_day(range.end)}',
+                        textDirection: TextDirection.ltr,
+                      ),
                     ),
                   ),
-                ),
-                if (range != null)
-                  IconButton(
-                    tooltip: StatementStrings.clearRange,
-                    onPressed: _clearRange,
-                    icon: const Icon(Icons.close),
-                  ),
-              ],
-            ),
+                  if (range != null)
+                    IconButton(
+                      tooltip: StatementStrings.clearRange,
+                      onPressed: c.clearRange,
+                      icon: const Icon(Icons.close),
+                    ),
+                ],
+              );
+            }),
           ),
           Expanded(
-            child: FutureBuilder<CustomerStatement>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return LoadingView(
-                    message: StatementStrings.loadingStatement,
-                  );
-                }
-                if (snapshot.hasError) {
-                  final e = snapshot.error!;
-                  return ErrorView(
-                    message: e is ErpApiException &&
-                            e.type == ErpErrorType.forbidden
-                        ? StatementStrings.needsAccountsRole
-                        : describeError(e, fallback: StatementStrings.loadFailed),
-                    onRetry: () => setState(_load),
-                  );
-                }
-                final s = snapshot.data!;
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    setState(_load);
-                    await _future.then((_) {}, onError: (_) {});
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    children: [
-                      _Summary(statement: s),
-                      const SizedBox(height: 12),
-                      if (s.lines.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
-                          child: Center(child: Text(StatementStrings.noEntries)),
-                        )
-                      else
-                        for (final line in s.lines)
-                          _LineTile(
-                            line: line,
-                            onTap: () => Navigator.of(context).push(
-                              VoucherDetailsScreen.route(
-                                line.voucherType,
-                                line.voucherNo,
-                              ),
+            child: Obx(() {
+              if (c.isLoading.value) {
+                return LoadingView(message: StatementStrings.loadingStatement);
+              }
+              final message = c.errorMessage;
+              if (message != null) {
+                return ErrorView(message: message, onRetry: c.load);
+              }
+              final s = c.statement.value!;
+              return RefreshIndicator(
+                onRefresh: c.load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    _Summary(statement: s),
+                    const SizedBox(height: 12),
+                    if (s.lines.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Center(child: Text(StatementStrings.noEntries)),
+                      )
+                    else
+                      for (final line in s.lines)
+                        _LineTile(
+                          line: line,
+                          onTap: () => Navigator.of(context).push(
+                            VoucherDetailsScreen.route(
+                              line.voucherType,
+                              line.voucherNo,
                             ),
                           ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                        ),
+                  ],
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -188,31 +163,31 @@ class _Summary extends StatelessWidget {
     final state = closing > 0.005
         ? StatementStrings.owesUs
         : closing < -0.005
-            ? StatementStrings.inCredit
-            : StatementStrings.settled;
+        ? StatementStrings.inCredit
+        : StatementStrings.settled;
 
     Widget line(String label, double v) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
-              Text(
-                formatSignedAmount(v),
-                textDirection: TextDirection.ltr,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
           ),
-        );
+          Text(
+            formatSignedAmount(v),
+            textDirection: TextDirection.ltr,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),

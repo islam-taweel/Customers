@@ -1,120 +1,104 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/statement_strings.dart';
-import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
-import '../../../data/repositories/erp_statement_repository.dart';
+import '../bindings/statement_bindings.dart';
+import '../controllers/voucher_details_controller.dart';
 
 double _n(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 String _s(Object? v) => v?.toString() ?? '';
 List<Map<String, dynamic>> _rows(Object? v) => [
-      if (v is List)
-        for (final r in v)
-          if (r is Map) Map<String, dynamic>.from(r),
-    ];
+  if (v is List)
+    for (final r in v)
+      if (r is Map) Map<String, dynamic>.from(r),
+];
 
 /// تفاصيل مستند من ERPNext كما هو (`GET /api/resource/<doctype>/<name>`):
 /// فاتورة مبيعات (أو مرتجع)، دفعة، قيد يومية. تُفتح من كشف الحساب ومن زر
 /// «تفاصيل الدفعة»؛ الفاتورة المخصص لها في الدفعة تُفتح بالضغط عليها.
-class VoucherDetailsScreen extends StatefulWidget {
+class VoucherDetailsScreen extends StatelessWidget {
   final String doctype;
   final String name;
+
+  /// وسم متحكم هذا المسار في GetX (المستندات تُفتح فوق بعضها)
+  final String tag;
 
   const VoucherDetailsScreen({
     super.key,
     required this.doctype,
     required this.name,
+    required this.tag,
   });
 
-  static Route<void> route(String doctype, String name) =>
-      MaterialPageRoute<void>(
-        builder: (_) => VoucherDetailsScreen(doctype: doctype, name: name),
-      );
-
-  @override
-  State<VoucherDetailsScreen> createState() => _VoucherDetailsScreenState();
-}
-
-class _VoucherDetailsScreenState extends State<VoucherDetailsScreen> {
-  late Future<Map<String, dynamic>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  void _load() {
-    _future = context
-        .read<ErpStatementRepository>()
-        .fetchVoucher(widget.doctype, widget.name);
+  /// نفس الواجهة القديمة (تُستدعى من كشف الحساب ومن «تفاصيل الدفعة»)
+  static Route<void> route(String doctype, String name) {
+    final tag = nextStatementTag('voucher:$doctype/$name');
+    return GetPageRoute<void>(
+      settings: const RouteSettings(name: '/statement/voucher'),
+      page: () => VoucherDetailsScreen(doctype: doctype, name: name, tag: tag),
+      binding: VoucherDetailsBinding(doctype, name, tag: tag),
+      transition: Transition.native,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = Get.find<VoucherDetailsController>(tag: tag);
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(StatementStrings.voucherType(widget.doctype)),
+            Text(StatementStrings.voucherType(doctype)),
             Text(
-              widget.name,
+              name,
               textDirection: TextDirection.ltr,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return LoadingView(message: StatementStrings.loadingDocument);
-          }
-          if (snapshot.hasError) {
-            return ErrorView(
-              message: describeError(
-                snapshot.error!,
-                fallback: StatementStrings.loadFailed,
-              ),
-              onRetry: () => setState(_load),
-            );
-          }
-          final doc = snapshot.data!;
-          return ListView(
-            padding: const EdgeInsets.all(AppConstants.pagePadding),
-            children: [
-              _Header(doc: doc, doctype: widget.doctype),
+      body: Obx(() {
+        if (c.isLoading.value) {
+          return LoadingView(message: StatementStrings.loadingDocument);
+        }
+        final message = c.errorMessage;
+        if (message != null) {
+          return ErrorView(message: message, onRetry: c.load);
+        }
+        final doc = c.doc.value!;
+        return ListView(
+          padding: const EdgeInsets.all(AppConstants.pagePadding),
+          children: [
+            _Header(doc: doc, doctype: doctype),
+            const SizedBox(height: 16),
+            ...switch (doctype) {
+              'Sales Invoice' => _invoiceBody(context, doc),
+              'Payment Entry' => _paymentBody(context, doc),
+              'Journal Entry' => _journalBody(context, doc),
+              _ => const <Widget>[],
+            },
+            if (_s(doc['remarks']).trim().isNotEmpty ||
+                _s(doc['user_remark']).trim().isNotEmpty) ...[
               const SizedBox(height: 16),
-              ...switch (widget.doctype) {
-                'Sales Invoice' => _invoiceBody(context, doc),
-                'Payment Entry' => _paymentBody(context, doc),
-                'Journal Entry' => _journalBody(context, doc),
-                _ => const <Widget>[],
-              },
-              if (_s(doc['remarks']).trim().isNotEmpty ||
-                  _s(doc['user_remark']).trim().isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _Section(
-                  title: StatementStrings.remarks,
-                  children: [
-                    Text(
-                      _s(doc['user_remark']).trim().isNotEmpty
-                          ? _s(doc['user_remark']).trim()
-                          : _s(doc['remarks']).trim(),
-                    ),
-                  ],
-                ),
-              ],
+              _Section(
+                title: StatementStrings.remarks,
+                children: [
+                  Text(
+                    _s(doc['user_remark']).trim().isNotEmpty
+                        ? _s(doc['user_remark']).trim()
+                        : _s(doc['remarks']).trim(),
+                  ),
+                ],
+              ),
             ],
-          );
-        },
-      ),
+          ],
+        );
+      }),
     );
   }
 
@@ -142,7 +126,8 @@ class _VoucherDetailsScreenState extends State<VoucherDetailsScreen> {
             _KeyValue(
               label: StatementStrings.returnAgainst,
               value: _s(doc['return_against']),
-              onTap: () => _open('Sales Invoice', _s(doc['return_against'])),
+              onTap: () =>
+                  _open(context, 'Sales Invoice', _s(doc['return_against'])),
             ),
           _KeyValue(
             label: isReturn
@@ -220,6 +205,7 @@ class _VoucherDetailsScreenState extends State<VoucherDetailsScreen> {
                 currency: displayCurrency(accountCur),
               ),
               onTap: () => _open(
+                context,
                 _s(r['reference_doctype']),
                 _s(r['reference_name']),
               ),
@@ -258,7 +244,7 @@ class _VoucherDetailsScreenState extends State<VoucherDetailsScreen> {
     ];
   }
 
-  void _open(String doctype, String name) {
+  void _open(BuildContext context, String doctype, String name) {
     if (doctype.isEmpty || name.isEmpty) return;
     Navigator.of(context).push(VoucherDetailsScreen.route(doctype, name));
   }
@@ -286,17 +272,14 @@ class _Header extends StatelessWidget {
     final party = _s(doc['customer_name']).isNotEmpty
         ? _s(doc['customer_name'])
         : _s(doc['party_name']).isNotEmpty
-            ? _s(doc['party_name'])
-            : _s(doc['customer']).isNotEmpty
-                ? _s(doc['customer'])
-                : _s(doc['party']);
+        ? _s(doc['party_name'])
+        : _s(doc['customer']).isNotEmpty
+        ? _s(doc['customer'])
+        : _s(doc['party']);
     return _Section(
       children: [
         _KeyValue(label: StatementStrings.number, value: _s(doc['name'])),
-        _KeyValue(
-          label: StatementStrings.date,
-          value: _s(doc['posting_date']),
-        ),
+        _KeyValue(label: StatementStrings.date, value: _s(doc['posting_date'])),
         if (party.isNotEmpty)
           _KeyValue(label: StatementStrings.party, value: party),
         Padding(
