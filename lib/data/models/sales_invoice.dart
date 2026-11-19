@@ -64,7 +64,8 @@ class InvoiceSettlement {
   factory InvoiceSettlement.fromJson(Map<String, dynamic> json) {
     final invoiceCurrency = _toText(json['currency']);
     final partyCurrency = _toText(json['party_account_currency']);
-    final inBase = partyCurrency.isNotEmpty &&
+    final inBase =
+        partyCurrency.isNotEmpty &&
         invoiceCurrency.isNotEmpty &&
         partyCurrency != invoiceCurrency;
 
@@ -74,8 +75,9 @@ class InvoiceSettlement {
     }
 
     final documentTotal = pick('rounded_total', 'grand_total');
-    final total =
-        inBase ? pick('base_rounded_total', 'base_grand_total') : documentTotal;
+    final total = inBase
+        ? pick('base_rounded_total', 'base_grand_total')
+        : documentTotal;
     final advance = _toDouble(json['total_advance']);
     final writeOff = _toDouble(
       json[inBase ? 'base_write_off_amount' : 'write_off_amount'],
@@ -252,10 +254,10 @@ class SalesInvoiceDetail {
       docstatus: json['docstatus'] is num
           ? (json['docstatus'] as num).toInt()
           : status == 'Draft'
-              ? 0
-              : status == 'Cancelled'
-                  ? 2
-                  : 1,
+          ? 0
+          : status == 'Cancelled'
+          ? 2
+          : 1,
       settlement: InvoiceSettlement.fromJson(json),
       name: _toText(json['name']),
       customerName: _toText(json['customer_name']),

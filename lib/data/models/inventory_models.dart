@@ -45,7 +45,8 @@ class InventoryItem {
       qty: bin == null ? 0 : _toDouble(bin['actual_qty']),
       valuationRate: bin == null ? 0 : _toDouble(bin['valuation_rate']),
       warehouse: warehouse,
-      hasSerialOrBatch: _toDouble(item['has_serial_no']) != 0 ||
+      hasSerialOrBatch:
+          _toDouble(item['has_serial_no']) != 0 ||
           _toDouble(item['has_batch_no']) != 0,
     );
   }
@@ -81,4 +82,3 @@ class CountLine {
     };
   }
 }
-

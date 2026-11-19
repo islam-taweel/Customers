@@ -71,7 +71,10 @@ class OutstandingRepository {
       return [
         for (final row in rows)
           if ((row['currency']?.toString() ?? '').isNotEmpty)
-            CurrencyAmount(row['currency'].toString(), _num(row['outstanding'])),
+            CurrencyAmount(
+              row['currency'].toString(),
+              _num(row['outstanding']),
+            ),
       ];
     } on ErpApiException catch (e) {
       debugPrint('OutstandingRepository.fetchTotal failed: $e');
@@ -85,7 +88,11 @@ class OutstandingRepository {
     try {
       final rows = await _api.getAll(
         'Sales Invoice',
-        fields: ['customer', 'currency', 'sum(outstanding_amount) as outstanding'],
+        fields: [
+          'customer',
+          'currency',
+          'sum(outstanding_amount) as outstanding',
+        ],
         filters: [
           ['docstatus', '=', 1],
         ],

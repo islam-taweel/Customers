@@ -125,13 +125,17 @@ class ErpInvoiceRepository {
     final directory = await _ensureDirectory();
 
     final phoneKey = _phoneKey(customer.phone);
-    final erpId = (phoneKey == null ? null : directory.idByPhoneKey[phoneKey]) ??
+    final erpId =
+        (phoneKey == null ? null : directory.idByPhoneKey[phoneKey]) ??
         directory.idByName[_nameKey(customer.name)];
 
     final key = _invoicesKey(customer);
 
     if (erpId == null) {
-      await _cache.write(key, jsonEncode({'matched': false, 'rows': <Object>[]}));
+      await _cache.write(
+        key,
+        jsonEncode({'matched': false, 'rows': <Object>[]}),
+      );
       return const InvoicesResult(matched: false, invoices: []);
     }
 
@@ -151,7 +155,10 @@ class ErpInvoiceRepository {
 
     await _cache.write(key, jsonEncode({'matched': true, 'rows': rows}));
 
-    final result = InvoicesResult(matched: true, invoices: _parseInvoices(rows));
+    final result = InvoicesResult(
+      matched: true,
+      invoices: _parseInvoices(rows),
+    );
     _memoryCache[erpId] = (at: DateTime.now(), result: result);
 
     // نجلب تفاصيل أحدث الفواتير في الخلفية لتفتح دون إنترنت لاحقًا
@@ -160,11 +167,10 @@ class ErpInvoiceRepository {
   }
 
   List<SalesInvoice> _parseInvoices(List<Map<String, dynamic>> rows) {
-    return [for (final row in rows) SalesInvoice.fromJson(row)]
-      ..sort((a, b) {
-        final byDate = b.postingDate.compareTo(a.postingDate);
-        return byDate != 0 ? byDate : b.name.compareTo(a.name);
-      });
+    return [for (final row in rows) SalesInvoice.fromJson(row)]..sort((a, b) {
+      final byDate = b.postingDate.compareTo(a.postingDate);
+      return byDate != 0 ? byDate : b.name.compareTo(a.name);
+    });
   }
 
   // ───────────────────────── ملف PDF من الخادم ─────────────────────────
@@ -221,7 +227,10 @@ class ErpInvoiceRepository {
     ]).take(_syncDetailCount).toList();
 
     for (var i = 0; i < recent.length; i++) {
-      onProgress?.call(0.4 + 0.6 * (i / recent.length), SyncStep.invoiceDetails);
+      onProgress?.call(
+        0.4 + 0.6 * (i / recent.length),
+        SyncStep.invoiceDetails,
+      );
       try {
         if (await _cache.read(_detailKey(recent[i].name)) != null) continue;
         await fetchInvoiceDetail(recent[i].name);
@@ -242,7 +251,9 @@ class ErpInvoiceRepository {
 
   String _detailKey(String invoiceName) => 'invoice:$invoiceName';
 
-  Future<InvoiceDetailResult?> readCachedInvoiceDetail(String invoiceName) async {
+  Future<InvoiceDetailResult?> readCachedInvoiceDetail(
+    String invoiceName,
+  ) async {
     final entry = await _cache.read(_detailKey(invoiceName));
     if (entry == null) return null;
 

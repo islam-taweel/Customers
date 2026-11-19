@@ -14,8 +14,12 @@ class PendingOrderLine {
     required this.rate,
   });
 
-  Map<String, dynamic> toJson() =>
-      {'code': code, 'name': name, 'qty': qty, 'rate': rate};
+  Map<String, dynamic> toJson() => {
+    'code': code,
+    'name': name,
+    'qty': qty,
+    'rate': rate,
+  };
 
   factory PendingOrderLine.fromJson(Map<String, dynamic> json) {
     double num_(Object? v) =>
@@ -74,20 +78,20 @@ class PendingOrder {
   });
 
   Map<String, dynamic> toMap() => {
-        if (id != null) 'id': id,
-        'customerErpId': customerErpId,
-        'customerName': customerName,
-        'transactionDate': transactionDate,
-        'deliveryDate': deliveryDate,
-        'linesJson': jsonEncode([for (final l in lines) l.toJson()]),
-        'total': total,
-        'createdAt': createdAt.toIso8601String(),
-        'invoiceId': invoiceId,
-        'status': status,
-        'lastError': lastError,
-        'erpOrderId': erpOrderId,
-        'notes': notes,
-      };
+    if (id != null) 'id': id,
+    'customerErpId': customerErpId,
+    'customerName': customerName,
+    'transactionDate': transactionDate,
+    'deliveryDate': deliveryDate,
+    'linesJson': jsonEncode([for (final l in lines) l.toJson()]),
+    'total': total,
+    'createdAt': createdAt.toIso8601String(),
+    'invoiceId': invoiceId,
+    'status': status,
+    'lastError': lastError,
+    'erpOrderId': erpOrderId,
+    'notes': notes,
+  };
 
   factory PendingOrder.fromMap(Map<String, dynamic> map) {
     List<PendingOrderLine> lines;

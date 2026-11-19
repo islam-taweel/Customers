@@ -1,18 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/ess_strings.dart';
+import '../../../data/repositories/erp_employee_repository.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../controllers/team_controller.dart';
 import '../employee_service.dart';
 
 /// قسم «خدمات الموظف»: رأس باسم المستخدم، ثم بطاقة لكل خدمة (أيقونة وعنوان
-/// ووصف قصير). الضغط على البطاقة يفتح شاشة الخدمة.
-class EmployeeServicesScreen extends StatelessWidget {
+/// ووصف قصير). الضغط على البطاقة يفتح شاشة الخدمة. صلاحيات المستخدم تُفحص عند
+/// فتح القسم: «فريقي» يظهر فقط لمعتمِدي الإجازات أو المصاريف.
+class EmployeeServicesScreen extends StatefulWidget {
   const EmployeeServicesScreen({super.key});
 
-  static Route<void> route() => MaterialPageRoute<void>(
-        builder: (_) => const EmployeeServicesScreen(),
-      );
+  static Route<void> route() =>
+      MaterialPageRoute<void>(builder: (_) => const EmployeeServicesScreen());
+
+  @override
+  State<EmployeeServicesScreen> createState() => _EmployeeServicesScreenState();
+}
+
+class _EmployeeServicesScreenState extends State<EmployeeServicesScreen> {
+  late final HrAccessController _access;
+
+  @override
+  void initState() {
+    super.initState();
+    _access = Get.put(
+      HrAccessController(context.read<ErpEmployeeRepository>()),
+    );
+  }
+
+  @override
+  void dispose() {
+    Get.delete<HrAccessController>();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +45,11 @@ class EmployeeServicesScreen extends StatelessWidget {
     final name = context.select<AuthController, String?>((a) => a.fullName);
     // عمودان في الهاتف، وأكثر في الشاشات العريضة
     final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
+    final columns = width >= 900
+        ? 4
+        : width >= 600
+        ? 3
+        : 2;
 
     return Scaffold(
       appBar: AppBar(title: Text(EssStrings.section)),
@@ -82,14 +110,19 @@ class EmployeeServicesScreen extends StatelessWidget {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            sliver: SliverGrid.count(
-              crossAxisCount: columns,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.95,
-              children: [
-                for (final s in EmployeeService.values) _ServiceCard(service: s),
-              ],
+            sliver: Obx(
+              () => SliverGrid.count(
+                crossAxisCount: columns,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.95,
+                children: [
+                  for (final s in EmployeeService.values)
+                    // «فريقي» لا يظهر نهائيًا لمن لا يملك صلاحية الموافقة
+                    if (s != EmployeeService.team || _access.canSeeTeam)
+                      _ServiceCard(service: s),
+                ],
+              ),
             ),
           ),
         ],

@@ -48,12 +48,13 @@ class ErpLedgerRepository {
     if (docstatus != 1) {
       return CustomerLedger(
         lines: const [],
-        drafts: [
-          if (docstatus == 0) (doctype: _invoice, name: invoice),
-        ],
+        drafts: [if (docstatus == 0) (doctype: _invoice, name: invoice)],
       );
     }
-    return CustomerLedger(lines: await _invoiceLines(invoice), drafts: const []);
+    return CustomerLedger(
+      lines: await _invoiceLines(invoice),
+      drafts: const [],
+    );
   }
 
   /// حساب العميل لكل فواتير طلبية (لا شيء قبل فوترتها).

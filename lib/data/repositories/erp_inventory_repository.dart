@@ -43,13 +43,13 @@ class ErpInventoryRepository {
       rows = await _api.getList(
         'Item',
         fields: [
-        'name',
-        'item_code',
-        'item_name',
-        'stock_uom',
-        'has_serial_no',
-        'has_batch_no',
-      ],
+          'name',
+          'item_code',
+          'item_name',
+          'stock_uom',
+          'has_serial_no',
+          'has_batch_no',
+        ],
         filters: [
           ['disabled', '=', 0],
           ['item_code', '=', barcode],

@@ -52,8 +52,10 @@ class ErpVisitRepository {
     final visits = <String, Visit>{};
     final list = names.toList();
     for (var i = 0; i < list.length; i += _chunk) {
-      final part =
-          list.sublist(i, i + _chunk > list.length ? list.length : i + _chunk);
+      final part = list.sublist(
+        i,
+        i + _chunk > list.length ? list.length : i + _chunk,
+      );
       final docs = await _api.getAll(
         _doctype,
         fields: Visit.fields,
@@ -109,9 +111,11 @@ class ErpVisitRepository {
     if (others.isEmpty) return null;
 
     final days = {...draft.weekdays, s0.weekday};
-    for (var day = from;
-        !day.isAfter(to);
-        day = DateTime(day.year, day.month, day.day + 1)) {
+    for (
+      var day = from;
+      !day.isAfter(to);
+      day = DateTime(day.year, day.month, day.day + 1)
+    ) {
       if (draft.weekly ? !days.contains(day.weekday) : day != from) continue;
       final s = DateTime(day.year, day.month, day.day, s0.hour, s0.minute);
       final e = s.add(duration);
@@ -131,10 +135,7 @@ class ErpVisitRepository {
 
   /// يعيد رقم الموعد (data.name).
   Future<String> create(VisitDraft draft) async {
-    final created = await _api.postDoc(
-      _doctype,
-      draft.toJson(),
-    );
+    final created = await _api.postDoc(_doctype, draft.toJson());
     final name = created['name']?.toString() ?? '';
     if (name.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
     debugPrint('Event $name created');
@@ -142,11 +143,8 @@ class ErpVisitRepository {
   }
 
   /// يُطبَّق على كل تكرارات الموعد.
-  Future<void> update(String name, VisitDraft draft) => _api.putDoc(
-        _doctype,
-        name,
-        draft.toJson(forUpdate: true),
-      );
+  Future<void> update(String name, VisitDraft draft) =>
+      _api.putDoc(_doctype, name, draft.toJson(forUpdate: true));
 
   /// Open / Completed / Closed / Cancelled. الإلغاء يُبقي الموعد في النظام.
   Future<void> setStatus(String name, String status) =>

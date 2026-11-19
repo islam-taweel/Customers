@@ -18,39 +18,39 @@ class ErpLookupRepository {
 
   /// العملات المفعّلة (Currency.enabled = 1).
   Future<List<String>> fetchCurrencies() => _fetch(
-        key: _currenciesKey,
-        doctype: 'Currency',
-        filters: [
-          ['enabled', '=', 1],
-        ],
-      );
+    key: _currenciesKey,
+    doctype: 'Currency',
+    filters: [
+      ['enabled', '=', 1],
+    ],
+  );
 
   /// طرق الدفع المفعّلة (Mode of Payment.enabled = 1).
   Future<List<String>> fetchModesOfPayment() => _fetch(
-        key: _modesKey,
-        doctype: 'Mode of Payment',
-        filters: [
-          ['enabled', '=', 1],
-        ],
-      );
+    key: _modesKey,
+    doctype: 'Mode of Payment',
+    filters: [
+      ['enabled', '=', 1],
+    ],
+  );
 
   /// مجموعات العملاء النهائية (Customer Group.is_group = 0).
   Future<List<String>> fetchCustomerGroups() => _fetch(
-        key: 'lookup:customer_groups',
-        doctype: 'Customer Group',
-        filters: [
-          ['is_group', '=', 0],
-        ],
-      );
+    key: 'lookup:customer_groups',
+    doctype: 'Customer Group',
+    filters: [
+      ['is_group', '=', 0],
+    ],
+  );
 
   /// المناطق النهائية (Territory.is_group = 0).
   Future<List<String>> fetchTerritories() => _fetch(
-        key: 'lookup:territories',
-        doctype: 'Territory',
-        filters: [
-          ['is_group', '=', 0],
-        ],
-      );
+    key: 'lookup:territories',
+    doctype: 'Territory',
+    filters: [
+      ['is_group', '=', 0],
+    ],
+  );
 
   Future<List<String>> _fetch({
     required String key,
@@ -71,7 +71,8 @@ class ErpLookupRepository {
       );
       final names = [
         for (final row in rows)
-          if ((row['name']?.toString() ?? '').isNotEmpty) row['name'].toString(),
+          if ((row['name']?.toString() ?? '').isNotEmpty)
+            row['name'].toString(),
       ]..sort();
       if (names.isNotEmpty) await _cache.write(key, jsonEncode(names));
       return names;

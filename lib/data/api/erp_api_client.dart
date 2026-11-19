@@ -46,8 +46,8 @@ class ErpApiException implements Exception {
 /// [ErpApiException]. لا يعرف شيئًا عن نماذج التطبيق ولا الواجهة.
 class ErpApiClient {
   ErpApiClient({required SessionStore session, http.Client? client})
-      : _session = session,
-        _client = client ?? http.Client();
+    : _session = session,
+      _client = client ?? http.Client();
 
   final SessionStore _session;
   final http.Client _client;
@@ -73,12 +73,11 @@ class ErpApiClient {
   /// فحص سريع لتوفر الخادم (/api/method/ping لا يحتاج مفاتيح).
   /// true = ردّ الخادم، false = تعذّر الوصول إليه.
   Future<bool> ping() async {
-    final uri = Uri.parse(ErpConfig.baseUrl).replace(
-      pathSegments: ['api', 'method', 'ping'],
-    );
+    final uri = Uri.parse(ErpConfig.baseUrl)
+        .replace(pathSegments: ['api', 'method', 'ping']);
     try {
       final response = await _client
-          .get(uri)
+          .get(uri, headers: {'X-Frappe-Site-Name': ErpConfig.siteName})
           .timeout(const Duration(seconds: 5));
       _lastNetworkFailure = null;
       return response.statusCode < 500;
@@ -97,11 +96,12 @@ class ErpApiClient {
   /// حد أمان لحلقة جلب الصفحات حتى لا تدور بلا نهاية عند خلل في الخادم
   static const int _maxPages = 500;
 
-  /// كل طلب بعد الدخول يحمل كوكي الجلسة (لا مفاتيح API).
+  /// كل طلب بعد الدخول يحمل كوكي الجلسة واسم الموقع (لا مفاتيح API).
   Map<String, String> _headers(String sid) => {
-        'Cookie': 'sid=$sid',
-        'Accept': 'application/json',
-      };
+    'Cookie': 'sid=$sid',
+    'X-Frappe-Site-Name': ErpConfig.siteName,
+    'Accept': 'application/json',
+  };
 
   /// /api/resource/{doctype}[/{name}] — pathSegments تُرمِّز المسافة والرموز
   /// الخاصة بشكل صحيح، فيُرسل رقم الفاتورة كما وصل تمامًا.
@@ -122,17 +122,23 @@ class ErpApiClient {
     String? orderBy,
     int limitStart = 0,
     int limitPageLength = ErpConfig.pageSize,
+    String? parent,
   }) async {
-    final uri = _uri([doctype], {
-      'fields': jsonEncode(fields),
-      if (filters != null) 'filters': jsonEncode(filters),
-      // يكفي أن يتحقق شرط واحد منها (مع كل شروط filters)
-      if (orFilters != null) 'or_filters': jsonEncode(orFilters),
-      if (groupBy != null) 'group_by': groupBy,
-      if (orderBy != null) 'order_by': orderBy,
-      'limit_start': '$limitStart',
-      'limit_page_length': '$limitPageLength',
-    });
+    final uri = _uri(
+      [doctype],
+      {
+        // جدول فرعي (مثل Expense Claim Detail): المستند الأب للتحقق من الصلاحية
+        'parent': ?parent,
+        'fields': jsonEncode(fields),
+        if (filters != null) 'filters': jsonEncode(filters),
+        // يكفي أن يتحقق شرط واحد منها (مع كل شروط filters)
+        if (orFilters != null) 'or_filters': jsonEncode(orFilters),
+        if (groupBy != null) 'group_by': groupBy,
+        if (orderBy != null) 'order_by': orderBy,
+        'limit_start': '$limitStart',
+        'limit_page_length': '$limitPageLength',
+      },
+    );
 
     final data = (await _get(uri))['data'];
     if (data is! List) {
@@ -150,6 +156,7 @@ class ErpApiClient {
     List<List<Object>>? orFilters,
     String? groupBy,
     String? orderBy,
+    String? parent,
   }) async {
     final all = <Map<String, dynamic>>[];
     var start = 0;
@@ -163,6 +170,7 @@ class ErpApiClient {
         groupBy: groupBy,
         orderBy: orderBy,
         limitStart: start,
+        parent: parent,
       );
       all.addAll(rows);
       if (rows.length < ErpConfig.pageSize) break;
@@ -236,9 +244,8 @@ class ErpApiClient {
     String method,
     Map<String, dynamic> body,
   ) async {
-    final uri = Uri.parse(ErpConfig.baseUrl).replace(
-      pathSegments: ['api', 'method', ...method.split('/')],
-    );
+    final uri = Uri.parse(ErpConfig.baseUrl)
+        .replace(pathSegments: ['api', 'method', ...method.split('/')]);
     return _send(
       uri,
       (headers) => _client.post(
@@ -266,23 +273,18 @@ class ErpApiClient {
   /// الافتراضي في ERPNext). يرمي [ErpApiException] إن لم يصل ملف PDF سليم.
   Future<Uint8List> downloadPdf(String doctype, String name) async {
     final uri = Uri.parse(ErpConfig.baseUrl).replace(
-      pathSegments: [
-        'api',
-        'method',
-        'frappe.utils.print_format.download_pdf',
-      ],
+      pathSegments: ['api', 'method', 'frappe.utils.print_format.download_pdf'],
       queryParameters: {'doctype': doctype, 'name': name, 'no_letterhead': '0'},
     );
     final response = await _execute(
       uri,
-      (headers) => _client.get(
-        uri,
-        headers: {...headers, 'Accept': 'application/pdf'},
-      ),
+      (headers) =>
+          _client.get(uri, headers: {...headers, 'Accept': 'application/pdf'}),
     );
     final bytes = response.bodyBytes;
     // ملف PDF يبدأ بـ %PDF
-    final isPdf = bytes.length > 4 &&
+    final isPdf =
+        bytes.length > 4 &&
         bytes[0] == 0x25 &&
         bytes[1] == 0x50 &&
         bytes[2] == 0x44 &&
@@ -303,6 +305,35 @@ class ErpApiClient {
       throw const ErpApiException(ErpErrorType.badResponse);
     }
     return response.bodyBytes;
+  }
+
+  /// يرفع ملفًا (POST /api/method/upload_file، multipart) ويربطه بالمستند
+  /// [doctype]/[docname] كمرفق. خاص افتراضيًا (لا يُفتح إلا بجلسة). يعيد مسار
+  /// الملف (file_url).
+  Future<String> uploadFile({
+    required Uint8List bytes,
+    required String filename,
+    required String doctype,
+    required String docname,
+    bool isPrivate = true,
+  }) async {
+    final uri = Uri.parse(ErpConfig.baseUrl)
+        .replace(pathSegments: ['api', 'method', 'upload_file']);
+    final decoded = await _send(uri, (headers) async {
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(headers)
+        ..fields['doctype'] = doctype
+        ..fields['docname'] = docname
+        ..fields['is_private'] = isPrivate ? '1' : '0'
+        ..files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: filename),
+        );
+      return http.Response.fromStream(await _client.send(request));
+    });
+    final message = decoded['message'];
+    final url = message is Map ? message['file_url']?.toString() ?? '' : '';
+    if (url.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
+    return url;
   }
 
   Future<Map<String, dynamic>> _get(Uri uri) =>
@@ -374,8 +405,8 @@ class ErpApiClient {
   /// Guest أو فشل السؤال = الجلسة انتهت، فنحذف الكوكي ونعود لشاشة الدخول.
   /// اسم مستخدم = مشكلة صلاحية حقيقية.
   Future<ErpApiException> _denied(int status, String sid) async {
-    final expired = await (_sessionCheck ??=
-        _isSessionExpired(sid).whenComplete(() => _sessionCheck = null));
+    final expired = await (_sessionCheck ??= _isSessionExpired(sid)
+        .whenComplete(() => _sessionCheck = null));
 
     if (!expired) {
       return ErpApiException(ErpErrorType.forbidden, statusCode: status);
@@ -390,9 +421,9 @@ class ErpApiClient {
 
   Future<bool> _isSessionExpired(String sid) async {
     try {
-      final uri = Uri.parse(ErpConfig.baseUrl).replace(
-        pathSegments: ['api', 'method', 'frappe.auth.get_logged_user'],
-      );
+      final uri = Uri.parse(
+        ErpConfig.baseUrl,
+      ).replace(pathSegments: ['api', 'method', 'frappe.auth.get_logged_user']);
       final response = await _client
           .get(uri, headers: _headers(sid))
           .timeout(ErpConfig.requestTimeout);
@@ -421,7 +452,9 @@ class ErpApiClient {
           final list = jsonDecode(raw) as List;
           final messages = [
             for (final m in list)
-              strip((jsonDecode(m as String) as Map)['message']?.toString() ?? ''),
+              strip(
+                (jsonDecode(m as String) as Map)['message']?.toString() ?? '',
+              ),
           ].where((m) => m.isNotEmpty);
           if (messages.isNotEmpty) return messages.join(' | ');
         }

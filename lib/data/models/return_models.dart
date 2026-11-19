@@ -67,13 +67,13 @@ class ReturnInvoice {
   });
 
   factory ReturnInvoice.fromJson(Map<String, dynamic> json) => ReturnInvoice(
-        name: _toText(json['name']),
-        postingDate: _toText(json['posting_date']),
-        currency: _toText(json['currency']),
-        grandTotal: _toDouble(json['grand_total']),
-        outstandingAmount: _toDouble(json['outstanding_amount']),
-        status: _toText(json['status']),
-      );
+    name: _toText(json['name']),
+    postingDate: _toText(json['posting_date']),
+    currency: _toText(json['currency']),
+    grandTotal: _toDouble(json['grand_total']),
+    outstandingAmount: _toDouble(json['outstanding_amount']),
+    status: _toText(json['status']),
+  );
 }
 
 /// بند في الفاتورة الأصلية مع ما أُرجع منه سابقًا (مرتجعات معتمدة).
@@ -120,22 +120,21 @@ class ReturnableItem {
     Map<String, dynamic> json, {
     required double returnedQty,
     required bool wholeNumber,
-  }) =>
-      ReturnableItem(
-        rowName: _toText(json['name']),
-        itemCode: _toText(json['item_code']),
-        itemName: _toText(json['item_name']).isEmpty
-            ? _toText(json['item_code'])
-            : _toText(json['item_name']),
-        qty: _toDouble(json['qty']),
-        uom: _toText(json['uom']),
-        rate: _toDouble(json['rate']),
-        amount: _toDouble(json['amount']),
-        deliveryNote: _toText(json['delivery_note']),
-        dnDetail: _toText(json['dn_detail']),
-        returnedQty: returnedQty,
-        wholeNumber: wholeNumber,
-      );
+  }) => ReturnableItem(
+    rowName: _toText(json['name']),
+    itemCode: _toText(json['item_code']),
+    itemName: _toText(json['item_name']).isEmpty
+        ? _toText(json['item_code'])
+        : _toText(json['item_name']),
+    qty: _toDouble(json['qty']),
+    uom: _toText(json['uom']),
+    rate: _toDouble(json['rate']),
+    amount: _toDouble(json['amount']),
+    deliveryNote: _toText(json['delivery_note']),
+    dnDetail: _toText(json['dn_detail']),
+    returnedQty: returnedQty,
+    wholeNumber: wholeNumber,
+  );
 }
 
 /// مرتجع محفوظ مسودة بانتظار الاعتماد: إشعار دائن (Sales Invoice) أو

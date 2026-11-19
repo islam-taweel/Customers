@@ -92,10 +92,7 @@ class Invoice {
   /// سند تسليم مسودة في ERPNext أُنشئ خارج التطبيق ولم يُعتمد: يظهر في تبويب
   /// «مسودة» بقسم التسليمات بلا أزرار
   bool get isErpDeliveryDraft =>
-      submitted &&
-      !delivered &&
-      (deliveryNote ?? '').isEmpty &&
-      deliveryDraft;
+      submitted && !delivered && (deliveryNote ?? '').isEmpty && deliveryDraft;
 
   /// الفوترة متاحة فقط بعد اعتماد سند التسليم في ERPNext (حينها تصير الطلبية «مُسلَّمة»)
   bool get canBill =>
@@ -161,7 +158,8 @@ class Invoice {
   }
 
   /// رقم العرض: رقم الطلبية في ERPNext إن وُجد، وإلا رقم الفاتورة المحلي
-  String get displayName => (orderId == null || orderId!.isEmpty) ? number : orderId!;
+  String get displayName =>
+      (orderId == null || orderId!.isEmpty) ? number : orderId!;
 
   /// أصناف الفاتورة من النص المحفوظ (قائمة فارغة إن كان تالفًا)
   List<InvoiceItem> get items {
@@ -191,39 +189,39 @@ class Invoice {
   /// حالة العرض: «بانتظار الرفع» حتى تصل الطلبية إلى ERPNext، ثم «مسودة»،
   /// وبعد الاعتماد: «بانتظار التسليم» ثم «بانتظار الفوترة» ثم «مكتملة»
   String get _status => switch (stage) {
-        OrderStage.draft => pendingUpload ? 'Pending Upload' : 'Draft',
-        OrderStage.toDeliver => 'To Deliver',
-        OrderStage.toBill => 'To Bill',
-        OrderStage.completed => 'Completed',
-      };
+    OrderStage.draft => pendingUpload ? 'Pending Upload' : 'Draft',
+    OrderStage.toDeliver => 'To Deliver',
+    OrderStage.toBill => 'To Bill',
+    OrderStage.completed => 'Completed',
+  };
 
   /// صف في قائمة فواتير العميل
   SalesInvoice toListEntry() => SalesInvoice(
-        name: displayName,
-        customer: '',
-        customerName: customerName,
-        postingDate: _day,
-        dueDate: deliveryDate,
-        grandTotal: amount,
-        outstandingAmount: 0,
-        status: _status,
-        currency: currency ?? '',
-        isLocal: true,
-      );
+    name: displayName,
+    customer: '',
+    customerName: customerName,
+    postingDate: _day,
+    dueDate: deliveryDate,
+    grandTotal: amount,
+    outstandingAmount: 0,
+    status: _status,
+    currency: currency ?? '',
+    isLocal: true,
+  );
 
   /// تفاصيل الفاتورة لشاشة العرض (نفس شاشة فواتير ERPNext)
   SalesInvoiceDetail toDetail() => SalesInvoiceDetail(
-        name: displayName,
-        customerName: customerName,
-        postingDate: _day,
-        dueDate: deliveryDate,
-        grandTotal: amount,
-        totalTaxesAndCharges: 0,
-        outstandingAmount: 0,
-        status: _status,
-        currency: currency ?? '',
-        items: items,
-      );
+    name: displayName,
+    customerName: customerName,
+    postingDate: _day,
+    dueDate: deliveryDate,
+    grandTotal: amount,
+    totalTaxesAndCharges: 0,
+    outstandingAmount: 0,
+    status: _status,
+    currency: currency ?? '',
+    items: items,
+  );
 
   Invoice copyWith({
     int? id,

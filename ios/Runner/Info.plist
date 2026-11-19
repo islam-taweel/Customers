@@ -70,7 +70,9 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>NSCameraUsageDescription</key>
-		<string>يستخدم التطبيق الكاميرا لمسح باركود الأصناف أثناء الجرد.</string>
+		<string>يستخدم التطبيق الكاميرا لمسح باركود الأصناف أثناء الجرد، ولتصوير إيصالات المصاريف.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>يستخدم التطبيق الصور لإرفاق إيصال أو فاتورة المصروف.</string>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>whatsapp</string>

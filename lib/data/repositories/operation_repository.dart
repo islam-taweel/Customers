@@ -34,7 +34,8 @@ class OperationRepository {
   Future<List<CurrencyAmount>> getBalances(int customerId) async {
     final db = await _dbHelper.database;
     final base = ErpConfig.priceListCurrency;
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       SELECT COALESCE(NULLIF(
                CASE WHEN type = 'payment' AND settledAmount IS NOT NULL
                     THEN settledCurrency ELSE currency END, ''), ?) AS cur,
@@ -44,20 +45,23 @@ class OperationRepository {
       FROM $_operations
       WHERE customerId = ?
       GROUP BY cur
-    ''', [base, customerId]);
+    ''',
+      [base, customerId],
+    );
 
-    final result = [
-      for (final row in rows)
-        if (((row['balance'] as num?) ?? 0).abs() >= 0.005)
-          CurrencyAmount(
-            row['cur'] as String,
-            (row['balance'] as num).toDouble(),
-          ),
-    ]..sort((a, b) {
-        if (a.currency == base) return -1;
-        if (b.currency == base) return 1;
-        return a.currency.compareTo(b.currency);
-      });
+    final result =
+        [
+          for (final row in rows)
+            if (((row['balance'] as num?) ?? 0).abs() >= 0.005)
+              CurrencyAmount(
+                row['cur'] as String,
+                (row['balance'] as num).toDouble(),
+              ),
+        ]..sort((a, b) {
+          if (a.currency == base) return -1;
+          if (b.currency == base) return 1;
+          return a.currency.compareTo(b.currency);
+        });
     return result;
   }
 

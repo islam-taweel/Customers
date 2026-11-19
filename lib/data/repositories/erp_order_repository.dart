@@ -157,8 +157,9 @@ class ErpOrderRepository {
 
         // قائمة فارغة = لا يوجد سعر. لا نستخدم standard_rate (قيمته 0).
         final priceRows = results[0];
-        final rate =
-            priceRows.isEmpty ? null : _num(priceRows.first['price_list_rate']);
+        final rate = priceRows.isEmpty
+            ? null
+            : _num(priceRows.first['price_list_rate']);
 
         // قائمة فارغة = لا مخزون (0)
         var available = 0.0;
@@ -241,7 +242,8 @@ class ErpOrderRepository {
     for (final row in binRows) {
       final code = row['item_code']?.toString() ?? '';
       if (code.isEmpty) continue;
-      availableByCode[code] = (availableByCode[code] ?? 0) +
+      availableByCode[code] =
+          (availableByCode[code] ?? 0) +
           _num(row['actual_qty']) -
           _num(row['reserved_qty']);
     }

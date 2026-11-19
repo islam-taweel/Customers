@@ -1,7 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-
 class DatabaseHelper {
   DatabaseHelper._internal();
   static final DatabaseHelper instance = DatabaseHelper._internal();
@@ -96,7 +95,9 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       // الإصدار 5: فاتورة الطلبية تُحفظ محليًا مع رقم الطلبية وأصنافها
       await db.execute('ALTER TABLE $tableInvoices ADD COLUMN orderId TEXT');
-      await db.execute('ALTER TABLE $tableInvoices ADD COLUMN deliveryDate TEXT');
+      await db.execute(
+        'ALTER TABLE $tableInvoices ADD COLUMN deliveryDate TEXT',
+      );
       await db.execute('ALTER TABLE $tableInvoices ADD COLUMN itemsJson TEXT');
     }
     if (oldVersion < 6) {

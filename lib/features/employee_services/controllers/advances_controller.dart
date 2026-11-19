@@ -1,0 +1,82 @@
+import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+
+import '../../../core/constants/ess_strings.dart';
+import '../../../core/utils/error_messages.dart';
+import '../../../data/api/erp_api_client.dart';
+import '../../../data/models/advance_models.dart';
+import '../../../data/repositories/erp_employee_repository.dart';
+
+/// سلفي (GetX): سلف الموظف المسجّل دخوله فقط من ERPNext، تُحدَّث عند فتح
+/// الشاشة، وتقديم طلب سلفة جديد (مسودة = قيد المراجعة). لا موافقة ولا دفع
+/// ولا إلغاء من التطبيق: ذلك من صلاحية الموارد البشرية.
+class AdvancesController extends GetxController {
+  AdvancesController(this._repository);
+
+  final ErpEmployeeRepository _repository;
+
+  final advances = <EmployeeAdvance>[].obs;
+  final loading = false.obs;
+  final sending = false.obs;
+
+  /// خطأ التحميل (null = لا خطأ)
+  final error = Rxn<Object>();
+
+  /// المتبقي مع الموظف من كل السلف المدفوعة
+  double get totalRemaining =>
+      advances.fold<double>(0, (s, a) => s + a.remainingAmount);
+
+  @override
+  void onInit() {
+    super.onInit();
+    // تحديث البيانات من ERPNext عند فتح الشاشة
+    load();
+  }
+
+  Future<void> load() async {
+    loading.value = true;
+    error.value = null;
+    try {
+      advances.assignAll(await _repository.fetchAdvances());
+    } catch (e) {
+      debugPrint('AdvancesController.load failed: $e');
+      error.value = e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /// null = صالح
+  static String? validateAmount(double? amount) =>
+      amount == null || amount <= 0 ? EssStrings.amountInvalid : null;
+
+  /// null = نجح، وإلا رسالة الخطأ (مع نص ERPNext عند رفض الخادم).
+  Future<String?> submit({
+    required double amount,
+    required String purpose,
+  }) async {
+    final invalid =
+        validateAmount(amount) ??
+        (purpose.trim().isEmpty ? EssStrings.requiredField : null);
+    if (invalid != null) return invalid;
+    if (sending.value) return null;
+
+    sending.value = true;
+    try {
+      await _repository.submitAdvance(amount: amount, purpose: purpose);
+      await load();
+      return null;
+    } catch (e) {
+      debugPrint('AdvancesController.submit failed: $e');
+      final detail = e is ErpApiException && e.type == ErpErrorType.server
+          ? e.detail
+          : null;
+      final base = describeError(e, fallback: EssStrings.advanceSendFailed);
+      return (detail == null || detail.isEmpty)
+          ? base
+          : '${EssStrings.advanceSendFailed}\n$detail';
+    } finally {
+      sending.value = false;
+    }
+  }
+}

@@ -246,7 +246,12 @@ class InvoiceRepository {
           '${deliveryDate.year}-${two(deliveryDate.month)}-${two(deliveryDate.day)}',
       itemsJson: jsonEncode([
         for (final l in lines)
-          {'code': l.item.code, 'name': l.item.name, 'qty': l.qty, 'rate': l.rate},
+          {
+            'code': l.item.code,
+            'name': l.item.name,
+            'qty': l.qty,
+            'rate': l.rate,
+          },
       ]),
     );
     return addInvoice(invoice);

@@ -17,34 +17,33 @@ import '../widgets/month_year_picker.dart';
 (Color, IconData, String) _statusStyle(
   AttendanceStatus s,
   ColorScheme scheme,
-) =>
-    switch (s) {
-      AttendanceStatus.present => (
-          const Color(0xFF2E7D32),
-          Icons.check_circle_outline,
-          EssStrings.statusPresent,
-        ),
-      AttendanceStatus.absent => (
-          scheme.error,
-          Icons.cancel_outlined,
-          EssStrings.statusAbsent,
-        ),
-      AttendanceStatus.halfDay => (
-          const Color(0xFFEF6C00),
-          Icons.timelapse,
-          EssStrings.statusHalfDay,
-        ),
-      AttendanceStatus.onLeave => (
-          const Color(0xFF1565C0),
-          Icons.beach_access_outlined,
-          EssStrings.statusOnLeave,
-        ),
-      AttendanceStatus.workFromHome => (
-          const Color(0xFF00838F),
-          Icons.home_work_outlined,
-          EssStrings.statusWorkFromHome,
-        ),
-    };
+) => switch (s) {
+  AttendanceStatus.present => (
+    const Color(0xFF2E7D32),
+    Icons.check_circle_outline,
+    EssStrings.statusPresent,
+  ),
+  AttendanceStatus.absent => (
+    scheme.error,
+    Icons.cancel_outlined,
+    EssStrings.statusAbsent,
+  ),
+  AttendanceStatus.halfDay => (
+    const Color(0xFFEF6C00),
+    Icons.timelapse,
+    EssStrings.statusHalfDay,
+  ),
+  AttendanceStatus.onLeave => (
+    const Color(0xFF1565C0),
+    Icons.beach_access_outlined,
+    EssStrings.statusOnLeave,
+  ),
+  AttendanceStatus.workFromHome => (
+    const Color(0xFF00838F),
+    Icons.home_work_outlined,
+    EssStrings.statusWorkFromHome,
+  ),
+};
 
 /// سجل حضوري من ERPNext (Attendance المعتمد): اختيار الشهر والسنة، ملخص الشهر
 /// (الحضور والغياب والتأخير وساعات العمل)، ثم سجل كل يوم الأحدث أولًا.
@@ -70,8 +69,10 @@ class _AttendanceLogScreenState extends State<AttendanceLogScreen> {
   }
 
   void _load() {
-    _future =
-        context.read<ErpEmployeeRepository>().fetchAttendance(_year, _month);
+    _future = context.read<ErpEmployeeRepository>().fetchAttendance(
+      _year,
+      _month,
+    );
   }
 
   void _setPeriod(int year, int month) {
@@ -269,49 +270,50 @@ class _RecordCard extends StatelessWidget {
         d == null ? '—' : loc.formatTimeOfDay(TimeOfDay.fromDateTime(d));
 
     Widget cell(String title, String value) => Expanded(
-          child: Column(
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
-        );
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
 
     Widget flag(IconData i, String text) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEF6C00).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF6C00).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(i, size: 14, color: const Color(0xFFEF6C00)),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFFEF6C00),
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(i, size: 14, color: const Color(0xFFEF6C00)),
-              const SizedBox(width: 4),
-              Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFFEF6C00),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
+        ],
+      ),
+    );
 
-    final showTimes = r.status == AttendanceStatus.present ||
+    final showTimes =
+        r.status == AttendanceStatus.present ||
         r.status == AttendanceStatus.halfDay ||
         r.status == AttendanceStatus.workFromHome;
 
@@ -347,8 +349,10 @@ class _RecordCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -393,7 +397,10 @@ class _RecordCard extends StatelessWidget {
                   if (r.lateEntry)
                     flag(Icons.alarm, EssStrings.lateBy(r.lateMinutes)),
                   if (r.earlyExit)
-                    flag(Icons.directions_run, EssStrings.earlyBy(r.earlyMinutes)),
+                    flag(
+                      Icons.directions_run,
+                      EssStrings.earlyBy(r.earlyMinutes),
+                    ),
                 ],
               ),
             ],

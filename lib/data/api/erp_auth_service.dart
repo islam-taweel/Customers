@@ -35,14 +35,14 @@ class AuthException implements Exception {
 /// الخروج: GET /api/method/logout ثم نحذف الكوكي المحفوظ.
 class ErpAuthService {
   ErpAuthService(this._session, {http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   final SessionStore _session;
   final http.Client _client;
 
-  Uri _uri(String method) => Uri.parse(ErpConfig.baseUrl).replace(
-        pathSegments: ['api', 'method', method],
-      );
+  Uri _uri(String method) =>
+      Uri.parse(ErpConfig.baseUrl)
+          .replace(pathSegments: ['api', 'method', method]);
 
   /// ترمي [AuthException] عند الفشل. لا تعيد المحاولة تلقائيًا أبدًا:
   /// تكرار 401 يقفل الحساب مؤقتًا في ERPNext.
@@ -54,6 +54,7 @@ class ErpAuthService {
             _uri('login'),
             headers: {
               'Content-Type': 'application/json',
+              'X-Frappe-Site-Name': ErpConfig.siteName,
               'Accept': 'application/json',
             },
             body: jsonEncode({'usr': email, 'pwd': password}),
@@ -89,13 +90,16 @@ class ErpAuthService {
     final sid = _session.sid;
     try {
       if (sid != null && sid.isNotEmpty) {
-        await _client.get(
-          _uri('logout'),
-          headers: {
-            'Cookie': 'sid=$sid',
-            'Accept': 'application/json',
-          },
-        ).timeout(ErpConfig.requestTimeout);
+        await _client
+            .get(
+              _uri('logout'),
+              headers: {
+                'Cookie': 'sid=$sid',
+                'X-Frappe-Site-Name': ErpConfig.siteName,
+                'Accept': 'application/json',
+              },
+            )
+            .timeout(ErpConfig.requestTimeout);
       }
     } catch (e) {
       debugPrint('ERP logout request failed: $e');

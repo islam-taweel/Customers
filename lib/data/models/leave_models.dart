@@ -42,10 +42,10 @@ class LeaveDetails {
 
   /// كل الأنواع التي يمكن الطلب منها: المخصصة ثم بدون راتب
   List<String> get types => [
-        for (final b in balances) b.leaveType,
-        for (final t in withoutPayTypes)
-          if (!balances.any((b) => b.leaveType == t)) t,
-      ];
+    for (final b in balances) b.leaveType,
+    for (final t in withoutPayTypes)
+      if (!balances.any((b) => b.leaveType == t)) t,
+  ];
 
   bool isWithoutPay(String type) => withoutPayTypes.contains(type);
 
@@ -112,18 +112,18 @@ class LeaveRequest {
   ];
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) => LeaveRequest(
-        name: _s(json['name']),
-        leaveType: _s(json['leave_type']),
-        from: DateTime.tryParse(_s(json['from_date'])) ?? DateTime(0),
-        to: DateTime.tryParse(_s(json['to_date'])) ?? DateTime(0),
-        days: _n(json['total_leave_days']),
-        postedOn: DateTime.tryParse(_s(json['posting_date'])),
-        reason: _s(json['description']),
-        status: switch (_s(json['status'])) {
-          'Approved' => LeaveRequestStatus.approved,
-          'Rejected' => LeaveRequestStatus.rejected,
-          'Cancelled' => LeaveRequestStatus.cancelled,
-          _ => LeaveRequestStatus.pending,
-        },
-      );
+    name: _s(json['name']),
+    leaveType: _s(json['leave_type']),
+    from: DateTime.tryParse(_s(json['from_date'])) ?? DateTime(0),
+    to: DateTime.tryParse(_s(json['to_date'])) ?? DateTime(0),
+    days: _n(json['total_leave_days']),
+    postedOn: DateTime.tryParse(_s(json['posting_date'])),
+    reason: _s(json['description']),
+    status: switch (_s(json['status'])) {
+      'Approved' => LeaveRequestStatus.approved,
+      'Rejected' => LeaveRequestStatus.rejected,
+      'Cancelled' => LeaveRequestStatus.cancelled,
+      _ => LeaveRequestStatus.pending,
+    },
+  );
 }

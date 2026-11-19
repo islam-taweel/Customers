@@ -29,6 +29,7 @@ import 'data/repositories/erp_inventory_repository.dart';
 import 'data/repositories/erp_invoice_repository.dart';
 import 'data/repositories/erp_ledger_repository.dart';
 import 'data/repositories/erp_statement_repository.dart';
+import 'data/repositories/erp_van_sales_repository.dart';
 import 'data/repositories/erp_visit_repository.dart';
 import 'data/repositories/erp_warehouse_repository.dart';
 import 'data/repositories/erp_lookup_repository.dart';
@@ -68,7 +69,7 @@ Future<void> main() async {
   // اسم موقع المستخدم المحفوظ (ترويسة Host): قبل أي طلب إلى الخادم
   await ErpConfig.loadSite();
 
-  // توقيت فلسطين (Asia/Hebron) لكل أوقات خدمات الموظف المرسلة إلى ERPNext
+  // توقيت فلسطين (Asia/Gaza) لكل أوقات خدمات الموظف المرسلة إلى ERPNext
   PalestineTime.init();
 
   // تجميع المكونات: DatabaseHelper ← repositories ← controllers
@@ -162,8 +163,13 @@ Future<void> main() async {
   );
 
   // قسم «مردود المبيعات»: فاتورة العميل ← إشعار دائن وإرجاع بضاعة (مسودات) ← رد المال
+  final salesReturnsRepository = ErpSalesReturnsRepository(
+    erpApi,
+    cacheStore,
+    lookupRepository,
+  );
   final salesReturnsFactory = SalesReturnsControllerFactory(
-    ErpSalesReturnsRepository(erpApi, cacheStore, lookupRepository),
+    salesReturnsRepository,
   );
 
   // قسم «المشتريات»: أوامر الشراء والاستلامات والفواتير ودفعات الموردين
@@ -178,8 +184,14 @@ Future<void> main() async {
   );
 
   // قسم «المستودعات»: أصناف كل مستودع ونقلها بين المستودعات (مسودة ثم اعتماد)
-  final warehousesFactory = WarehousesControllerFactory(
-    ErpWarehouseRepository(erpApi),
+  final warehouseRepository = ErpWarehouseRepository(erpApi);
+  final warehousesFactory = WarehousesControllerFactory(warehouseRepository);
+
+  // مبيعات الفان: العملاء ووحدات البيع وفاتورة المبيعات المسودة من الفان
+  final vanSalesRepository = ErpVanSalesRepository(
+    erpApi,
+    erpCustomers,
+    salesReturnsRepository,
   );
 
   // مواعيد زيارات العملاء (Event): الرئيسية وقسم «المواعيد»
@@ -248,6 +260,8 @@ Future<void> main() async {
       purchasesFactory: purchasesFactory,
       inventoryFactory: inventoryFactory,
       warehousesFactory: warehousesFactory,
+      warehouseRepository: warehouseRepository,
+      vanSalesRepository: vanSalesRepository,
       visitsFactory: visitsFactory,
       employeeRepository: employeeRepository,
       syncService: syncService,
@@ -275,6 +289,8 @@ class DebtsApp extends StatelessWidget {
   final PurchasesControllerFactory purchasesFactory;
   final InventoryControllerFactory inventoryFactory;
   final WarehousesControllerFactory warehousesFactory;
+  final ErpWarehouseRepository warehouseRepository;
+  final ErpVanSalesRepository vanSalesRepository;
   final VisitsControllerFactory visitsFactory;
   final ErpEmployeeRepository employeeRepository;
   final SyncService syncService;
@@ -297,6 +313,8 @@ class DebtsApp extends StatelessWidget {
     required this.purchasesFactory,
     required this.inventoryFactory,
     required this.warehousesFactory,
+    required this.warehouseRepository,
+    required this.vanSalesRepository,
     required this.visitsFactory,
     required this.employeeRepository,
     required this.syncService,
@@ -339,6 +357,10 @@ class DebtsApp extends StatelessWidget {
         Provider<InventoryControllerFactory>.value(value: inventoryFactory),
         // ينشئ متحكمات قسم «المستودعات» كلما فُتح
         Provider<WarehousesControllerFactory>.value(value: warehousesFactory),
+        // أرصدة المستودعات والباركود: «مخزون الفان»
+        Provider<ErpWarehouseRepository>.value(value: warehouseRepository),
+        // مبيعات الفان: «فاتورة بيع جديدة»
+        Provider<ErpVanSalesRepository>.value(value: vanSalesRepository),
         // ينشئ متحكمات المواعيد (الرئيسية وقسم «المواعيد» والنموذج)
         Provider<VisitsControllerFactory>.value(value: visitsFactory),
         // خدمات الموظف من ERPNext: حسابي، البصمة، الحضور، الطلبات، الإجازات، العمل الإضافي

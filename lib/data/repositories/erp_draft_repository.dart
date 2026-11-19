@@ -121,11 +121,12 @@ class ErpDraftRepository {
     }
 
     if (docstatus == 1) {
-      final invoices = await _linked(
-        'Sales Invoice',
-        ['Sales Invoice Item', 'sales_order', '=', orderId],
-        extraFields: InvoiceSettlement.fields,
-      );
+      final invoices = await _linked('Sales Invoice', [
+        'Sales Invoice Item',
+        'sales_order',
+        '=',
+        orderId,
+      ], extraFields: InvoiceSettlement.fields);
       final notes = await _linked('Delivery Note', [
         'Delivery Note Item',
         'against_sales_order',

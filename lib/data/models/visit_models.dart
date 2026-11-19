@@ -116,18 +116,18 @@ class Visit {
 
   /// نفس الموعد بوقت تكرار محدد (من get_events)
   Visit at(DateTime start, DateTime? end) => Visit(
-        name: name,
-        subject: subject,
-        startsOn: start,
-        endsOn: end,
-        status: status,
-        repeats: repeats,
-        repeatOn: repeatOn,
-        repeatTill: repeatTill,
-        weekdays: weekdays,
-        description: description,
-        customerId: customerId,
-      );
+    name: name,
+    subject: subject,
+    startsOn: start,
+    endsOn: end,
+    status: status,
+    repeats: repeats,
+    repeatOn: repeatOn,
+    repeatTill: repeatTill,
+    weekdays: weekdays,
+    description: description,
+    customerId: customerId,
+  );
 }
 
 /// بيانات نموذج الموعد كما تُرسل إلى ERPNext (إنشاء أو تعديل).

@@ -138,7 +138,10 @@ class _Balances extends StatelessWidget {
           color: b.remaining > 0 ? scheme.primary : scheme.error,
           value: n(b.remaining),
           valueLabel: EssStrings.remaining,
-          detail: EssStrings.balanceDetail(n(b.total), n(b.taken), n(b.pending)),
+          detail: EssStrings.balanceDetail(n(b.total), n(b.taken)),
+          pending: b.pending > 0
+              ? EssStrings.pendingApproval(EssStrings.daysValue(b.pending))
+              : null,
           progress: b.total > 0 ? (b.remaining / b.total).clamp(0, 1) : 0,
         ),
       for (final t in details.withoutPayTypes)
@@ -175,9 +178,7 @@ class _Balances extends StatelessWidget {
     if (t.contains('without pay') || t.contains('بدون')) {
       return Icons.money_off_outlined;
     }
-    if (t.contains('annual') ||
-        t.contains('privilege') ||
-        t.contains('سنو')) {
+    if (t.contains('annual') || t.contains('privilege') || t.contains('سنو')) {
       return Icons.beach_access_outlined;
     }
     return Icons.event_available_outlined;
@@ -193,6 +194,9 @@ class _BalanceCard extends StatelessWidget {
   final String detail;
   final double? progress;
 
+  /// leaves_pending_approval: أيام في طلبات لم يُوافق عليها بعد (منفصلة عن المتبقي)
+  final String? pending;
+
   const _BalanceCard({
     required this.title,
     required this.icon,
@@ -201,6 +205,7 @@ class _BalanceCard extends StatelessWidget {
     required this.valueLabel,
     required this.detail,
     this.progress,
+    this.pending,
   });
 
   @override
@@ -257,6 +262,33 @@ class _BalanceCard extends StatelessWidget {
                 minHeight: 6,
                 color: color,
                 backgroundColor: color.withValues(alpha: 0.15),
+              ),
+            ),
+          ],
+          if (pending != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: _orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.hourglass_top, size: 14, color: _orange),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      pending!,
+                      style: const TextStyle(
+                        color: _orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -347,26 +379,30 @@ class _LeaveFormState extends State<_LeaveForm> {
     String? req(bool missing) =>
         _tried && missing ? EssStrings.requiredField : null;
 
-    Widget dateField(String label, DateTime? value, bool start, String? error) =>
-        InkWell(
-          onTap: c.sending ? null : () => _pick(start: start),
-          borderRadius: BorderRadius.circular(4),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: label,
-              prefixIcon: const Icon(Icons.calendar_today_outlined),
-              border: const OutlineInputBorder(),
-              errorText: error,
-              errorMaxLines: 2,
-            ),
-            child: Text(
-              value == null ? EssStrings.chooseDate : loc.formatMediumDate(value),
-              style: value == null
-                  ? TextStyle(color: scheme.onSurfaceVariant)
-                  : null,
-            ),
-          ),
-        );
+    Widget dateField(
+      String label,
+      DateTime? value,
+      bool start,
+      String? error,
+    ) => InkWell(
+      onTap: c.sending ? null : () => _pick(start: start),
+      borderRadius: BorderRadius.circular(4),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.calendar_today_outlined),
+          border: const OutlineInputBorder(),
+          errorText: error,
+          errorMaxLines: 2,
+        ),
+        child: Text(
+          value == null ? EssStrings.chooseDate : loc.formatMediumDate(value),
+          style: value == null
+              ? TextStyle(color: scheme.onSurfaceVariant)
+              : null,
+        ),
+      ),
+    );
 
     final warningColor = c.isWithoutPay ? scheme.error : _orange;
 
@@ -509,7 +545,11 @@ class _LeaveFormState extends State<_LeaveForm> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 20, color: warningColor),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 20,
+                    color: warningColor,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -560,25 +600,25 @@ class _RequestCard extends StatelessWidget {
     final r = request;
     final (color, icon, label) = switch (r.status) {
       LeaveRequestStatus.pending => (
-          _orange,
-          Icons.hourglass_top,
-          EssStrings.statusPending,
-        ),
+        _orange,
+        Icons.hourglass_top,
+        EssStrings.statusPending,
+      ),
       LeaveRequestStatus.approved => (
-          _green,
-          Icons.check_circle_outline,
-          EssStrings.statusApproved,
-        ),
+        _green,
+        Icons.check_circle_outline,
+        EssStrings.statusApproved,
+      ),
       LeaveRequestStatus.rejected => (
-          scheme.error,
-          Icons.cancel_outlined,
-          EssStrings.statusRejected,
-        ),
+        scheme.error,
+        Icons.cancel_outlined,
+        EssStrings.statusRejected,
+      ),
       LeaveRequestStatus.cancelled => (
-          scheme.outline,
-          Icons.block,
-          EssStrings.statusCancelled,
-        ),
+        scheme.outline,
+        Icons.block,
+        EssStrings.statusCancelled,
+      ),
     };
 
     return Card(
@@ -599,8 +639,10 @@ class _RequestCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -626,8 +668,11 @@ class _RequestCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.date_range_outlined,
-                    size: 16, color: scheme.onSurfaceVariant),
+                Icon(
+                  Icons.date_range_outlined,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

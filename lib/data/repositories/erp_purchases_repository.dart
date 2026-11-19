@@ -58,14 +58,20 @@ class ErpPurchasesRepository {
         'per_billed',
       ],
       filters: [
-        ['docstatus', 'in', [0, 1]],
-        ['status', 'not in', ['Closed', 'Cancelled']],
+        [
+          'docstatus',
+          'in',
+          [0, 1],
+        ],
+        [
+          'status',
+          'not in',
+          ['Closed', 'Cancelled'],
+        ],
       ],
     );
     final links = await _receiptLinksByOrder();
-    final orders = [
-      for (final r in rows) PurchaseOrder.fromJson(r),
-    ];
+    final orders = [for (final r in rows) PurchaseOrder.fromJson(r)];
     orders.sort(_newestFirst((o) => o.transactionDate, (o) => o.name));
     return [
       for (final o in orders) o.withReceipt(links[o.name] ?? ReceiptLink.none),
@@ -78,7 +84,11 @@ class ErpPurchasesRepository {
       'Purchase Receipt',
       fields: ['name', 'docstatus', _receiptPoField],
       filters: [
-        ['docstatus', 'in', [0, 1]],
+        [
+          'docstatus',
+          'in',
+          [0, 1],
+        ],
       ],
     );
     final result = <String, ReceiptLink>{};
@@ -110,7 +120,11 @@ class ErpPurchasesRepository {
         _receiptPoField,
       ],
       filters: [
-        ['docstatus', 'in', [0, 1]],
+        [
+          'docstatus',
+          'in',
+          [0, 1],
+        ],
       ],
     );
     // الاستلام ذو البنود المتعددة يتكرر صفه بعدد بنوده: نكتفي بصف واحد
@@ -118,7 +132,8 @@ class ErpPurchasesRepository {
     for (final r in rows) {
       final doc = PurchaseReceipt.fromJson(r);
       final old = byName[doc.name];
-      if (old == null || (old.purchaseOrder.isEmpty && doc.purchaseOrder.isNotEmpty)) {
+      if (old == null ||
+          (old.purchaseOrder.isEmpty && doc.purchaseOrder.isNotEmpty)) {
         byName[doc.name] = doc;
       }
     }
@@ -146,14 +161,19 @@ class ErpPurchasesRepository {
         _invoicePoField,
       ],
       filters: [
-        ['docstatus', 'in', [0, 1]],
+        [
+          'docstatus',
+          'in',
+          [0, 1],
+        ],
       ],
     );
     final byName = <String, PurchaseInvoice>{};
     for (final r in rows) {
       final doc = PurchaseInvoice.fromJson(r);
       final old = byName[doc.name];
-      if (old == null || (old.purchaseOrder.isEmpty && doc.purchaseOrder.isNotEmpty)) {
+      if (old == null ||
+          (old.purchaseOrder.isEmpty && doc.purchaseOrder.isNotEmpty)) {
         byName[doc.name] = doc;
       }
     }
@@ -165,11 +185,10 @@ class ErpPurchasesRepository {
   Comparator<T> _newestFirst<T>(
     String Function(T) date,
     String Function(T) name,
-  ) =>
-      (a, b) {
-        final byDate = date(b).compareTo(date(a));
-        return byDate != 0 ? byDate : name(b).compareTo(name(a));
-      };
+  ) => (a, b) {
+    final byDate = date(b).compareTo(date(a));
+    return byDate != 0 ? byDate : name(b).compareTo(name(a));
+  };
 
   /// تفاصيل مستند واحد (أصناف وضريبة ومجموع).
   Future<PurchaseDocDetail> fetchDetail(String doctype, String name) async {
@@ -305,7 +324,8 @@ class ErpPurchasesRepository {
       if (rows.isEmpty) return;
       Map<String, dynamic>? pick;
       for (final r in rows) {
-        final sameCompany = (r['company'] ?? ErpConfig.company) == ErpConfig.company;
+        final sameCompany =
+            (r['company'] ?? ErpConfig.company) == ErpConfig.company;
         if (sameCompany && r['is_default'] == 1) pick = r;
       }
       pick ??= rows.firstWhere(
@@ -339,7 +359,10 @@ class ErpPurchasesRepository {
     final made = await _api.getMethod(_orderMethodReceipt, {
       'source_name': orderName,
     });
-    final created = await _api.postDoc('Purchase Receipt', _cleanDoc(made['message']));
+    final created = await _api.postDoc(
+      'Purchase Receipt',
+      _cleanDoc(made['message']),
+    );
     final name = created['name']?.toString() ?? '';
     if (name.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
     return name;
@@ -350,7 +373,10 @@ class ErpPurchasesRepository {
     final made = await _api.getMethod(_receiptMethodInvoice, {
       'source_name': receiptName,
     });
-    final created = await _api.postDoc('Purchase Invoice', _cleanDoc(made['message']));
+    final created = await _api.postDoc(
+      'Purchase Invoice',
+      _cleanDoc(made['message']),
+    );
     final name = created['name']?.toString() ?? '';
     if (name.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
     return name;
@@ -400,7 +426,11 @@ class ErpPurchasesRepository {
       'Payment Entry',
       fields: ['name', 'docstatus'],
       filters: [
-        ['name', 'in', [for (final p in pending) p.entry]],
+        [
+          'name',
+          'in',
+          [for (final p in pending) p.entry],
+        ],
       ],
     );
     final stillDraft = <String>{
@@ -492,7 +522,8 @@ class ErpPurchasesRepository {
       if (v is Map) {
         return {
           for (final e in v.entries)
-            if (!e.key.toString().startsWith('__')) e.key.toString(): clean(e.value),
+            if (!e.key.toString().startsWith('__'))
+              e.key.toString(): clean(e.value),
         };
       }
       if (v is List) return [for (final x in v) clean(x)];

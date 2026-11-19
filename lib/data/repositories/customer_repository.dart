@@ -163,8 +163,16 @@ class CustomerRepository {
       );
 
       // نحذف العمليات والفواتير صراحةً ثم العميل (ولا نعتمد على ON DELETE CASCADE وحده)
-      await txn.delete(_operations, where: 'customerId = ?', whereArgs: [customerId]);
-      await txn.delete(_invoices, where: 'customerId = ?', whereArgs: [customerId]);
+      await txn.delete(
+        _operations,
+        where: 'customerId = ?',
+        whereArgs: [customerId],
+      );
+      await txn.delete(
+        _invoices,
+        where: 'customerId = ?',
+        whereArgs: [customerId],
+      );
       await txn.delete(_customers, where: 'id = ?', whereArgs: [customerId]);
 
       return DeletedCustomer(
@@ -234,7 +242,8 @@ class CustomerRepository {
 
         if (localId == null) {
           final phoneKey = _phoneKey(customer.phone);
-          localId = (phoneKey == null ? null : unlinkedByPhone[phoneKey]) ??
+          localId =
+              (phoneKey == null ? null : unlinkedByPhone[phoneKey]) ??
               unlinkedByName[_nameKey(customer.name)];
 
           // العميل المحلي الذي ارتبط الآن لا يجوز أن يرتبط بعميل ERPNext آخر

@@ -124,8 +124,9 @@ class PendingOrderRepository {
   /// تنظيف الطلبيات التي رُفعت قبل أكثر من أسبوع.
   Future<void> purgeSynced() async {
     final db = await _dbHelper.database;
-    final limit =
-        DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+    final limit = DateTime.now()
+        .subtract(const Duration(days: 7))
+        .toIso8601String();
     await db.delete(
       _table,
       where: 'status = ? AND createdAt < ?',

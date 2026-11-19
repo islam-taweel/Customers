@@ -34,7 +34,8 @@ class CurrencyConversion {
     required this.rate,
   });
 
-  double convert(double amount) => double.parse((amount * rate).toStringAsFixed(2));
+  double convert(double amount) =>
+      double.parse((amount * rate).toStringAsFixed(2));
 
   /// السعر بلا أصفار زائدة: 3.6500 ← 3.65
   String get rateText => rate
@@ -91,9 +92,12 @@ class ErpPaymentRepository {
 
     // حساب العميل (paid_from) وعملته
     final party = results[0]['message'];
-    final paidFrom = party is Map ? party['party_account']?.toString() ?? '' : '';
-    final paidFromCurrency =
-        party is Map ? party['party_account_currency']?.toString() ?? '' : '';
+    final paidFrom = party is Map
+        ? party['party_account']?.toString() ?? ''
+        : '';
+    final paidFromCurrency = party is Map
+        ? party['party_account_currency']?.toString() ?? ''
+        : '';
     if (paidFrom.isEmpty) {
       throw ErpApiException(
         ErpErrorType.server,
@@ -231,8 +235,9 @@ class ErpPaymentRepository {
       'date': _date(date),
     });
     final party = res['message'];
-    final currency =
-        party is Map ? party['party_account_currency']?.toString() ?? '' : '';
+    final currency = party is Map
+        ? party['party_account_currency']?.toString() ?? ''
+        : '';
     if (currency.isEmpty) throw const ErpApiException(ErpErrorType.badResponse);
     return currency;
   }
@@ -270,7 +275,10 @@ class ErpPaymentRepository {
         for (final a in accounts) {
           if (a['name']?.toString() == defaultName &&
               a['account_currency']?.toString() == currency) {
-            return (name: defaultName, type: a['account_type']?.toString() ?? '');
+            return (
+              name: defaultName,
+              type: a['account_type']?.toString() ?? '',
+            );
           }
         }
       }

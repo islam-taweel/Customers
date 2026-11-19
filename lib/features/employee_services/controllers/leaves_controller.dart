@@ -9,8 +9,9 @@ import '../../../data/repositories/erp_employee_repository.dart';
 /// رسالة رفض الخادم بالعربية: الرصيد غير كافٍ، تداخل مع طلب آخر، لا تخصيص.
 /// غير ذلك: الرسالة العامة مع نص ERPNext نفسه.
 String _leaveError(Object e) {
-  final detail =
-      e is ErpApiException && e.type == ErpErrorType.server ? e.detail : null;
+  final detail = e is ErpApiException && e.type == ErpErrorType.server
+      ? e.detail
+      : null;
   if (detail != null && detail.isNotEmpty) {
     final d = detail.toLowerCase();
     if (d.contains('insufficient') ||
@@ -41,8 +42,7 @@ class LeavesController extends ChangeNotifier {
   bool _loading = false;
   Object? _error;
   bool _disposed = false;
-  LeaveDetails _details =
-      const LeaveDetails(balances: [], withoutPayTypes: []);
+  LeaveDetails _details = const LeaveDetails(balances: [], withoutPayTypes: []);
   List<LeaveRequest> _requests = const [];
 
   // النموذج
@@ -153,7 +153,10 @@ class LeavesController extends ChangeNotifier {
 
   /// null = صالح. الحقول المطلوبة، ترتيب التاريخين، والرصيد للأنواع المخصصة.
   String? validate() {
-    if (_type == null || _from == null || _to == null || reason.trim().isEmpty) {
+    if (_type == null ||
+        _from == null ||
+        _to == null ||
+        reason.trim().isEmpty) {
       return EssStrings.requiredField;
     }
     if (endBeforeStart) return EssStrings.endBeforeStart;

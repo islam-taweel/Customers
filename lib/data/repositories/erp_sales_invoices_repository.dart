@@ -55,18 +55,18 @@ class PendingPayment {
   });
 
   Map<String, dynamic> toJson() => {
-        'invoice': invoice,
-        'entry': entry,
-        'amount': amount,
-        'currency': currency,
-      };
+    'invoice': invoice,
+    'entry': entry,
+    'amount': amount,
+    'currency': currency,
+  };
 
   factory PendingPayment.fromJson(Map<String, dynamic> json) => PendingPayment(
-        invoice: json['invoice']?.toString() ?? '',
-        entry: json['entry']?.toString() ?? '',
-        amount: (json['amount'] as num?)?.toDouble() ?? 0,
-        currency: json['currency']?.toString() ?? '',
-      );
+    invoice: json['invoice']?.toString() ?? '',
+    entry: json['entry']?.toString() ?? '',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0,
+    currency: json['currency']?.toString() ?? '',
+  );
 }
 
 /// فواتير المبيعات (قسم «الفواتير») ودفعاتها في ERPNext.
@@ -75,11 +75,7 @@ class PendingPayment {
 /// الدفع: ينشئ Payment Entry **مسودة** مربوطة بالفاتورة (get_payment_entry)؛
 /// حالة الفاتورة ومستحقها يتغيران من ERPNext وحده بعد أن يعتمد المسؤول الدفعة.
 class ErpSalesInvoicesRepository {
-  ErpSalesInvoicesRepository(
-    this._api,
-    this._cache,
-    this._lookup,
-  );
+  ErpSalesInvoicesRepository(this._api, this._cache, this._lookup);
 
   final ErpApiClient _api;
   final ErpCacheStore _cache;
@@ -146,11 +142,10 @@ class ErpSalesInvoicesRepository {
   }
 
   List<SalesInvoice> _parse(List<Map<String, dynamic>> rows) {
-    return [for (final row in rows) SalesInvoice.fromJson(row)]
-      ..sort((a, b) {
-        final byDate = b.postingDate.compareTo(a.postingDate);
-        return byDate != 0 ? byDate : b.name.compareTo(a.name);
-      });
+    return [for (final row in rows) SalesInvoice.fromJson(row)]..sort((a, b) {
+      final byDate = b.postingDate.compareTo(a.postingDate);
+      return byDate != 0 ? byDate : b.name.compareTo(a.name);
+    });
   }
 
   /// طرق الدفع المفعّلة في ERPNext (مع نسخة محلية عند انقطاع الاتصال).
@@ -290,7 +285,8 @@ class ErpSalesInvoicesRepository {
       if (v is Map) {
         return {
           for (final e in v.entries)
-            if (!e.key.toString().startsWith('__')) e.key.toString(): clean(e.value),
+            if (!e.key.toString().startsWith('__'))
+              e.key.toString(): clean(e.value),
         };
       }
       if (v is List) return [for (final x in v) clean(x)];

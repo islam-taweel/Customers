@@ -41,11 +41,11 @@ class ErpCacheStore {
     await db.transaction((txn) async {
       final batch = txn.batch();
       entries.forEach((key, json) {
-        batch.insert(
-          _table,
-          {'cacheKey': key, 'json': json, 'savedAt': now},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        batch.insert(_table, {
+          'cacheKey': key,
+          'json': json,
+          'savedAt': now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       });
       await batch.commit(noResult: true);
     });
@@ -54,15 +54,11 @@ class ErpCacheStore {
   Future<void> write(String key, String json) async {
     try {
       final db = await _dbHelper.database;
-      await db.insert(
-        _table,
-        {
-          'cacheKey': key,
-          'json': json,
-          'savedAt': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert(_table, {
+        'cacheKey': key,
+        'json': json,
+        'savedAt': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
       debugPrint('ErpCacheStore.write($key) failed: $e');
     }

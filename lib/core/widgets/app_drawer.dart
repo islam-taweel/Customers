@@ -15,10 +15,12 @@ import '../constants/purchase_strings.dart';
 import '../constants/returns_strings.dart';
 import '../constants/statement_strings.dart';
 import '../constants/ess_strings.dart';
+import '../constants/van_strings.dart';
 import '../constants/visit_strings.dart';
 import '../../features/employee_services/screens/employee_services_screen.dart';
 import '../constants/warehouse_strings.dart';
 import '../../features/home/screens/main_shell.dart';
+import '../../features/van_sales/screens/van_sales_screen.dart';
 import '../../features/visits/screens/visits_screen.dart';
 import '../../features/warehouses/screens/warehouses_screen.dart';
 import '../../features/statement/screens/customer_statement_list_screen.dart';
@@ -87,6 +89,12 @@ class AppDrawer extends StatelessWidget {
     final navigator = Navigator.of(context);
     navigator.pop(); // إغلاق القائمة
     navigator.push(InventoryScreen.route());
+  }
+
+  void _openVanSales(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // إغلاق القائمة
+    navigator.push(VanSalesScreen.route());
   }
 
   void _openWarehouses(BuildContext context) {
@@ -295,6 +303,19 @@ class AppDrawer extends StatelessWidget {
                 leading: const Icon(Icons.qr_code_scanner),
                 title: Text(InventoryStrings.section),
                 onTap: () => _openInventory(context),
+              ),
+            ),
+
+            // مبيعات الفان: فاتورة بيع جديدة ومخزون الفان (Van - Ahmad - RTC)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                leading: const Icon(Icons.local_shipping_outlined),
+                title: Text(VanStrings.section),
+                onTap: () => _openVanSales(context),
               ),
             ),
 

@@ -59,9 +59,7 @@ class CorrectionController extends ChangeNotifier {
     final d = DateTime(date.year, date.month, date.day);
     return _requests.any(
       (r) =>
-          r.docstatus == 0 &&
-          !d.isBefore(r.fromDate) &&
-          !d.isAfter(r.toDate),
+          r.docstatus == 0 && !d.isBefore(r.fromDate) && !d.isAfter(r.toDate),
     );
   }
 
@@ -96,8 +94,9 @@ class CorrectionController extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('CorrectionController.submit failed: $e');
-      final detail =
-          e is ErpApiException && e.type == ErpErrorType.server ? e.detail : null;
+      final detail = e is ErpApiException && e.type == ErpErrorType.server
+          ? e.detail
+          : null;
       final base = describeError(e, fallback: EssStrings.requestSendFailed);
       return (detail == null || detail.isEmpty)
           ? base

@@ -112,10 +112,9 @@ class ErpFulfillmentRepository {
       );
     }
 
-    final made = await _api.getMethod(
-      _deliveryNoteToInvoiceMethod,
-      {'source_name': note},
-    );
+    final made = await _api.getMethod(_deliveryNoteToInvoiceMethod, {
+      'source_name': note,
+    });
     final draft = _cleanDoc(made['message']);
     // رصيد العميل السابق (دفعات مقدمة/غير مخصصة) يخصصه ERPNext نفسه للفاتورة
     // (advances، الأقدم أولًا)، فيصير المتبقي outstanding_amount صحيحًا من الخادم
@@ -143,7 +142,10 @@ class ErpFulfillmentRepository {
   }
 
   /// docstatus لكل مستند موجود من [names] (الغائب = حُذف، أي رُفض في ERPNext).
-  Future<Map<String, int>> existingDocs(String doctype, List<String> names) async {
+  Future<Map<String, int>> existingDocs(
+    String doctype,
+    List<String> names,
+  ) async {
     final result = <String, int>{};
     for (var i = 0; i < names.length; i += _chunk) {
       final batch = names.sublist(i, min(i + _chunk, names.length));
@@ -172,7 +174,8 @@ class ErpFulfillmentRepository {
       if (v is Map) {
         return {
           for (final e in v.entries)
-            if (!e.key.toString().startsWith('__')) e.key.toString(): clean(e.value),
+            if (!e.key.toString().startsWith('__'))
+              e.key.toString(): clean(e.value),
         };
       }
       if (v is List) return [for (final x in v) clean(x)];

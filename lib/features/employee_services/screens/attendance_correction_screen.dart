@@ -88,8 +88,11 @@ class _CorrectionView extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      size: 18, color: scheme.onSecondaryContainer),
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: scheme.onSecondaryContainer,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -163,7 +166,8 @@ class _RequestFormState extends State<_RequestForm> {
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _time ??
+      initialTime:
+          _time ??
           (_type == CorrectionType.forgotCheckIn
               ? const TimeOfDay(hour: 8, minute: 0)
               : const TimeOfDay(hour: 17, minute: 0)),
@@ -244,14 +248,17 @@ class _RequestFormState extends State<_RequestForm> {
                 error: _tried && _date == null
                     ? EssStrings.requiredField
                     : (_date != null && c.hasPending(_date!)
-                        ? EssStrings.pendingSameDay
-                        : null),
+                          ? EssStrings.pendingSameDay
+                          : null),
                 onTap: _pickDate,
               ),
               const SizedBox(height: 14),
 
               // نوع التصحيح
-              Text(EssStrings.correctionType, style: theme.textTheme.labelLarge),
+              Text(
+                EssStrings.correctionType,
+                style: theme.textTheme.labelLarge,
+              ),
               const SizedBox(height: 6),
               SegmentedButton<CorrectionType>(
                 segments: [
@@ -273,13 +280,15 @@ class _RequestFormState extends State<_RequestForm> {
 
               // الوقت الصحيح
               _PickerField(
-                label:
-                    isIn ? EssStrings.correctInTime : EssStrings.correctOutTime,
+                label: isIn
+                    ? EssStrings.correctInTime
+                    : EssStrings.correctOutTime,
                 icon: Icons.schedule,
                 value: _time == null ? null : loc.formatTimeOfDay(_time!),
                 hint: EssStrings.chooseTime,
-                error:
-                    _tried && _time == null ? EssStrings.requiredField : null,
+                error: _tried && _time == null
+                    ? EssStrings.requiredField
+                    : null,
                 onTap: _pickTime,
               ),
               const SizedBox(height: 14),
@@ -395,8 +404,9 @@ class _PickerField extends StatelessWidget {
         ),
         child: Text(
           value ?? hint,
-          style:
-              value == null ? TextStyle(color: scheme.onSurfaceVariant) : null,
+          style: value == null
+              ? TextStyle(color: scheme.onSurfaceVariant)
+              : null,
         ),
       ),
     );
@@ -432,20 +442,20 @@ class _RequestCard extends StatelessWidget {
 
     final (color, icon, label) = switch (correctionStatusOf(r)) {
       CorrectionStatus.pending => (
-          const Color(0xFFEF6C00),
-          Icons.hourglass_top,
-          EssStrings.statusPending,
-        ),
+        const Color(0xFFEF6C00),
+        Icons.hourglass_top,
+        EssStrings.statusPending,
+      ),
       CorrectionStatus.approved => (
-          const Color(0xFF2E7D32),
-          Icons.check_circle_outline,
-          EssStrings.statusApproved,
-        ),
+        const Color(0xFF2E7D32),
+        Icons.check_circle_outline,
+        EssStrings.statusApproved,
+      ),
       CorrectionStatus.rejected => (
-          scheme.error,
-          Icons.cancel_outlined,
-          EssStrings.statusRejected,
-        ),
+        scheme.error,
+        Icons.cancel_outlined,
+        EssStrings.statusRejected,
+      ),
     };
     final type = _typeOf(r.explanation);
     final title = switch (type) {
@@ -453,8 +463,9 @@ class _RequestCard extends StatelessWidget {
       CorrectionType.forgotCheckOut => EssStrings.forgotCheckOut,
       null => EssStrings.correction,
     };
-    final kind =
-        r.reason == 'Work From Home' ? EssStrings.workFromHome : EssStrings.onDuty;
+    final kind = r.reason == 'Work From Home'
+        ? EssStrings.workFromHome
+        : EssStrings.onDuty;
     final sameDay = r.fromDate == r.toDate;
 
     return Card(
@@ -485,8 +496,10 @@ class _RequestCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),

@@ -13,10 +13,10 @@ class EmployeeShift {
   });
 
   factory EmployeeShift.fromJson(Map<String, dynamic> json) => EmployeeShift(
-        name: _s(json['name']),
-        startTime: _s(json['start_time']),
-        endTime: _s(json['end_time']),
-      );
+    name: _s(json['name']),
+    startTime: _s(json['start_time']),
+    endTime: _s(json['end_time']),
+  );
 }
 
 /// الموظف المرتبط بالمستخدم الحالي (Employee.user_id).
@@ -81,16 +81,16 @@ class EmployeeProfile {
   }
 
   EmployeeProfile withShift(EmployeeShift? shift) => EmployeeProfile(
-        id: id,
-        name: name,
-        department: department,
-        designation: designation,
-        email: email,
-        phone: phone,
-        image: image,
-        defaultShift: defaultShift,
-        shift: shift,
-      );
+    id: id,
+    name: name,
+    department: department,
+    designation: designation,
+    email: email,
+    phone: phone,
+    image: image,
+    defaultShift: defaultShift,
+    shift: shift,
+  );
 }
 
 /// بصمة (Employee Checkin): IN أو OUT ووقتها بتوقيت فلسطين

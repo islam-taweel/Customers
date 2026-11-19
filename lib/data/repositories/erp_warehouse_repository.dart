@@ -36,7 +36,11 @@ class ErpWarehouseRepository {
 
   /// أرصدة الأصناف الموجودة فعليًا (actual_qty > 0) في [warehouse]، مع أسمائها
   /// من Item ووحداتها التي لا تقبل كسورًا من UOM.
-  Future<List<WarehouseStock>> fetchStock(String warehouse) async {
+  /// [includeZero]: كل صفوف Bin للمستودع حتى الرصيد صفر (لجرد نهاية اليوم).
+  Future<List<WarehouseStock>> fetchStock(
+    String warehouse, {
+    bool includeZero = false,
+  }) async {
     final bins = await _api.getAll(
       'Bin',
       fields: [
@@ -49,7 +53,7 @@ class ErpWarehouseRepository {
       ],
       filters: [
         ['warehouse', '=', warehouse],
-        ['actual_qty', '>', 0],
+        if (!includeZero) ['actual_qty', '>', 0],
       ],
       orderBy: 'item_code asc',
     );
@@ -71,9 +75,9 @@ class ErpWarehouseRepository {
       }
     }
 
-    final whole = await _wholeNumberUoms({
-      for (final b in bins) b['stock_uom']?.toString() ?? '',
-    }..remove(''));
+    final whole = await _wholeNumberUoms(
+      {for (final b in bins) b['stock_uom']?.toString() ?? ''}..remove(''),
+    );
 
     return [
       for (final b in bins)
@@ -100,6 +104,19 @@ class ErpWarehouseRepository {
         if ((r['must_be_whole_number'] as num?)?.toInt() == 1)
           r['name'].toString(),
     };
+  }
+
+  /// رمز الصنف صاحب هذا الباركود عبر erpnext.stock.utils.scan_barcode (يطابق
+  /// باركود الصنف أو رقم الدفعة أو الرقم التسلسلي)، وإلا null.
+  Future<String?> itemCodeForBarcode(String barcode) async {
+    final code = barcode.trim();
+    if (code.isEmpty) return null;
+    final res = await _api.getMethod('erpnext.stock.utils.scan_barcode', {
+      'search_value': code,
+    });
+    final msg = res['message'];
+    final itemCode = msg is Map ? msg['item_code']?.toString() ?? '' : '';
+    return itemCode.isEmpty ? null : itemCode;
   }
 
   // ───────────────────────── 3) النقل (مسودة) ─────────────────────────

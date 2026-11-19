@@ -30,11 +30,9 @@ class CatalogStore {
       await txn.delete(_groups);
       final batch = txn.batch();
       for (final g in groups) {
-        batch.insert(
-          _groups,
-          {'name': g},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        batch.insert(_groups, {
+          'name': g,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await batch.commit(noResult: true);
     });
@@ -138,22 +136,22 @@ class CatalogStore {
   // ───────── مساعدات ─────────
 
   ErpItem _itemFromRow(Map<String, Object?> row) => ErpItem(
-        code: row['code'] as String,
-        name: row['name'] as String,
-        uom: (row['uom'] as String?) ?? '',
-      );
+    code: row['code'] as String,
+    name: row['name'] as String,
+    uom: (row['uom'] as String?) ?? '',
+  );
 
   Map<String, Object?> _itemToRow(ErpItem item, String group) => {
-        'code': item.code,
-        'name': item.name,
-        'uom': item.uom,
-        'itemGroup': group,
-      };
+    'code': item.code,
+    'name': item.name,
+    'uom': item.uom,
+    'itemGroup': group,
+  };
 
   Map<String, Object?> _pricingToRow(String code, ItemPricing p) => {
-        'itemCode': code,
-        'rate': p.rate,
-        'available': p.available,
-        'savedAt': DateTime.now().toIso8601String(),
-      };
+    'itemCode': code,
+    'rate': p.rate,
+    'available': p.available,
+    'savedAt': DateTime.now().toIso8601String(),
+  };
 }

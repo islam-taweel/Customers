@@ -1,7 +1,7 @@
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-/// وقت فلسطين (Asia/Hebron): UTC+2 شتاءً و UTC+3 صيفًا. كل الأوقات المرسلة إلى
+/// وقت فلسطين (Asia/Gaza): UTC+2 شتاءً و UTC+3 صيفًا. كل الأوقات المرسلة إلى
 /// ERPNext والمقارنة بها بهذا التوقيت، بصيغة «YYYY-MM-DD HH:MM:SS» بلا Z ولا إزاحة.
 /// لا نضيف ساعات إلى UTC يدويًا: قاعدة بيانات المناطق الزمنية تعرف التوقيت الصيفي.
 class PalestineTime {
@@ -13,7 +13,7 @@ class PalestineTime {
   static void init() {
     if (_location != null) return;
     tzdata.initializeTimeZones();
-    _location = tz.getLocation('Asia/Hebron');
+    _location = tz.getLocation('Asia/Gaza');
   }
 
   static tz.Location get _loc {

@@ -77,7 +77,9 @@ class MonthYearPicker extends StatelessWidget {
               onChanged: (y) {
                 if (y == null) return;
                 // سنة حالية مع شهر لم يأتِ بعد: الشهر الحالي
-                final m = (y == now.year && month > now.month) ? now.month : month;
+                final m = (y == now.year && month > now.month)
+                    ? now.month
+                    : month;
                 onChanged(y, m);
               },
             ),

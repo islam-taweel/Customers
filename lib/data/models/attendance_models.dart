@@ -12,12 +12,12 @@ enum AttendanceStatus {
   workFromHome;
 
   static AttendanceStatus parse(String raw) => switch (raw) {
-        'Absent' => absent,
-        'Half Day' => halfDay,
-        'On Leave' => onLeave,
-        'Work From Home' => workFromHome,
-        _ => present,
-      };
+    'Absent' => absent,
+    'Half Day' => halfDay,
+    'On Leave' => onLeave,
+    'Work From Home' => workFromHome,
+    _ => present,
+  };
 }
 
 /// سجل حضور يوم واحد (Attendance معتمد). اليوم الذي لا سجل له لم يُعالَج
@@ -217,4 +217,56 @@ class OvertimePayment {
       amount: _n(json['amount']),
     );
   }
+}
+
+/// مصدر ساعات العمل الإضافي
+enum OvertimeSource {
+  /// Overtime Slip موجود في نسخة HRMS: الساعات منه
+  overtimeSlip,
+
+  /// لا يوجد Overtime Slip (أو لا صلاحية عليه): Additional Salary فقط، بلا ساعات
+  additionalSalary,
+}
+
+/// هل نسخة HRMS تدعم Overtime Slip، وهل يستطيع المستخدم قراءته
+enum OvertimeSlipSupport { available, missing, noAccess }
+
+/// يوم عمل إضافي من بنود Overtime Slip: المدة كما حسبها ERPNext (بالثواني)
+class OvertimeDay {
+  final DateTime date;
+  final double durationSeconds;
+  final String overtimeType;
+
+  const OvertimeDay({
+    required this.date,
+    required this.durationSeconds,
+    required this.overtimeType,
+  });
+}
+
+/// العمل الإضافي لشهر: الساعات (من Overtime Slip إن وُجد) والمبلغ بالشيكل
+/// (من Additional Salary / Overtime). كلها قيم محسوبة في ERPNext.
+class OvertimeMonth {
+  final OvertimeSource source;
+  final OvertimeSlipSupport slipSupport;
+
+  /// مجموع total_overtime_duration لكشوف الشهر بالثواني؛ null = الساعات غير متاحة
+  final double? totalSeconds;
+  final List<OvertimeDay> days;
+  final List<String> slips;
+  final List<OvertimePayment> payments;
+
+  const OvertimeMonth({
+    required this.source,
+    required this.slipSupport,
+    required this.totalSeconds,
+    required this.days,
+    required this.slips,
+    required this.payments,
+  });
+
+  /// مجموع مبالغ Additional Salary المعتمدة في الشهر
+  double get totalAmount => payments.fold<double>(0, (s, p) => s + p.amount);
+
+  bool get isEmpty => payments.isEmpty && (totalSeconds ?? 0) <= 0;
 }

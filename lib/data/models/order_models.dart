@@ -52,18 +52,14 @@ class CartLine {
   double get remaining => pricing.available - qty;
 
   CartLine withQty(double newQty) => CartLine(
-        item: item,
-        pricing: pricing,
-        qty: newQty,
-        priceFactor: priceFactor,
-      );
+    item: item,
+    pricing: pricing,
+    qty: newQty,
+    priceFactor: priceFactor,
+  );
 
-  CartLine withPriceFactor(double factor) => CartLine(
-        item: item,
-        pricing: pricing,
-        qty: qty,
-        priceFactor: factor,
-      );
+  CartLine withPriceFactor(double factor) =>
+      CartLine(item: item, pricing: pricing, qty: qty, priceFactor: factor);
 }
 
 /// نتيجة إنشاء الطلبية في ERPNext.

@@ -82,11 +82,10 @@ class ErpSalesReturnsRepository {
         ['is_return', '=', 0],
       ],
     );
-    return [for (final r in rows) ReturnInvoice.fromJson(r)]
-      ..sort((a, b) {
-        final byDate = b.postingDate.compareTo(a.postingDate);
-        return byDate != 0 ? byDate : b.name.compareTo(a.name);
-      });
+    return [for (final r in rows) ReturnInvoice.fromJson(r)]..sort((a, b) {
+      final byDate = b.postingDate.compareTo(a.postingDate);
+      return byDate != 0 ? byDate : b.name.compareTo(a.name);
+    });
   }
 
   // ───────────────────────── 2) أصناف الفاتورة ─────────────────────────
@@ -117,9 +116,9 @@ class ErpSalesReturnsRepository {
       }
     }
 
-    final wholeUoms = await _wholeNumberUoms({
-      for (final row in rows) row['uom']?.toString() ?? '',
-    }..remove(''));
+    final wholeUoms = await _wholeNumberUoms(
+      {for (final row in rows) row['uom']?.toString() ?? ''}..remove(''),
+    );
 
     return [
       for (final row in rows)
@@ -175,6 +174,8 @@ class ErpSalesReturnsRepository {
     final cleanReason = reason?.trim() ?? '';
     if (cleanReason.isNotEmpty) creditNote['remarks'] = cleanReason;
 
+    // مسودة دائمًا: الاعتماد من صاحب الصلاحية
+    creditNote['docstatus'] = 0;
     final created = await _api.postDoc('Sales Invoice', creditNote);
     final creditNoteName = created['name']?.toString() ?? '';
     if (creditNoteName.isEmpty) {
@@ -221,7 +222,7 @@ class ErpSalesReturnsRepository {
 
   /// مستند مرتجع جاهز من ERPNext (كل الأصناف بكميتها الأصلية سالبة)، بلا مفاتيح __.
   Future<Map<String, dynamic>> _makeReturn(String method, String source) async {
-    final made = await _api.getMethod(method, {'source_name': source});
+    final made = await _api.postMethod(method, {'source_name': source});
     final message = made['message'];
     if (message is! Map) throw const ErpApiException(ErpErrorType.badResponse);
     return _cleanDoc(message);
@@ -262,8 +263,10 @@ class ErpSalesReturnsRepository {
       ],
     );
     return [
-      for (final r in credit) PendingReturn.fromJson(PendingReturn.creditNote, r),
-      for (final r in stock) PendingReturn.fromJson(PendingReturn.stockReturn, r),
+      for (final r in credit)
+        PendingReturn.fromJson(PendingReturn.creditNote, r),
+      for (final r in stock)
+        PendingReturn.fromJson(PendingReturn.stockReturn, r),
     ];
   }
 
@@ -357,9 +360,9 @@ class ErpSalesReturnsRepository {
   }
 
   static List<Map<String, dynamic>> _rows(Object? value) => [
-        if (value is List)
-          for (final r in value) Map<String, dynamic>.from(r as Map),
-      ];
+    if (value is List)
+      for (final r in value) Map<String, dynamic>.from(r as Map),
+  ];
 
   /// يحذف مفاتيح __ (حتى داخل صفوف الجداول) فلا يرفضها الحفظ
   static Map<String, dynamic> _cleanDoc(Map message) {
@@ -367,7 +370,8 @@ class ErpSalesReturnsRepository {
       if (v is Map) {
         return {
           for (final e in v.entries)
-            if (!e.key.toString().startsWith('__')) e.key.toString(): clean(e.value),
+            if (!e.key.toString().startsWith('__'))
+              e.key.toString(): clean(e.value),
         };
       }
       if (v is List) return [for (final x in v) clean(x)];

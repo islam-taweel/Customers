@@ -60,20 +60,20 @@ class PurchaseOrder {
   String get displaySupplier => supplierName.isEmpty ? supplier : supplierName;
 
   PurchaseOrder withReceipt(ReceiptLink link) => PurchaseOrder(
-        name: name,
-        supplier: supplier,
-        supplierName: supplierName,
-        transactionDate: transactionDate,
-        scheduleDate: scheduleDate,
-        grandTotal: grandTotal,
-        totalQty: totalQty,
-        currency: currency,
-        docstatus: docstatus,
-        status: status,
-        received: received,
-        billed: billed,
-        receipt: link,
-      );
+    name: name,
+    supplier: supplier,
+    supplierName: supplierName,
+    transactionDate: transactionDate,
+    scheduleDate: scheduleDate,
+    grandTotal: grandTotal,
+    totalQty: totalQty,
+    currency: currency,
+    docstatus: docstatus,
+    status: status,
+    received: received,
+    billed: billed,
+    receipt: link,
+  );
 
   /// المرحلة. المعتمد الذي أُنشئ له استلام مسودة ينتقل إلى «بانتظار الفوترة»
   /// وتبقى الفوترة مظللة إلى أن يعتمد ERPNext الاستلام (كما في المبيعات).
@@ -96,19 +96,19 @@ class PurchaseOrder {
       docstatus == 1 && !received && receipt == ReceiptLink.draft;
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) => PurchaseOrder(
-        name: _toText(json['name']),
-        supplier: _toText(json['supplier']),
-        supplierName: _toText(json['supplier_name']),
-        transactionDate: _toText(json['transaction_date']),
-        scheduleDate: json['schedule_date']?.toString(),
-        grandTotal: _toDouble(json['grand_total']),
-        totalQty: _toDouble(json['total_qty']),
-        currency: _toText(json['currency']),
-        docstatus: _toInt(json['docstatus'], 1),
-        status: _toText(json['status']),
-        received: _isComplete(json['per_received']),
-        billed: _isComplete(json['per_billed']),
-      );
+    name: _toText(json['name']),
+    supplier: _toText(json['supplier']),
+    supplierName: _toText(json['supplier_name']),
+    transactionDate: _toText(json['transaction_date']),
+    scheduleDate: json['schedule_date']?.toString(),
+    grandTotal: _toDouble(json['grand_total']),
+    totalQty: _toDouble(json['total_qty']),
+    currency: _toText(json['currency']),
+    docstatus: _toInt(json['docstatus'], 1),
+    status: _toText(json['status']),
+    received: _isComplete(json['per_received']),
+    billed: _isComplete(json['per_billed']),
+  );
 }
 
 /// استلام (Purchase Receipt).
@@ -273,15 +273,15 @@ class PurchaseLine {
   });
 
   factory PurchaseLine.fromJson(Map<String, dynamic> json) => PurchaseLine(
-        rowName: _toText(json['name']),
-        itemCode: _toText(json['item_code']),
-        itemName: _toText(json['item_name']),
-        qty: _toDouble(json['qty']),
-        rate: _toDouble(json['rate']),
-        amount: _toDouble(json['amount']),
-        uom: _toText(json['uom']),
-        warehouse: _toText(json['warehouse']),
-      );
+    rowName: _toText(json['name']),
+    itemCode: _toText(json['item_code']),
+    itemName: _toText(json['item_name']),
+    qty: _toDouble(json['qty']),
+    rate: _toDouble(json['rate']),
+    amount: _toDouble(json['amount']),
+    uom: _toText(json['uom']),
+    warehouse: _toText(json['warehouse']),
+  );
 }
 
 /// تعديل كمية بند في مستند مسودة. السعر لا يُرسل أبدًا فيبقى كما هو في ERPNext.

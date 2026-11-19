@@ -74,10 +74,16 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                   icon: Icons.work_outline,
                   children: [
                     _Row(Icons.tag, EssStrings.employeeId, p.id, ltr: true),
-                    _Row(Icons.apartment_outlined, EssStrings.department,
-                        p.department),
-                    _Row(Icons.badge_outlined, EssStrings.designation,
-                        p.designation),
+                    _Row(
+                      Icons.apartment_outlined,
+                      EssStrings.department,
+                      p.department,
+                    ),
+                    _Row(
+                      Icons.badge_outlined,
+                      EssStrings.designation,
+                      p.designation,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -85,10 +91,18 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                   title: EssStrings.contactInfo,
                   icon: Icons.contact_mail_outlined,
                   children: [
-                    _Row(Icons.email_outlined, EssStrings.email, p.email,
-                        ltr: true),
-                    _Row(Icons.phone_outlined, EssStrings.phone, p.phone,
-                        ltr: true),
+                    _Row(
+                      Icons.email_outlined,
+                      EssStrings.email,
+                      p.email,
+                      ltr: true,
+                    ),
+                    _Row(
+                      Icons.phone_outlined,
+                      EssStrings.phone,
+                      p.phone,
+                      ltr: true,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -181,9 +195,7 @@ class _HeaderState extends State<_Header> {
             Text(
               p.designation,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: scheme.onPrimary.withValues(alpha: 0.85),
-              ),
+              style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85)),
             ),
         ],
       ),

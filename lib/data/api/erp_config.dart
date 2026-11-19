@@ -31,6 +31,16 @@ class ErpConfig {
   /// ما يظهر في حقل الدخول: اسم الموقع إن وُجد، وإلا عنوان الخادم.
   static String get currentInput => _site.isNotEmpty ? _site : _server;
 
+  /// اسم الموقع على الخادم (الخادم يستضيف أكثر من موقع)
+  static const String _defaultSiteName = String.fromEnvironment(
+    'ERP_SITE_NAME',
+    defaultValue: 'erp.rtc',
+  );
+
+  /// قيمة ترويسة X-Frappe-Site-Name في كل طلب: اسم الموقع إن أدخله المستخدم،
+  /// وإلا erp.rtc
+  static String get siteName => _site.isNotEmpty ? _site : _defaultSiteName;
+
   /// يقرأ المحفوظ عند بدء التطبيق، قبل أول طلب.
   static Future<void> loadSite() async {
     try {
@@ -61,7 +71,8 @@ class ErpConfig {
 
     final hostPart = s.replaceFirst(_scheme, '').split('/').first;
     final hostOnly = hostPart.split(':').first.toLowerCase();
-    final isAddress = _scheme.hasMatch(s) ||
+    final isAddress =
+        _scheme.hasMatch(s) ||
         _ipv4.hasMatch(hostOnly) ||
         hostPart.contains(':') ||
         hostOnly == 'localhost';
@@ -97,7 +108,9 @@ class ErpConfig {
     if (!_scheme.hasMatch(s)) {
       final host = s.split('/').first.split(':').first.toLowerCase();
       final isLocal =
-          _ipv4.hasMatch(host) || host == 'localhost' || host.endsWith('.local');
+          _ipv4.hasMatch(host) ||
+          host == 'localhost' ||
+          host.endsWith('.local');
       s = '${isLocal ? 'http' : 'https'}://$s';
     }
     final uri = Uri.tryParse(s);
@@ -132,6 +145,12 @@ class ErpConfig {
   /// الشركة التي تُنشأ لها الطلبية
   static const String company = 'Ramallah Tools Co.';
 
+  /// عملة الشركة (تُعرض لطلبات المصاريف، فـ Expense Claim لا حقل عملة فيه)
+  static const String companyCurrency = 'ILS';
+
+  /// حساب سلف الموظفين في دليل الحسابات (Employee Advance.advance_account)
+  static const String employeeAdvanceAccount = 'Employee Advances - RTC';
+
   /// قائمة الأسعار المستخدمة للبيع (السعر يُقرأ منها، لا من standard_rate)
   static const String sellingPriceList = 'Standard Selling';
 
@@ -141,6 +160,15 @@ class ErpConfig {
 
   /// المستودع الذي يُقرأ منه المخزون وتُسحب منه الأصناف
   static const String warehouse = 'Main Warehouse - RTC';
+
+  /// مستودع فان المندوب (مبيعات الفان): مخزونه يُعرض في «مخزون الفان»
+  static const String vanWarehouse = 'Van - Ahmad - RTC';
+
+  /// قالب الضرائب لفواتير الفان (ضريبة 16% مشمولة في السعر)
+  static const String salesTaxTemplate = 'VAT 16% Included - RTC';
+
+  /// المستودع الرئيسي الذي يُطلب منه تزويد الفان (Material Request)
+  static const String mainStore = 'Main Store - RTC';
 
   /// حساب الفروقات (Difference Account) لتسوية المخزون.
   /// ضع هنا الاسم الدقيق الذي يحدده المسؤول، مثل `Stock Adjustment - RTC`.
