@@ -1,62 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/advance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_view.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../models/advance_models.dart';
 import '../controllers/advances_controller.dart';
-import '../../../modules/hr/home/employee_service.dart';
+import '../../home/employee_service.dart';
 
 const _green = Color(0xFF2E7D32);
 const _orange = Color(0xFFEF6C00);
 
 /// سلفي: كل سلف الموظف المسجّل دخوله من ERPNext (تُحدَّث عند الفتح)، وزر لطلب
 /// سلفة جديدة (المبلغ والغرض). عرض فقط: لا موافقة ولا دفع ولا إلغاء.
-class AdvancesScreen extends StatefulWidget {
+class AdvancesScreen extends GetView<AdvancesController> {
   const AdvancesScreen({super.key});
 
-  @override
-  State<AdvancesScreen> createState() => _AdvancesScreenState();
-}
-
-class _AdvancesScreenState extends State<AdvancesScreen> {
-  late final AdvancesController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    // متحكم مستقل للشاشة: يُنشأ عند فتحها ويُحذف عند إغلاقها
-    _c = Get.put(AdvancesController(context.read<ErpEmployeeRepository>()));
-  }
-
-  @override
-  void dispose() {
-    Get.delete<AdvancesController>();
-    super.dispose();
-  }
-
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.advancesLoadFailed);
-  }
-
-  Future<void> _openRequest() async {
+  Future<void> _openRequest(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final sent = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _RequestSheet(controller: _c),
+      builder: (_) => _RequestSheet(controller: controller),
     );
     if (sent == true) {
       messenger.showSnackBar(SnackBar(content: Text(EssStrings.advanceSent)));
@@ -74,28 +42,28 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Obx(
-            () => _c.loading.value && _c.advances.isNotEmpty
+            () => controller.loading.value && controller.advances.isNotEmpty
                 ? const LinearProgressIndicator(minHeight: 2)
                 : const SizedBox(height: 2),
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openRequest,
+        onPressed: () => _openRequest(context),
         icon: const Icon(Icons.add),
         label: Text(EssStrings.requestAdvance),
       ),
       body: Obx(() {
-        final list = _c.advances.toList();
-        if (_c.loading.value && list.isEmpty) {
+        final list = controller.advances.toList();
+        if (controller.loading.value && list.isEmpty) {
           return LoadingView(message: EssStrings.loadingAdvances);
         }
-        final error = _c.error.value;
+        final error = controller.error.value;
         if (error != null && list.isEmpty) {
-          return ErrorView(message: _message(error), onRetry: _c.load);
+          return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
         }
         return RefreshIndicator(
-          onRefresh: _c.load,
+          onRefresh: controller.load,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [
@@ -136,7 +104,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                   ),
                 )
               else ...[
-                _TotalCard(amount: _c.totalRemaining, list: list),
+                _TotalCard(amount: controller.totalRemaining, list: list),
                 const SizedBox(height: 16),
                 for (final a in list) _AdvanceCard(advance: a),
               ],

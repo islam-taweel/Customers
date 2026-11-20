@@ -10,10 +10,18 @@ import 'package:customer/data/repositories/erp_lookup_repository.dart';
 import 'package:customer/data/repositories/invoice_repository.dart';
 import 'package:customer/modules/collections/repository/erp_payment_repository.dart';
 import 'package:customer/modules/collections/repository/invoice_collections_repository.dart';
-import 'package:customer/data/repositories/erp_employee_repository.dart';
+import 'package:customer/modules/hr/advances/repository/advances_repository.dart';
+import 'package:customer/modules/hr/attendance/repository/attendance_repository.dart';
+import 'package:customer/modules/hr/expenses/repository/expenses_repository.dart';
+import 'package:customer/modules/hr/leaves/repository/leaves_repository.dart';
+import 'package:customer/modules/hr/overtime/repository/overtime_repository.dart';
+import 'package:customer/modules/hr/payslips/repository/payslips_repository.dart';
+import 'package:customer/modules/hr/profile/repository/profile_repository.dart';
 import 'package:customer/modules/hr/punch/repository/punch_repository.dart';
+import 'package:customer/modules/hr/shared/hr_approver_access.dart';
 import 'package:customer/modules/hr/shared/hr_repositories.dart';
 import 'package:customer/modules/hr/shared/repository/hr_employee_identity.dart';
+import 'package:customer/modules/hr/team/repository/team_repository.dart';
 import 'package:customer/modules/invoices/repository/sales_invoices_repository.dart';
 import 'package:customer/modules/statement/repository/erp_ledger_repository.dart';
 import 'package:customer/modules/statement/repository/erp_statement_repository.dart';
@@ -73,8 +81,20 @@ void main() {
     expect(identical(Get.find<ErpPaymentRepository>(), payments), isTrue);
     expect(identical(Get.find<ErpLedgerRepository>(), ledger), isTrue);
     expect(identical(Get.find<InvoiceRepository>(), localInvoices), isTrue);
+
+    // HR: كل repository كائن واحد، لا نسخ مكررة
     expect(identical(Get.find<HrEmployeeIdentity>(), hr.identity), isTrue);
+    expect(identical(Get.find<ProfileRepository>(), hr.profile), isTrue);
     expect(identical(Get.find<PunchRepository>(), hr.punch), isTrue);
-    expect(identical(Get.find<ErpEmployeeRepository>(), hr.legacy), isTrue);
+    expect(identical(Get.find<AttendanceRepository>(), hr.attendance), isTrue);
+    expect(identical(Get.find<LeavesRepository>(), hr.leaves), isTrue);
+    expect(identical(Get.find<OvertimeRepository>(), hr.overtime), isTrue);
+    expect(identical(Get.find<AdvancesRepository>(), hr.advances), isTrue);
+    expect(identical(Get.find<ExpensesRepository>(), hr.expenses), isTrue);
+    expect(identical(Get.find<PayslipsRepository>(), hr.payslips), isTrue);
+    expect(identical(Get.find<TeamRepository>(), hr.team), isTrue);
+
+    // صلاحية المعتمِد (يقرؤها ManagerMiddleware): مسجّلة، وافتراضيًا لا صلاحية
+    expect(Get.find<HrApproverAccess>().canSeeTeam, isFalse);
   });
 }

@@ -2,16 +2,21 @@ import 'package:get/get.dart';
 
 import '../../data/api/erp_api_client.dart';
 import '../../data/api/erp_auth_service.dart';
-import '../../data/repositories/erp_employee_repository.dart';
 import '../../data/repositories/invoice_repository.dart';
 import '../../modules/collections/repository/erp_payment_repository.dart';
 import '../../modules/collections/repository/invoice_collections_repository.dart';
+import '../../modules/hr/advances/repository/advances_repository.dart';
 import '../../modules/hr/attendance/repository/attendance_repository.dart';
+import '../../modules/hr/expenses/repository/expenses_repository.dart';
 import '../../modules/hr/leaves/repository/leaves_repository.dart';
+import '../../modules/hr/overtime/repository/overtime_repository.dart';
+import '../../modules/hr/payslips/repository/payslips_repository.dart';
 import '../../modules/hr/profile/repository/profile_repository.dart';
 import '../../modules/hr/punch/repository/punch_repository.dart';
+import '../../modules/hr/shared/hr_approver_access.dart';
 import '../../modules/hr/shared/hr_repositories.dart';
 import '../../modules/hr/shared/repository/hr_employee_identity.dart';
+import '../../modules/hr/team/repository/team_repository.dart';
 import '../../modules/invoices/repository/sales_invoices_repository.dart';
 import '../../modules/statement/repository/erp_ledger_repository.dart';
 import '../../modules/statement/repository/erp_statement_repository.dart';
@@ -58,7 +63,7 @@ class InitialBinding extends Bindings {
   /// فواتير الطلبيات المحلية (ما زالت في MultiProvider أيضًا لمستهلكيها القدامى)
   final InvoiceRepository localInvoices;
 
-  /// R5: repositories الموارد البشرية (وhr.legacy لوحدات R6 حتى ترحيلها)
+  /// R5/R6: repositories الموارد البشرية كلها
   final HrRepositories hr;
 
   @override
@@ -77,7 +82,13 @@ class InitialBinding extends Bindings {
     _putOnce<PunchRepository>(hr.punch);
     _putOnce<AttendanceRepository>(hr.attendance);
     _putOnce<LeavesRepository>(hr.leaves);
-    _putOnce<ErpEmployeeRepository>(hr.legacy);
+    _putOnce<OvertimeRepository>(hr.overtime);
+    _putOnce<AdvancesRepository>(hr.advances);
+    _putOnce<ExpensesRepository>(hr.expenses);
+    _putOnce<PayslipsRepository>(hr.payslips);
+    _putOnce<TeamRepository>(hr.team);
+    // صلاحية المعتمِد التي يقرؤها ManagerMiddleware (R6)
+    _putOnce<HrApproverAccess>(HrApproverAccess(session));
   }
 
   static void _putOnce<T>(T instance) {

@@ -6,7 +6,6 @@ import 'package:customer/core/constants/visit_strings.dart';
 import 'package:customer/core/utils/palestine_time.dart';
 import 'package:customer/data/api/erp_auth_service.dart';
 import 'package:customer/data/api/session_store.dart';
-import 'package:customer/data/repositories/erp_employee_repository.dart';
 import 'package:customer/features/auth/controllers/auth_controller.dart';
 import 'package:customer/modules/hr/attendance/controllers/attendance_controller.dart';
 import 'package:customer/modules/hr/attendance/repository/attendance_repository.dart';
@@ -16,7 +15,10 @@ import 'package:customer/modules/hr/leaves/repository/leaves_repository.dart';
 import 'package:customer/modules/hr/profile/repository/profile_repository.dart';
 import 'package:customer/modules/hr/punch/controllers/punch_controller.dart';
 import 'package:customer/modules/hr/punch/repository/punch_repository.dart';
+import 'package:customer/modules/hr/shared/hr_approver_access.dart';
 import 'package:customer/modules/hr/shared/hr_repositories.dart';
+import 'package:customer/modules/hr/team/repository/team_repository.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -24,7 +26,7 @@ import 'package:provider/provider.dart';
 import '../support/fakes.dart';
 import 'hr_fakes.dart';
 
-/// R5 — الشاشات عبر المسارات الحقيقية (AppPages + Bindings + AuthMiddleware):
+/// R5/R6 — الشاشات عبر المسارات الحقيقية (AppPages + Bindings + Middleware):
 /// المدخل ← Get.toNamed(service.routeName) ← الشاشة؛ المتحكم يُنشأ مرة ويُحذف
 /// عند الرجوع؛ الـ repository الدائم يبقى.
 void main() {
@@ -32,11 +34,58 @@ void main() {
   late AuthController auth;
 
   setUpAll(PalestineTime.init);
-  tearDown(Get.reset);
+
+  /// أدوار المستخدم في ERPNext لهذا الاختبار (افتراضيًا: ليس معتمِدًا)
+  var roles = <String>['Employee'];
+  tearDown(() {
+    Get.reset();
+    roles = ['Employee'];
+  });
 
   Object? erp(Sent r) => hrReply(
     r,
     extra: (r) {
+      if (r.pathText.endsWith('get_current_user_info')) {
+        return {
+          'message': {'name': 'manager@rtc.ps', 'roles': roles},
+        };
+      }
+      if (r.pathText == 'api/resource/Salary Slip') {
+        return {
+          'data': [
+            {
+              'name': 'SAL-11',
+              'start_date': '2026-10-01',
+              'end_date': '2026-10-31',
+              'gross_pay': 3250.5,
+              'total_deduction': 120,
+              'net_pay': 3130.5,
+              'currency': 'ILS',
+            },
+          ],
+        };
+      }
+      if (r.pathText == 'api/resource/Salary Slip/SAL-11') {
+        return {
+          'data': {
+            'name': 'SAL-11',
+            'employee': 'HR-EMP-0007',
+            'docstatus': 1,
+            'currency': 'ILS',
+            'start_date': '2026-10-01',
+            'end_date': '2026-10-31',
+            'earnings': [
+              {'salary_component': 'Basic', 'amount': 3250.5},
+            ],
+            'deductions': [
+              {'salary_component': 'Income Tax', 'amount': 120},
+            ],
+            'gross_pay': 3250.5,
+            'total_deduction': 120,
+            'net_pay': 3130.5,
+          },
+        };
+      }
       if (r.pathText == 'api/resource/Employee') {
         return {
           'data': [
@@ -84,7 +133,10 @@ void main() {
       Get.put(hr.punch, permanent: true);
       Get.put(hr.attendance, permanent: true);
       Get.put(hr.leaves, permanent: true);
-      Get.put(hr.legacy, permanent: true);
+      // R6: مدخل HR (HrHomeBinding) وManagerMiddleware يحتاجان هذين
+      Get.put(hr.team, permanent: true);
+      Get.put(hr.payslips, permanent: true);
+      Get.put(HrApproverAccess(session), permanent: true);
     });
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthController>.value(
@@ -181,8 +233,69 @@ void main() {
     await settle(tester);
     expect(find.text('Ahmad Saleh'), findsOneWidget);
     expect(Get.isRegistered<ProfileRepository>(), isTrue);
-    expect(Get.isRegistered<ErpEmployeeRepository>(), isTrue);
+    expect(Get.isRegistered<TeamRepository>(), isTrue);
   });
+
+  testWidgets('فريقي: غير المعتمِد لا يدخل المسار حتى بالاسم', (tester) async {
+    await pumpHr(tester);
+    // المستخدم في هذا الاختبار ليس Leave/Expense Approver
+    expect(Get.find<HrApproverAccess>().canSeeTeam, isFalse);
+
+    Get.toNamed(Routes.hrTeam);
+    await settle(tester);
+
+    expect(
+      Get.currentRoute,
+      Routes.hr,
+      reason: 'ManagerMiddleware يعيده إلى المدخل',
+    );
+    expect(find.text(EssStrings.teamNoAccess), findsNothing);
+  });
+  testWidgets(
+    'فريقي: المعتمِد يرى البطاقة ويدخل المسار، والخروج يمسح الصلاحية',
+    (tester) async {
+      roles = ['Leave Approver'];
+      await pumpHr(tester);
+      expect(Get.find<HrApproverAccess>().canSeeTeam, isTrue);
+      // openService يفشل إن لم تكن البطاقة موجودة (تظهر للمعتمِد فقط)
+      await openService(tester, EssStrings.team);
+      await settle(tester);
+      expect(Get.currentRoute, Routes.hrTeam);
+      expect(find.text(EssStrings.teamNoAccess), findsNothing);
+      expect(
+        sent
+            .where((s) => s.pathText == 'api/resource/Leave Application')
+            .length,
+        1,
+      );
+
+      // الخروج: تُمسح الصلاحية المخزّنة فلا تنتقل إلى مستخدم آخر
+      await tester.runAsync(() => Get.find<SessionService>().logout());
+      await settle(tester);
+      expect(Get.find<HrApproverAccess>().canSeeTeam, isFalse);
+    },
+  );
+
+  testWidgets(
+    'كشوف رواتبي: القائمة ← التفاصيل بـ Get.toNamed(arguments)، وصافي ERPNext',
+    (tester) async {
+      await pumpHr(tester);
+      await openService(tester, EssStrings.payslips);
+      await settle(tester);
+      expect(Get.currentRoute, Routes.hrPayslips);
+
+      await tester.tap(find.textContaining('3,130.50').first);
+      await settle(tester);
+      expect(Get.currentRoute, Routes.hrPayslipDetail);
+      expect(find.textContaining('3,130.50'), findsWidgets);
+      // المكوّن المعروف (ضريبة) يظهر بتسميته العربية؛ نتحقق من مبلغه كما من ERPNext
+      // القيم كما من ERPNext (لا إعادة حساب): المستحقات، الخصم، الصافي
+      expect(find.text('3,250.50 ₪', skipOffstage: false), findsWidgets);
+      expect(find.text('ضريبة الدخل', skipOffstage: false), findsOneWidget);
+      expect(find.text('120 ₪', skipOffstage: false), findsWidgets);
+      expect(find.text('3,130.50 ₪', skipOffstage: false), findsWidgets);
+    },
+  );
 }
 
 /// الطلبات تمر عبر MockClient (مستقبلات حقيقية)، فتحتاج runAsync ثم إطارات
@@ -197,6 +310,12 @@ Future<void> settle(WidgetTester tester) async {
 
 /// البطاقة قد تكون خارج الشاشة (شبكة البطاقات تتمرر)
 Future<void> openService(WidgetTester tester, String title) async {
+  // الشبكة تُبنى عند ظهورها فقط (Sliver): نمرّر حتى تُبنى البطاقة
+  await tester.scrollUntilVisible(
+    find.text(title),
+    150,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.ensureVisible(find.text(title));
   await tester.pump();
   await tester.tap(find.text(title));

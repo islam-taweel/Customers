@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/ess_strings.dart';
-import '../../data/models/payslip_models.dart';
+import '../../../../core/constants/ess_strings.dart';
+import 'payslip_models.dart';
 
 /// نوع المستحق حسب اسم مكوّن الراتب (الأسماء تختلف بين المواقع)
 enum EarningKind {

@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
-import '../../../../data/repositories/erp_employee_repository.dart';
+import '../../shared/hr_approver_access.dart';
+import '../../team/repository/team_repository.dart';
 import '../controllers/hr_access_controller.dart';
 
 /// (R5) المتحكم دالة إنشاء (lazyPut) فوق الـ repository الدائم المسجّل في
@@ -8,6 +9,9 @@ import '../controllers/hr_access_controller.dart';
 class HrHomeBinding extends Bindings {
   @override
   void dependencies() => Get.lazyPut<HrAccessController>(
-    () => HrAccessController(Get.find<ErpEmployeeRepository>()),
+    () => HrAccessController(
+      Get.find<TeamRepository>(),
+      Get.find<HrApproverAccess>(),
+    ),
   );
 }

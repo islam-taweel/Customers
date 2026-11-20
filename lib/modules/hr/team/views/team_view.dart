@@ -1,70 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/expense_models.dart';
-import '../../../data/models/team_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_view.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../../expenses/models/expense_models.dart';
+import '../models/team_models.dart';
 import '../controllers/team_controller.dart';
-import '../../../modules/hr/home/employee_service.dart';
+import '../../home/employee_service.dart';
 
 const _orange = Color(0xFFEF6C00);
 
 /// فريقي (لمعتمِدي الإجازات أو المصاريف فقط، للعرض فقط): قسمان، طلبات الإجازات
 /// وطلبات المصاريف المعلقة للموظفين الذين المستخدم معتمِدهم. لا رواتب، ولا
 /// أزرار موافقة أو رفض.
-class TeamScreen extends StatefulWidget {
+class TeamScreen extends GetView<TeamController> {
   const TeamScreen({super.key});
-
-  @override
-  State<TeamScreen> createState() => _TeamScreenState();
-}
-
-class _TeamScreenState extends State<TeamScreen> {
-  late final TeamController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    // متحكم مستقل للشاشة: يُنشأ عند فتحها ويُحذف عند إغلاقها
-    _c = Get.put(TeamController(context.read<ErpEmployeeRepository>()));
-  }
-
-  @override
-  void dispose() {
-    Get.delete<TeamController>();
-    super.dispose();
-  }
-
-  String _message(Object e) {
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.teamLoadFailed);
-  }
 
   @override
   Widget build(BuildContext context) {
     final title = Text(EmployeeService.team.title);
 
     return Obx(() {
-      if (!_c.checked.value) {
+      if (!controller.checked.value) {
         return Scaffold(
           appBar: AppBar(title: title),
-          body: _c.error.value != null
-              ? ErrorView(message: _message(_c.error.value!), onRetry: _c.load)
+          body: controller.error.value != null
+              ? ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load)
               : LoadingView(message: EssStrings.loadingTeam),
         );
       }
       // بلا صلاحية: لا يُعرض أي طلب
-      if (!_c.hasAccess) {
+      if (!controller.hasAccess) {
         return Scaffold(
           appBar: AppBar(title: title),
           body: EmptyView(
@@ -74,8 +43,8 @@ class _TeamScreenState extends State<TeamScreen> {
         );
       }
 
-      final leaves = _c.leaves.toList();
-      final expenses = _c.expenses.toList();
+      final leaves = controller.leaves.toList();
+      final expenses = controller.expenses.toList();
       return DefaultTabController(
         length: 2,
         child: Scaffold(
@@ -90,20 +59,20 @@ class _TeamScreenState extends State<TeamScreen> {
           ),
           body: Column(
             children: [
-              if (_c.loading.value) const LinearProgressIndicator(minHeight: 2),
+              if (controller.loading.value) const LinearProgressIndicator(minHeight: 2),
               const _ViewOnlyNote(),
               Expanded(
                 child: TabBarView(
                   children: [
                     _list(
-                      allowed: _c.canApproveLeaves.value,
+                      allowed: controller.canApproveLeaves.value,
                       notAllowed: EssStrings.notLeaveApprover,
                       empty: EssStrings.noTeamLeaves,
                       emptyIcon: Icons.beach_access_outlined,
                       children: [for (final r in leaves) _LeaveCard(item: r)],
                     ),
                     _list(
-                      allowed: _c.canApproveExpenses.value,
+                      allowed: controller.canApproveExpenses.value,
                       notAllowed: EssStrings.notExpenseApprover,
                       empty: EssStrings.noTeamExpenses,
                       emptyIcon: Icons.receipt_long_outlined,
@@ -128,12 +97,12 @@ class _TeamScreenState extends State<TeamScreen> {
     required IconData emptyIcon,
     required List<Widget> children,
   }) {
-    final error = _c.error.value;
+    final error = controller.error.value;
     if (error != null && children.isEmpty) {
-      return ErrorView(message: _message(error), onRetry: _c.load);
+      return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
     }
     return RefreshIndicator(
-      onRefresh: _c.load,
+      onRefresh: controller.load,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [

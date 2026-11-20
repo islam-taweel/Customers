@@ -1,19 +1,30 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../../data/models/payslip_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../shared/hr_errors.dart';
+
+import '../../payslips/models/payslip_models.dart';
+import '../repository/payslips_repository.dart';
 
 /// كشوف رواتبي (GetX): كشوف الموظف الحالي المعتمدة فقط من ERPNext، تُحدَّث عند
 /// فتح الشاشة. للعرض فقط.
 class PayslipsController extends GetxController {
   PayslipsController(this._repository);
 
-  final ErpEmployeeRepository _repository;
+  final PayslipsRepository _repository;
 
   final payslips = <PayslipSummary>[].obs;
   final loading = false.obs;
   final error = Rxn<Object>();
+
+  /// رسالة الخطأ للعرض (R6: كانت دالة في الواجهة)
+  String? get errorMessage {
+    final e = error.value;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.payslipsLoadFailed);
+  }
 
   @override
   void onInit() {
@@ -39,7 +50,7 @@ class PayslipsController extends GetxController {
 class PayslipDetailController extends GetxController {
   PayslipDetailController(this._repository, this.name);
 
-  final ErpEmployeeRepository _repository;
+  final PayslipsRepository _repository;
 
   /// رقم الكشف (Salary Slip.name)
   final String name;
@@ -47,6 +58,14 @@ class PayslipDetailController extends GetxController {
   final payslip = Rxn<PayslipDetail>();
   final loading = false.obs;
   final error = Rxn<Object>();
+
+  /// رسالة الخطأ للعرض (R6: كانت دالة في الواجهة)
+  String? get errorMessage {
+    final e = error.value;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.payslipLoadFailed);
+  }
 
   @override
   void onInit() {

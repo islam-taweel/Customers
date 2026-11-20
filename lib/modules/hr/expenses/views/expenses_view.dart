@@ -3,21 +3,17 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/constants/visit_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/utils/palestine_time.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/expense_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/constants/visit_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/palestine_time.dart';
+import '../../../../core/widgets/empty_view.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../models/expense_models.dart';
 import '../controllers/expenses_controller.dart';
-import '../../../modules/hr/home/employee_service.dart';
+import '../../home/employee_service.dart';
 
 const _green = Color(0xFF2E7D32);
 const _orange = Color(0xFFEF6C00);
@@ -25,44 +21,16 @@ const _orange = Color(0xFFEF6C00);
 /// مصاريفي: طلبات مصاريف الموظف الحالي فقط من ERPNext (تُحدَّث عند الفتح)،
 /// وزر «إضافة مصروف» (النوع، المبلغ، التاريخ، الوصف، صورة الإيصال، وربط
 /// اختياري بسلفة مفتوحة). عرض وتقديم فقط: لا موافقة ولا اعتماد ولا دفع.
-class ExpensesScreen extends StatefulWidget {
+class ExpensesScreen extends GetView<ExpensesController> {
   const ExpensesScreen({super.key});
 
-  @override
-  State<ExpensesScreen> createState() => _ExpensesScreenState();
-}
-
-class _ExpensesScreenState extends State<ExpensesScreen> {
-  late final ExpensesController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    // متحكم مستقل للشاشة: يُنشأ عند فتحها ويُحذف عند إغلاقها
-    _c = Get.put(ExpensesController(context.read<ErpEmployeeRepository>()));
-  }
-
-  @override
-  void dispose() {
-    Get.delete<ExpensesController>();
-    super.dispose();
-  }
-
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.expensesLoadFailed);
-  }
-
-  Future<void> _openForm() async {
+  Future<void> _openForm(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final warning = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _ExpenseSheet(controller: _c),
+      builder: (_) => _ExpenseSheet(controller: controller),
     );
     if (warning == null) return; // أُغلقت دون إرسال
     messenger.showSnackBar(
@@ -84,28 +52,28 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Obx(
-            () => _c.loading.value && _c.claims.isNotEmpty
+            () => controller.loading.value && controller.claims.isNotEmpty
                 ? const LinearProgressIndicator(minHeight: 2)
                 : const SizedBox(height: 2),
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openForm,
+        onPressed: () => _openForm(context),
         icon: const Icon(Icons.add),
         label: Text(EssStrings.addExpense),
       ),
       body: Obx(() {
-        final list = _c.claims.toList();
-        if (_c.loading.value && list.isEmpty) {
+        final list = controller.claims.toList();
+        if (controller.loading.value && list.isEmpty) {
           return LoadingView(message: EssStrings.loadingExpenses);
         }
-        final error = _c.error.value;
+        final error = controller.error.value;
         if (error != null && list.isEmpty) {
-          return ErrorView(message: _message(error), onRetry: _c.load);
+          return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
         }
         return RefreshIndicator(
-          onRefresh: _c.load,
+          onRefresh: controller.load,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [

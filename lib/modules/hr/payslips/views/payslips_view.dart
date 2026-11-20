@@ -1,44 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/payslip_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_view.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../models/payslip_models.dart';
+import '../../../../app/routes/app_routes.dart';
 import '../controllers/payslips_controller.dart';
-import '../../../modules/hr/home/employee_service.dart';
-import 'payslip_detail_screen.dart';
+import '../../home/employee_service.dart';
 
 /// كشوف رواتبي: كشوف الموظف المسجّل دخوله المعتمدة فقط (لا مسودات)، تُحدَّث
 /// من ERPNext عند الفتح. الضغط على كشف يفتح تفاصيله. للعرض فقط.
-class PayslipsScreen extends StatefulWidget {
+class PayslipsScreen extends GetView<PayslipsController> {
   const PayslipsScreen({super.key});
-
-  @override
-  State<PayslipsScreen> createState() => _PayslipsScreenState();
-}
-
-class _PayslipsScreenState extends State<PayslipsScreen> {
-  late final PayslipsController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    // متحكم مستقل للشاشة: يُنشأ عند فتحها ويُحذف عند إغلاقها
-    _c = Get.put(PayslipsController(context.read<ErpEmployeeRepository>()));
-  }
-
-  @override
-  void dispose() {
-    Get.delete<PayslipsController>();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,26 +27,26 @@ class _PayslipsScreenState extends State<PayslipsScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Obx(
-            () => _c.loading.value && _c.payslips.isNotEmpty
+            () => controller.loading.value && controller.payslips.isNotEmpty
                 ? const LinearProgressIndicator(minHeight: 2)
                 : const SizedBox(height: 2),
           ),
         ),
       ),
       body: Obx(() {
-        final list = _c.payslips.toList();
-        if (_c.loading.value && list.isEmpty) {
+        final list = controller.payslips.toList();
+        if (controller.loading.value && list.isEmpty) {
           return LoadingView(message: EssStrings.loadingPayslips);
         }
-        final error = _c.error.value;
+        final error = controller.error.value;
         if (error != null && list.isEmpty) {
           return ErrorView(
-            message: payslipErrorMessage(error, EssStrings.payslipsLoadFailed),
-            onRetry: _c.load,
+            message: controller.errorMessage ?? '',
+            onRetry: controller.load,
           );
         }
         return RefreshIndicator(
-          onRefresh: _c.load,
+          onRefresh: controller.load,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
@@ -119,15 +95,6 @@ class _PayslipsScreenState extends State<PayslipsScreen> {
   }
 }
 
-/// رسالة الخطأ: غير مرتبط بموظف، بلا صلاحية، أو الخطأ العام
-String payslipErrorMessage(Object e, String fallback) {
-  if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-  if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-    return EssStrings.noPermission;
-  }
-  return describeError(e, fallback: fallback);
-}
-
 /// كشف في القائمة: شهر الكشف وفترته، صافي الراتب، والإجمالي والخصومات
 class _PayslipCard extends StatelessWidget {
   final PayslipSummary payslip;
@@ -147,11 +114,7 @@ class _PayslipCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => PayslipDetailScreen(name: p.name),
-          ),
-        ),
+        onTap: () => Get.toNamed(Routes.hrPayslipDetail, arguments: p.name),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(

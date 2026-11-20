@@ -1,50 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/models/payslip_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../models/payslip_models.dart';
 import '../controllers/payslips_controller.dart';
-import '../payslip_explainer.dart';
-import 'payslips_screen.dart';
+import '../models/payslip_explainer.dart';
 
 /// تفاصيل كشف راتب: المستحقات (الأساسي، المواصلات، العمل الإضافي، وغيرها
 /// وإجماليها)، الخصومات (كل خصم منفصلًا باسمه العربي وقيمته وشرح سببه)، وملخص
 /// الراتب (الإجمالي، الخصومات، الصافي، أيام الدفع، الفترة، تاريخ الكشف).
-class PayslipDetailScreen extends StatefulWidget {
-  final String name;
-
+class PayslipDetailScreen extends GetView<PayslipDetailController> {
   const PayslipDetailScreen({super.key, required this.name});
 
-  @override
-  State<PayslipDetailScreen> createState() => _PayslipDetailScreenState();
-}
-
-class _PayslipDetailScreenState extends State<PayslipDetailScreen> {
-  late final PayslipDetailController _c;
+  /// رقم الكشف (Salary Slip.name)، وهو أيضًا tag المتحكم
+  final String name;
 
   @override
-  void initState() {
-    super.initState();
-    // متحكم مستقل لكل كشف (tag = رقمه)
-    _c = Get.put(
-      PayslipDetailController(
-        context.read<ErpEmployeeRepository>(),
-        widget.name,
-      ),
-      tag: widget.name,
-    );
-  }
-
-  @override
-  void dispose() {
-    Get.delete<PayslipDetailController>(tag: widget.name);
-    super.dispose();
-  }
+  String? get tag => name;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +30,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen> {
           children: [
             Text(EssStrings.payslips),
             Text(
-              widget.name,
+              name,
               textDirection: TextDirection.ltr,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -63,20 +38,20 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen> {
         ),
       ),
       body: Obx(() {
-        final slip = _c.payslip.value;
-        if (_c.loading.value && slip == null) {
+        final slip = controller.payslip.value;
+        if (controller.loading.value && slip == null) {
           return LoadingView(message: EssStrings.loadingPayslip);
         }
-        final error = _c.error.value;
+        final error = controller.error.value;
         if (error != null && slip == null) {
           return ErrorView(
-            message: payslipErrorMessage(error, EssStrings.payslipLoadFailed),
-            onRetry: _c.load,
+            message: controller.errorMessage ?? '',
+            onRetry: controller.load,
           );
         }
         if (slip == null) return const SizedBox.shrink();
         return RefreshIndicator(
-          onRefresh: _c.load,
+          onRefresh: controller.load,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [

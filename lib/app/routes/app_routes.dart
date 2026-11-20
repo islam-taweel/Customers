@@ -19,5 +19,6 @@ abstract class Routes {
   static const hrAdvances = '/hr/advances';
   static const hrExpenses = '/hr/expenses';
   static const hrPayslips = '/hr/payslips';
+  static const hrPayslipDetail = '/hr/payslips/detail';
   static const hrTeam = '/hr/team';
 }

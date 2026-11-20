@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/palestine_time.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/expense_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../shared/hr_errors.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../core/utils/palestine_time.dart';
+import '../../../../data/api/erp_api_client.dart';
+import '../../expenses/models/expense_models.dart';
+import '../repository/expenses_repository.dart';
 
 /// رسالة الخطأ مع نص ERPNext نفسه عند رفض الخادم
 String _withDetail(Object e, String fallback) {
@@ -26,7 +27,7 @@ typedef ExpenseResult = ({String? error, String? warning});
 class ExpensesController extends GetxController {
   ExpensesController(this._repository);
 
-  final ErpEmployeeRepository _repository;
+  final ExpensesRepository _repository;
 
   final claims = <ExpenseClaimSummary>[].obs;
   final openAdvances = <OpenAdvance>[].obs;
@@ -36,6 +37,14 @@ class ExpensesController extends GetxController {
   final loading = false.obs;
   final sending = false.obs;
   final error = Rxn<Object>();
+
+  /// رسالة الخطأ للعرض (R6: كانت دالة في الواجهة)
+  String? get errorMessage {
+    final e = error.value;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.expensesLoadFailed);
+  }
 
   @override
   void onInit() {

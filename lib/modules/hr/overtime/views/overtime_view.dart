@@ -1,170 +1,121 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/constants/visit_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/utils/palestine_time.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../modules/hr/attendance/models/attendance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
-import '../../../modules/hr/home/employee_service.dart';
-import '../../../modules/hr/shared/widgets/month_year_picker.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../../../core/constants/visit_strings.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_view.dart';
+import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/loading_view.dart';
+import '../../attendance/models/attendance_models.dart';
+import '../../home/employee_service.dart';
+import '../../shared/widgets/month_year_picker.dart';
+import '../controllers/overtime_controller.dart';
 
 /// العمل الإضافي للشهر المختار، كما حسبه ERPNext دون أي حساب في التطبيق:
 /// الساعات من Overtime Slip المعتمد إن كانت نسخة HRMS تدعمه، والمبلغ بالشيكل من
 /// Additional Salary بمكوّن Overtime. بلا Overtime Slip: المبلغ فقط.
-class OvertimeScreen extends StatefulWidget {
+/// (R6) الحالة في [OvertimeController] (StateMixin): الواجهة تعرض فقط.
+class OvertimeScreen extends GetView<OvertimeController> {
   const OvertimeScreen({super.key});
 
   @override
-  State<OvertimeScreen> createState() => _OvertimeScreenState();
-}
-
-class _OvertimeScreenState extends State<OvertimeScreen> {
-  late int _year;
-  late int _month;
-  late Future<OvertimeMonth> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    final today = PalestineTime.today();
-    _year = today.year;
-    _month = today.month;
-    _load();
-  }
-
-  void _load() {
-    _future = context.read<ErpEmployeeRepository>().fetchOvertimeMonth(
-      _year,
-      _month,
-    );
-  }
-
-  void _setPeriod(int year, int month) {
-    if (year == _year && month == _month) return;
-    setState(() {
-      _year = year;
-      _month = month;
-      _load();
-    });
-  }
-
-  String _message(Object e) {
-    if (e is EmployeeNotLinkedException) return EssStrings.notLinked;
-    if (e is ErpApiException && e.type == ErpErrorType.forbidden) {
-      return EssStrings.noPermission;
-    }
-    return describeError(e, fallback: EssStrings.overtimeLoadFailed);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(title: Text(EmployeeService.overtime.title)),
       body: Column(
         children: [
-          MonthYearPicker(year: _year, month: _month, onChanged: _setPeriod),
-          Expanded(
-            child: FutureBuilder<OvertimeMonth>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return LoadingView(message: EssStrings.loadingOvertime);
-                }
-                if (snapshot.hasError) {
-                  return ErrorView(
-                    message: _message(snapshot.error!),
-                    onRetry: () => setState(_load),
-                  );
-                }
-                final data = snapshot.data!;
-                final days = DateTime(_year, _month + 1, 0).day;
-
-                // ساعات كل يوم من بنود Overtime Slip، وإلا مبالغ كل يوم
-                final hoursByDay = List<double>.filled(days, 0);
-                for (final d in data.days) {
-                  hoursByDay[d.date.day - 1] += d.durationSeconds;
-                }
-                final amountsByDay = List<double>.filled(days, 0);
-                for (final p in data.payments) {
-                  amountsByDay[p.payrollDate.day - 1] += p.amount;
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    setState(_load);
-                    await _future.then((_) {}, onError: (_) {});
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    children: [
-                      _Summary(data: data),
-                      const SizedBox(height: 8),
-                      _SourceNote(data: data),
-                      const SizedBox(height: 16),
-                      if (data.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: EmptyView(
-                            icon: Icons.more_time_outlined,
-                            title: EssStrings.noOvertimeAmount,
-                            message: EssStrings.noOvertimeAmountHint,
-                          ),
-                        )
-                      else ...[
-                        if (data.days.isNotEmpty)
-                          _DailyChart(
-                            year: _year,
-                            month: _month,
-                            title: EssStrings.overtimeHoursChart,
-                            values: hoursByDay,
-                            format: EssStrings.duration,
-                          )
-                        else if (data.payments.isNotEmpty)
-                          _DailyChart(
-                            year: _year,
-                            month: _month,
-                            title: EssStrings.overtimeAmountChart,
-                            values: amountsByDay,
-                            format: formatAmount,
-                          ),
-                        if (data.days.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            EssStrings.overtimeHoursLog,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          for (final d in data.days) _HoursCard(day: d),
-                        ],
-                        if (data.payments.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            EssStrings.overtimeAmountsLog,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          for (final p in data.payments) _EntryCard(entry: p),
-                        ],
-                      ],
-                    ],
-                  ),
-                );
-              },
+          Obx(
+            () => MonthYearPicker(
+              year: controller.year.value,
+              month: controller.month.value,
+              onChanged: controller.setPeriod,
             ),
           ),
+          Expanded(
+            child: controller.obx(
+              onLoading: LoadingView(message: EssStrings.loadingOvertime),
+              onError: (message) =>
+                  ErrorView(message: message!, onRetry: controller.load),
+              // «لا مبالغ ولا ساعات»: يبقى الملخص ظاهرًا مع رسالة الفراغ كما كان
+              // (Builder: لا يُبنى إلا في حالة empty، فتكون البيانات موجودة)
+              onEmpty: Builder(
+                builder: (context) =>
+                    _content(context, controller.state as OvertimeMonth),
+              ),
+              (data) => _content(context, data!),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, OvertimeMonth data) {
+    final theme = Theme.of(context);
+    final year = controller.year.value;
+    final month = controller.month.value;
+    final hoursByDay = controller.hoursByDay(data);
+    final amountsByDay = controller.amountsByDay(data);
+
+    return RefreshIndicator(
+      onRefresh: controller.load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          _Summary(data: data),
+          const SizedBox(height: 8),
+          _SourceNote(data: data),
+          const SizedBox(height: 16),
+          if (data.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: EmptyView(
+                icon: Icons.more_time_outlined,
+                title: EssStrings.noOvertimeAmount,
+                message: EssStrings.noOvertimeAmountHint,
+              ),
+            )
+          else ...[
+            if (data.days.isNotEmpty)
+              _DailyChart(
+                year: year,
+                month: month,
+                title: EssStrings.overtimeHoursChart,
+                values: hoursByDay,
+                format: EssStrings.duration,
+              )
+            else if (data.payments.isNotEmpty)
+              _DailyChart(
+                year: year,
+                month: month,
+                title: EssStrings.overtimeAmountChart,
+                values: amountsByDay,
+                format: formatAmount,
+              ),
+            if (data.days.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                EssStrings.overtimeHoursLog,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final d in data.days) _HoursCard(day: d),
+            ],
+            if (data.payments.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                EssStrings.overtimeAmountsLog,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final p in data.payments) _EntryCard(entry: p),
+            ],
+          ],
         ],
       ),
     );

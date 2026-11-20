@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../../core/constants/ess_strings.dart';
-import '../../../core/utils/error_messages.dart';
-import '../../../data/api/erp_api_client.dart';
-import '../../../data/models/advance_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../shared/hr_errors.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../data/api/erp_api_client.dart';
+import '../../advances/models/advance_models.dart';
+import '../repository/advances_repository.dart';
 
 /// سلفي (GetX): سلف الموظف المسجّل دخوله فقط من ERPNext، تُحدَّث عند فتح
 /// الشاشة، وتقديم طلب سلفة جديد (مسودة = قيد المراجعة). لا موافقة ولا دفع
@@ -13,7 +14,7 @@ import '../../../data/repositories/erp_employee_repository.dart';
 class AdvancesController extends GetxController {
   AdvancesController(this._repository);
 
-  final ErpEmployeeRepository _repository;
+  final AdvancesRepository _repository;
 
   final advances = <EmployeeAdvance>[].obs;
   final loading = false.obs;
@@ -21,6 +22,14 @@ class AdvancesController extends GetxController {
 
   /// خطأ التحميل (null = لا خطأ)
   final error = Rxn<Object>();
+
+  /// رسالة الخطأ للعرض (R6: كانت دالة في الواجهة)
+  String? get errorMessage {
+    final e = error.value;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.advancesLoadFailed);
+  }
 
   /// المتبقي مع الموظف من كل السلف المدفوعة
   double get totalRemaining =>

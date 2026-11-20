@@ -1,17 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../../../data/repositories/erp_employee_repository.dart';
+import '../../shared/hr_approver_access.dart';
+import '../../team/repository/team_repository.dart';
 
 /// صلاحيات قسم الموارد البشرية (GetX): تُفحص عند فتح القسم. «فريقي» يظهر فقط
 /// لمن لديه دور Leave Approver أو Expense Approver، ويبقى مخفيًا أثناء الفحص
 /// وعند فشله.
 ///
-/// (R5) نُقل كما هو من team_controller.dart، ويُسجَّل الآن عبر HrHomeBinding.
+/// (R5/R6) نُقل من team_controller.dart، ويُسجَّل الآن عبر HrHomeBinding.
 class HrAccessController extends GetxController {
-  HrAccessController(this._repository);
+  HrAccessController(this._repository, this._access);
 
-  final ErpEmployeeRepository _repository;
+  final TeamRepository _repository;
+
+  /// الصلاحية المخزّنة التي يقرؤها ManagerMiddleware (R6)
+  final HrApproverAccess _access;
 
   final canApproveLeaves = false.obs;
   final canApproveExpenses = false.obs;
@@ -29,10 +33,12 @@ class HrAccessController extends GetxController {
       final access = await _repository.fetchApproverAccess();
       canApproveLeaves.value = access.leaves;
       canApproveExpenses.value = access.expenses;
+      _access.update(leaves: access.leaves, expenses: access.expenses);
     } catch (e) {
       debugPrint('HrAccessController.check failed: $e');
       canApproveLeaves.value = false;
       canApproveExpenses.value = false;
+      _access.clear();
     }
   }
 }

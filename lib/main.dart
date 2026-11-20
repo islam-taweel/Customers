@@ -28,7 +28,6 @@ import 'data/repositories/customer_repository.dart';
 import 'data/repositories/erp_customer_repository.dart';
 import 'data/repositories/erp_cache_store.dart';
 import 'data/repositories/erp_draft_repository.dart';
-import 'data/repositories/erp_employee_repository.dart';
 import 'modules/hr/shared/hr_repositories.dart';
 import 'data/repositories/erp_fulfillment_repository.dart';
 import 'data/repositories/erp_inventory_repository.dart';
@@ -212,11 +211,9 @@ Future<void> main() async {
     ErpVisitRepository(erpApi, erpCustomers),
   );
 
-  // خدمات الموظف: بيانات الموظف المرتبط بالمستخدم (حسابي)
-  // خدمات الموظف (R5): كل repositories الـ HR مرة واحدة فوق نفس ErpApiClient؛
-  // legacy (ما بقي لوحدات R6) هو نفس الكائن في MultiProvider
+  // خدمات الموظف (R5/R6): كل repositories الـ HR مرة واحدة فوق نفس ErpApiClient،
+  // وتُسجَّل في InitialBinding (لا Provider لها بعد R6)
   final hrRepositories = HrRepositories(erpApi);
-  final employeeRepository = hrRepositories.legacy;
 
   // القيود المحاسبية (GL Entry) للقراءة فقط: شاشة القيود وملخص فواتير الطلبية
   final ledgerRepository = ErpLedgerRepository(erpApi);
@@ -292,7 +289,6 @@ Future<void> main() async {
       warehouseRepository: warehouseRepository,
       vanSalesRepository: vanSalesRepository,
       visitsFactory: visitsFactory,
-      employeeRepository: employeeRepository,
       syncService: syncService,
       authController: authController,
       navigatorKey: navigatorKey,
@@ -319,7 +315,6 @@ class DebtsApp extends StatelessWidget {
   final ErpWarehouseRepository warehouseRepository;
   final ErpVanSalesRepository vanSalesRepository;
   final VisitsControllerFactory visitsFactory;
-  final ErpEmployeeRepository employeeRepository;
   final SyncService syncService;
   final AuthController authController;
   final GlobalKey<NavigatorState> navigatorKey;
@@ -341,7 +336,6 @@ class DebtsApp extends StatelessWidget {
     required this.warehouseRepository,
     required this.vanSalesRepository,
     required this.visitsFactory,
-    required this.employeeRepository,
     required this.syncService,
     required this.authController,
     required this.navigatorKey,
@@ -382,8 +376,6 @@ class DebtsApp extends StatelessWidget {
         Provider<ErpVanSalesRepository>.value(value: vanSalesRepository),
         // ينشئ متحكمات المواعيد (الرئيسية وقسم «المواعيد» والنموذج)
         Provider<VisitsControllerFactory>.value(value: visitsFactory),
-        // خدمات الموظف من ERPNext: حسابي، البصمة، الحضور، الطلبات، الإجازات، العمل الإضافي
-        Provider<ErpEmployeeRepository>.value(value: employeeRepository),
         // المزامنة: شاشة الإعدادات تقرأ حالتها وتشغّلها
         ChangeNotifierProvider<SyncService>.value(value: syncService),
         // حالة تسجيل الدخول: البوابة وشاشة الدخول والقائمة الجانبية

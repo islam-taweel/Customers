@@ -1,15 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../../data/models/team_models.dart';
-import '../../../data/repositories/erp_employee_repository.dart';
+import '../../../../core/constants/ess_strings.dart';
+import '../../shared/hr_approver_access.dart';
+import '../../shared/hr_errors.dart';
+
+import '../../team/models/team_models.dart';
+import '../repository/team_repository.dart';
 
 /// فريقي (GetX، للعرض فقط): طلبات الإجازات والمصاريف المعلقة للموظفين الذين
 /// المستخدم معتمِدهم فقط. تُفحص الصلاحية أولًا، ولا يُجلب قسم بلا صلاحيته.
 class TeamController extends GetxController {
-  TeamController(this._repository);
+  TeamController(this._repository, this._access);
 
-  final ErpEmployeeRepository _repository;
+  final TeamRepository _repository;
+  final HrApproverAccess _access;
 
   final leaves = <TeamLeaveRequest>[].obs;
   final expenses = <TeamExpenseRequest>[].obs;
@@ -20,6 +25,14 @@ class TeamController extends GetxController {
   final checked = false.obs;
   final loading = false.obs;
   final error = Rxn<Object>();
+
+  /// رسالة الخطأ للعرض (R6: كانت دالة في الواجهة)
+  String? get errorMessage {
+    final e = error.value;
+    return e == null
+        ? null
+        : hrErrorMessage(e, fallback: EssStrings.teamLoadFailed, notLinked: false);
+  }
 
   bool get hasAccess => canApproveLeaves.value || canApproveExpenses.value;
 
@@ -36,6 +49,7 @@ class TeamController extends GetxController {
       final access = await _repository.fetchApproverAccess();
       canApproveLeaves.value = access.leaves;
       canApproveExpenses.value = access.expenses;
+      _access.update(leaves: access.leaves, expenses: access.expenses);
       checked.value = true;
       final results = await Future.wait([
         access.leaves

@@ -278,3 +278,35 @@
 
 ### النتائج
 التفاصيل في [R5_REPORT.md](R5_REPORT.md). analyze 23 (قديمة)، test **101 ناجحة**.
+
+---
+
+## R6 — Remaining HR Modules (Advances، Expenses، Payslips، My Team، + Overtime)
+
+### الطلب (مختصر)
+- `lib/modules/hr/{advances,expenses,payslips,team}` بنفس قواعد R5.
+- **الحفاظ على:** الحالات والمبالغ ورفع صورة الإيصال (دون تغيير آليته) والقيم القادمة من ERPNext للرواتب.
+- **My Team:** للمعتمِد فقط، محمي بـ **ManagerMiddleware** (إعادة استخدامه إن وُجد، وإلا إنشاؤه).
+- اختبارات، ثم commit مستقل.
+
+### ما حدث
+- **في بيئة أخرى بلا SDK:** نُقلت الوحدات والواجهات، وكُتب ManagerMiddleware وHrApproverAccess (بلا تشغيل). التفاصيل في [R6_REPORT.md](R6_REPORT.md).
+- **في المستودع:**
+  - فُحص كل ذلك.
+  - فُصلت تعديلات R7 غير المكتملة عن R6 دون حذف شيء (نسخة احتياطية + index مستقل + git worktree).
+  - كُتبت 13 اختبارًا.
+  - **analyze 23 (قديمة)، test 114 ناجحة**، ثم commit.
+
+### الملفات
+- **نُقلت:** شاشات ومتحكمات R6 و4 ملفات models و`payslip_explainer`.
+- **حُذف:** `ErpEmployeeRepository` بعد نقل كل دواله حرفيًا (17 دالة) إلى 5 repositories.
+- **جديدة:**
+  - `OvertimeController` (StateMixin).
+  - 6 Bindings.
+  - `ManagerMiddleware`.
+  - `HrApproverAccess`.
+  - `Routes.hrPayslipDetail`.
+- **عُدّلت:**
+  - `app_pages` و`initial_binding`.
+  - `main.dart`: حُذف `Provider<ErpEmployeeRepository>`.
+  - `hr_home_binding` و`hr_access_controller`.
