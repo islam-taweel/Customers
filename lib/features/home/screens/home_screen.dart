@@ -8,6 +8,7 @@ import '../../auth/controllers/auth_controller.dart';
 import '../../visits/controllers/visits_controller.dart';
 import '../../visits/screens/visits_screen.dart';
 import '../../visits/widgets/visit_card.dart';
+import '../../../core/widgets/loading_view.dart';
 
 /// الرئيسية (أول شاشة بعد الدخول): جملة ترحيبية باسم المستخدم وتاريخ اليوم،
 /// ثم مواعيد اليوم من ERPNext للعرض فقط (الإنشاء والتعديل والإلغاء من «كل المواعيد»).
@@ -64,7 +65,7 @@ class HomeScreen extends StatelessWidget {
             if (c.loading && c.visits.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
+                child: LoadingView(),
               )
             else if (c.error != null && c.visits.isEmpty)
               SizedBox(

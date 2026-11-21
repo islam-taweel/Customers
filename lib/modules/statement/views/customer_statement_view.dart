@@ -7,6 +7,7 @@ import '../../../core/widgets/loading_view.dart';
 import '../../../data/models/erp_customer.dart';
 import '../bindings/statement_bindings.dart';
 import '../controllers/customer_statement_controller.dart';
+import '../models/statement_models.dart';
 import '../widgets/statement_summary.dart';
 import 'voucher_details_view.dart';
 
@@ -56,6 +57,36 @@ class CustomerStatementScreen extends StatelessWidget {
   String _day(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  Widget _list(
+    BuildContext context,
+    CustomerStatementController c,
+    CustomerStatement s,
+  ) {
+    return RefreshIndicator(
+      onRefresh: c.load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          StatementSummary(statement: s),
+          const SizedBox(height: 12),
+          if (s.lines.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text(StatementStrings.noEntries)),
+            )
+          else
+            for (final line in s.lines)
+              StatementLineTile(
+                line: line,
+                onTap: () => Navigator.of(context).push(
+                  VoucherDetailsScreen.route(line.voucherType, line.voucherNo),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = Get.find<CustomerStatementController>(tag: tag);
@@ -104,42 +135,19 @@ class CustomerStatementScreen extends StatelessWidget {
             }),
           ),
           Expanded(
-            child: Obx(() {
-              if (c.isLoading.value) {
-                return LoadingView(message: StatementStrings.loadingStatement);
-              }
-              final message = c.errorMessage;
-              if (message != null) {
-                return ErrorView(message: message, onRetry: c.load);
-              }
-              final s = c.statement.value!;
-              return RefreshIndicator(
-                onRefresh: c.load,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  children: [
-                    StatementSummary(statement: s),
-                    const SizedBox(height: 12),
-                    if (s.lines.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Center(child: Text(StatementStrings.noEntries)),
-                      )
-                    else
-                      for (final line in s.lines)
-                        StatementLineTile(
-                          line: line,
-                          onTap: () => Navigator.of(context).push(
-                            VoucherDetailsScreen.route(
-                              line.voucherType,
-                              line.voucherNo,
-                            ),
-                          ),
-                        ),
-                  ],
-                ),
-              );
-            }),
+            // (R7) controller.obx: تحميل / خطأ / فارغ (الملخص + «لا حركات») / بيانات
+            child: c.obx(
+              onLoading: LoadingView(
+                message: StatementStrings.loadingStatement,
+              ),
+              onError: (message) =>
+                  ErrorView(message: message!, onRetry: c.load),
+              // يُبنى عند الحاجة فقط (state يكون جاهزًا في حالة empty)
+              onEmpty: Builder(
+                builder: (context) => _list(context, c, c.state!),
+              ),
+              (s) => _list(context, c, s!),
+            ),
           ),
         ],
       ),

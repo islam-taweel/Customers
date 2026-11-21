@@ -14,7 +14,8 @@ typedef LedgerLoader = Future<CustomerLedger> Function(
 /// المجاميع والتوازن والفرق تُحسب في [CustomerLedger] نفسه (لا في الواجهة).
 ///
 /// (R4) بديل FutureBuilder في GlEntriesScreen: نفس الطلبات ونفس الرسائل.
-class GlEntriesController extends GetxController {
+class GlEntriesController extends GetxController
+    with StateMixin<CustomerLedger> {
   GlEntriesController(this._repository, this._loader);
 
   final ErpLedgerRepository _repository;
@@ -37,13 +38,20 @@ class GlEntriesController extends GetxController {
     final request = ++_request;
     isLoading.value = true;
     error.value = null;
+    // (R7) StateMixin: نفس نقاط الحالة (تحميل ← بيانات/فارغ ← خطأ)
+    change(state, status: RxStatus.loading());
     try {
       final result = await _loader(_repository);
       if (request != _request) return;
       ledger.value = result;
+      change(
+        result,
+        status: result.lines.isEmpty ? RxStatus.empty() : RxStatus.success(),
+      );
     } catch (e) {
       if (request != _request) return;
       error.value = e;
+      change(null, status: RxStatus.error(errorMessage));
     } finally {
       if (request == _request) isLoading.value = false;
     }

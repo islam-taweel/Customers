@@ -9,6 +9,7 @@ import '../../../core/constants/purchase_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/purchase_models.dart';
 import '../controllers/purchases_controller.dart';
+import '../../../core/widgets/loading_view.dart';
 
 /// أمر شراء جديد: المورد، تاريخ الاستلام المطلوب، الأصناف (كمية وسعر). يُحفظ مسودة
 /// في ERPNext وتضاف الضريبة الافتراضية للشركة تلقائيًا. يرجع true إن حُفظ.
@@ -347,7 +348,7 @@ class _SearchSheetState<T> extends State<_SearchSheet<T>> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const LoadingView()
                   : _error != null
                       ? Center(child: Text(_error!))
                       : _results.isEmpty

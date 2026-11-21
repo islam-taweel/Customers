@@ -36,6 +36,58 @@ class AdvancesScreen extends GetView<AdvancesController> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    Widget content(List<EmployeeAdvance> list) {
+      return RefreshIndicator(
+        onRefresh: controller.load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            // تنبيه: الموافقة والدفع من الموارد البشرية
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      EssStrings.advanceApprovalNote,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (list.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: EmptyView(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: EssStrings.noAdvances,
+                  message: EssStrings.noAdvancesHint,
+                ),
+              )
+            else ...[
+              _TotalCard(amount: controller.totalRemaining, list: list),
+              const SizedBox(height: 16),
+              for (final a in list) _AdvanceCard(advance: a),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(EmployeeService.advances.title),
@@ -53,68 +105,14 @@ class AdvancesScreen extends GetView<AdvancesController> {
         icon: const Icon(Icons.add),
         label: Text(EssStrings.requestAdvance),
       ),
-      body: Obx(() {
-        final list = controller.advances.toList();
-        if (controller.loading.value && list.isEmpty) {
-          return LoadingView(message: EssStrings.loadingAdvances);
-        }
-        final error = controller.error.value;
-        if (error != null && list.isEmpty) {
-          return ErrorView(
-            message: controller.errorMessage ?? '',
-            onRetry: controller.load,
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: controller.load,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-            children: [
-              // تنبيه: الموافقة والدفع من الموارد البشرية
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: scheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        EssStrings.advanceApprovalNote,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: EmptyView(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: EssStrings.noAdvances,
-                    message: EssStrings.noAdvancesHint,
-                  ),
-                )
-              else ...[
-                _TotalCard(amount: controller.totalRemaining, list: list),
-                const SizedBox(height: 16),
-                for (final a in list) _AdvanceCard(advance: a),
-              ],
-            ],
-          ),
-        );
-      }),
+      // (R7) controller.obx: تحميل / خطأ / فارغ / بيانات (نفس الـ widgets)
+      body: controller.obx(
+        onLoading: LoadingView(message: EssStrings.loadingAdvances),
+        onError: (message) =>
+            ErrorView(message: message ?? '', onRetry: controller.load),
+        onEmpty: Obx(() => content(controller.advances.toList())),
+        (_) => Obx(() => content(controller.advances.toList())),
+      ),
     );
   }
 }

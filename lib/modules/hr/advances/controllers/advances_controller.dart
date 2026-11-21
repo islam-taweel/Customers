@@ -11,7 +11,8 @@ import '../repository/advances_repository.dart';
 /// سلفي (GetX): سلف الموظف المسجّل دخوله فقط من ERPNext، تُحدَّث عند فتح
 /// الشاشة، وتقديم طلب سلفة جديد (مسودة = قيد المراجعة). لا موافقة ولا دفع
 /// ولا إلغاء من التطبيق: ذلك من صلاحية الموارد البشرية.
-class AdvancesController extends GetxController {
+class AdvancesController extends GetxController
+    with StateMixin<List<EmployeeAdvance>> {
   AdvancesController(this._repository);
 
   final AdvancesRepository _repository;
@@ -35,9 +36,35 @@ class AdvancesController extends GetxController {
   double get totalRemaining =>
       advances.fold<double>(0, (s, a) => s + a.remainingAmount);
 
+  /// (R7) حالة العرض لـ controller.obx، محسوبة من نفس الشروط وبنفس ترتيبها:
+  /// تحميل والقائمة فارغة ← loading؛ خطأ والقائمة فارغة ← error؛ فارغة ←
+  /// empty؛ وإلا success (القائمة تبقى ظاهرة أثناء إعادة التحميل كما كانت).
+  Worker? _statusWorker;
+
+  void _syncStatus() {
+    final list = advances.toList();
+    if (loading.value && list.isEmpty) {
+      change(list, status: RxStatus.loading());
+    } else if (error.value != null && list.isEmpty) {
+      change(list, status: RxStatus.error(errorMessage));
+    } else if (list.isEmpty) {
+      change(list, status: RxStatus.empty());
+    } else {
+      change(list, status: RxStatus.success());
+    }
+  }
+
+  @override
+  void onClose() {
+    _statusWorker?.dispose();
+    super.onClose();
+  }
+
   @override
   void onInit() {
     super.onInit();
+    _statusWorker = everAll([loading, error, advances], (_) => _syncStatus());
+    _syncStatus();
     // تحديث البيانات من ERPNext عند فتح الشاشة
     load();
   }

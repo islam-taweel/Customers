@@ -10,6 +10,7 @@ import '../../customers/widgets/confirm_dialog.dart';
 import '../controllers/purchases_controller.dart';
 import '../widgets/purchase_print.dart';
 import 'edit_purchase_items_screen.dart';
+import '../../../core/widgets/loading_view.dart';
 
 /// تفاصيل مستند مشتريات (أمر شراء / استلام / فاتورة): محتوياته، وبالأسفل أزرار بحسب
 /// المرحلة. لأمر الشراء: «استلام» و«طباعة» (بانتظار الاستلام)، «فوترة» و«طباعة»
@@ -241,7 +242,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingView();
           }
           if (snap.hasError || snap.data == null) {
             return Center(

@@ -6,7 +6,8 @@ import '../repository/erp_statement_repository.dart';
 
 /// مستند واحد من ERPNext كما هو (فاتورة، دفعة، قيد يومية). قد تُفتح عدة شاشات
 /// منه فوق بعضها، فيُسجَّل كل متحكم بوسم (tag) خاص بمساره.
-class VoucherDetailsController extends GetxController {
+class VoucherDetailsController extends GetxController
+    with StateMixin<Map<String, dynamic>> {
   VoucherDetailsController(
     this._repo, {
     required this.doctype,
@@ -33,13 +34,17 @@ class VoucherDetailsController extends GetxController {
     final request = ++_request;
     isLoading.value = true;
     error.value = null;
+    // (R7) StateMixin: نفس نقاط الحالة (تحميل ← بيانات/فارغ ← خطأ)
+    change(state, status: RxStatus.loading());
     try {
       final result = await _repo.fetchVoucher(doctype, name);
       if (request != _request) return;
       doc.value = result;
+      change(result, status: RxStatus.success());
     } catch (e) {
       if (request != _request) return;
       error.value = e;
+      change(null, status: RxStatus.error(errorMessage));
     } finally {
       if (request == _request) isLoading.value = false;
     }

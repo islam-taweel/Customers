@@ -58,37 +58,33 @@ class GlEntriesScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: Obx(() {
-        if (c.isLoading.value) {
-          return LoadingView(message: AppStrings.glEntriesLoading);
-        }
-        final message = c.errorMessage;
-        if (message != null) {
-          return ErrorView(message: message, onRetry: c.load);
-        }
-        final ledger = c.ledger.value!;
-
+      // (R7) controller.obx: تحميل / خطأ / فارغ (مسودة فقط) / بيانات
+      body: c.obx(
+        onLoading: LoadingView(message: AppStrings.glEntriesLoading),
+        onError: (message) => ErrorView(message: message!, onRetry: c.load),
         // مسودة فقط (أو لا شيء بعد): لا قيود قبل الاعتماد
-        if (ledger.lines.isEmpty) {
-          return EmptyView(
+        onEmpty: Builder(
+          builder: (_) => EmptyView(
             icon: Icons.account_balance_outlined,
             title: AppStrings.glEntriesEmptyTitle,
             message: c.emptyMessage,
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: c.load,
-          child: ListView(
-            padding: const EdgeInsets.all(AppConstants.pagePadding),
-            children: [
-              GlLedgerTable(ledger: ledger),
-              const SizedBox(height: 16),
-              GlTotals(ledger: ledger),
-            ],
           ),
-        );
-      }),
+        ),
+        (state) {
+          final ledger = state!;
+          return RefreshIndicator(
+            onRefresh: c.load,
+            child: ListView(
+              padding: const EdgeInsets.all(AppConstants.pagePadding),
+              children: [
+                GlLedgerTable(ledger: ledger),
+                const SizedBox(height: 16),
+                GlTotals(ledger: ledger),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

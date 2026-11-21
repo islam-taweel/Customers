@@ -24,7 +24,8 @@ typedef ExpenseResult = ({String? error, String? warning});
 /// مصاريفي (GetX): طلبات مصاريف الموظف الحالي فقط من ERPNext (تُحدَّث عند فتح
 /// الشاشة)، أنواع المصاريف (مواصلات/وجبات) والسلف المفتوحة للربط، وإرسال
 /// مصروف مسودة مع صورة الإيصال. لا موافقة ولا اعتماد ولا دفع من التطبيق.
-class ExpensesController extends GetxController {
+class ExpensesController extends GetxController
+    with StateMixin<List<ExpenseClaimSummary>> {
   ExpensesController(this._repository);
 
   final ExpensesRepository _repository;
@@ -46,9 +47,35 @@ class ExpensesController extends GetxController {
         : hrErrorMessage(e, fallback: EssStrings.expensesLoadFailed);
   }
 
+  /// (R7) حالة العرض لـ controller.obx، محسوبة من نفس الشروط وبنفس ترتيبها:
+  /// تحميل والقائمة فارغة ← loading؛ خطأ والقائمة فارغة ← error؛ فارغة ←
+  /// empty؛ وإلا success (القائمة تبقى ظاهرة أثناء إعادة التحميل كما كانت).
+  Worker? _statusWorker;
+
+  void _syncStatus() {
+    final list = claims.toList();
+    if (loading.value && list.isEmpty) {
+      change(list, status: RxStatus.loading());
+    } else if (error.value != null && list.isEmpty) {
+      change(list, status: RxStatus.error(errorMessage));
+    } else if (list.isEmpty) {
+      change(list, status: RxStatus.empty());
+    } else {
+      change(list, status: RxStatus.success());
+    }
+  }
+
+  @override
+  void onClose() {
+    _statusWorker?.dispose();
+    super.onClose();
+  }
+
   @override
   void onInit() {
     super.onInit();
+    _statusWorker = everAll([loading, error, claims], (_) => _syncStatus());
+    _syncStatus();
     // تحديث البيانات من ERPNext عند فتح الشاشة
     load();
   }

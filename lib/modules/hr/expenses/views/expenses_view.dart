@@ -46,6 +46,54 @@ class ExpensesScreen extends GetView<ExpensesController> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    Widget content(List<ExpenseClaimSummary> list) {
+      return RefreshIndicator(
+        onRefresh: controller.load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      EssStrings.expenseApprovalNote,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (list.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: EmptyView(
+                  icon: Icons.receipt_long_outlined,
+                  title: EssStrings.noExpenses,
+                  message: EssStrings.noExpensesHint,
+                ),
+              )
+            else
+              for (final e in list) _ExpenseCard(claim: e),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(EmployeeService.expenses.title),
@@ -63,64 +111,14 @@ class ExpensesScreen extends GetView<ExpensesController> {
         icon: const Icon(Icons.add),
         label: Text(EssStrings.addExpense),
       ),
-      body: Obx(() {
-        final list = controller.claims.toList();
-        if (controller.loading.value && list.isEmpty) {
-          return LoadingView(message: EssStrings.loadingExpenses);
-        }
-        final error = controller.error.value;
-        if (error != null && list.isEmpty) {
-          return ErrorView(
-            message: controller.errorMessage ?? '',
-            onRetry: controller.load,
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: controller.load,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: scheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        EssStrings.expenseApprovalNote,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: EmptyView(
-                    icon: Icons.receipt_long_outlined,
-                    title: EssStrings.noExpenses,
-                    message: EssStrings.noExpensesHint,
-                  ),
-                )
-              else
-                for (final e in list) _ExpenseCard(claim: e),
-            ],
-          ),
-        );
-      }),
+      // (R7) controller.obx: تحميل / خطأ / فارغ / بيانات (نفس الـ widgets)
+      body: controller.obx(
+        onLoading: LoadingView(message: EssStrings.loadingExpenses),
+        onError: (message) =>
+            ErrorView(message: message ?? '', onRetry: controller.load),
+        onEmpty: Obx(() => content(controller.claims.toList())),
+        (_) => Obx(() => content(controller.claims.toList())),
+      ),
     );
   }
 }

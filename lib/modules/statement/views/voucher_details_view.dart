@@ -62,43 +62,41 @@ class VoucherDetailsScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: Obx(() {
-        if (c.isLoading.value) {
-          return LoadingView(message: StatementStrings.loadingDocument);
-        }
-        final message = c.errorMessage;
-        if (message != null) {
-          return ErrorView(message: message, onRetry: c.load);
-        }
-        final doc = c.doc.value!;
-        return ListView(
-          padding: const EdgeInsets.all(AppConstants.pagePadding),
-          children: [
-            _Header(doc: doc, doctype: doctype),
-            const SizedBox(height: 16),
-            ...switch (doctype) {
-              'Sales Invoice' => _invoiceBody(context, doc),
-              'Payment Entry' => _paymentBody(context, doc),
-              'Journal Entry' => _journalBody(context, doc),
-              _ => const <Widget>[],
-            },
-            if (_s(doc['remarks']).trim().isNotEmpty ||
-                _s(doc['user_remark']).trim().isNotEmpty) ...[
+      // (R7) controller.obx: تحميل / خطأ / بيانات
+      body: c.obx(
+        onLoading: LoadingView(message: StatementStrings.loadingDocument),
+        onError: (message) => ErrorView(message: message!, onRetry: c.load),
+        (state) {
+          final doc = state!;
+          return ListView(
+            padding: const EdgeInsets.all(AppConstants.pagePadding),
+            children: [
+              _Header(doc: doc, doctype: doctype),
               const SizedBox(height: 16),
-              _Section(
-                title: StatementStrings.remarks,
-                children: [
-                  Text(
-                    _s(doc['user_remark']).trim().isNotEmpty
-                        ? _s(doc['user_remark']).trim()
-                        : _s(doc['remarks']).trim(),
-                  ),
-                ],
-              ),
+              ...switch (doctype) {
+                'Sales Invoice' => _invoiceBody(context, doc),
+                'Payment Entry' => _paymentBody(context, doc),
+                'Journal Entry' => _journalBody(context, doc),
+                _ => const <Widget>[],
+              },
+              if (_s(doc['remarks']).trim().isNotEmpty ||
+                  _s(doc['user_remark']).trim().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _Section(
+                  title: StatementStrings.remarks,
+                  children: [
+                    Text(
+                      _s(doc['user_remark']).trim().isNotEmpty
+                          ? _s(doc['user_remark']).trim()
+                          : _s(doc['remarks']).trim(),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 

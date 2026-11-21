@@ -62,55 +62,56 @@ class CustomerStatementListScreen
             ),
           ),
           Expanded(
-            child: Obx(() {
-              if (c.isLoading.value) {
-                return LoadingView(message: StatementStrings.loadingCustomers);
-              }
-              final message = c.errorMessage;
-              if (message != null) {
-                return ErrorView(message: message, onRetry: c.load);
-              }
-              final list = c.visible;
-              if (list.isEmpty) {
-                return EmptyView(
-                  icon: c.query.value.isEmpty
-                      ? Icons.people_outline
-                      : Icons.search_off,
-                  title: StatementStrings.noCustomers,
-                );
-              }
-              return RefreshIndicator(
-                onRefresh: c.load,
-                child: ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final c = list[i];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Text(
-                          c.name.isEmpty ? '?' : c.name.characters.first,
+            // (R7) controller.obx: تحميل / خطأ / فارغ / بيانات (نفس الـ widgets)
+            child: c.obx(
+              onLoading: LoadingView(
+                message: StatementStrings.loadingCustomers,
+              ),
+              onError: (message) =>
+                  ErrorView(message: message!, onRetry: c.load),
+              onEmpty: Obx(() => _empty(c)),
+              (_) => Obx(() {
+                final list = c.visible;
+                if (list.isEmpty) return _empty(c);
+                return RefreshIndicator(
+                  onRefresh: c.load,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final c = list[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          child: Text(
+                            c.name.isEmpty ? '?' : c.name.characters.first,
+                          ),
                         ),
-                      ),
-                      title: Text(c.name),
-                      subtitle: Text(
-                        c.phone.isEmpty ? c.id : '${c.id}  •  ${c.phone}',
-                        textDirection: TextDirection.ltr,
-                        textAlign: TextAlign.start,
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () =>
-                          Navigator.of(context)
-                              .push(CustomerStatementScreen.route(c)),
-                    );
-                  },
-                ),
-              );
-            }),
+                        title: Text(c.name),
+                        subtitle: Text(
+                          c.phone.isEmpty ? c.id : '${c.id}  •  ${c.phone}',
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.start,
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .push(CustomerStatementScreen.route(c)),
+                      );
+                    },
+                  ),
+                );
+              }),
+            ),
           ),
         ],
       ),
     );
   }
+
+  /// لا عملاء (أو لا نتائج للبحث): نفس EmptyView السابق
+  Widget _empty(StatementCustomersController c) => EmptyView(
+    icon: c.query.value.isEmpty ? Icons.people_outline : Icons.search_off,
+    title: StatementStrings.noCustomers,
+  );
 }

@@ -10,7 +10,8 @@ import '../repository/erp_statement_repository.dart';
 
 /// كشف حساب عميل واحد: الفترة (كل الفترات افتراضيًا) والتحميل. اختيار الفترة
 /// (منتقي التاريخ) في الواجهة، والمتحكم يستلم النتيجة فقط.
-class CustomerStatementController extends GetxController {
+class CustomerStatementController extends GetxController
+    with StateMixin<CustomerStatement> {
   CustomerStatementController(this._repo, this.customer);
 
   final ErpStatementRepository _repo;
@@ -33,6 +34,8 @@ class CustomerStatementController extends GetxController {
     final request = ++_request;
     isLoading.value = true;
     error.value = null;
+    // (R7) StateMixin: نفس نقاط الحالة (تحميل ← بيانات/فارغ ← خطأ)
+    change(state, status: RxStatus.loading());
     try {
       final result = await _repo.fetchStatement(
         customer.id,
@@ -41,9 +44,14 @@ class CustomerStatementController extends GetxController {
       );
       if (request != _request) return;
       statement.value = result;
+      change(
+        result,
+        status: result.lines.isEmpty ? RxStatus.empty() : RxStatus.success(),
+      );
     } catch (e) {
       if (request != _request) return;
       error.value = e;
+      change(null, status: RxStatus.error(errorMessage));
     } finally {
       if (request == _request) isLoading.value = false;
     }

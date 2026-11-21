@@ -21,6 +21,54 @@ class PayslipsScreen extends GetView<PayslipsController> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    Widget content(List<PayslipSummary> list) {
+      return RefreshIndicator(
+        onRefresh: controller.load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 18,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      EssStrings.readOnlyNote,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (list.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: EmptyView(
+                  icon: Icons.request_quote_outlined,
+                  title: EssStrings.noPayslips,
+                  message: EssStrings.noPayslipsHint,
+                ),
+              )
+            else
+              for (final p in list) _PayslipCard(payslip: p),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(EmployeeService.payslips.title),
@@ -33,64 +81,14 @@ class PayslipsScreen extends GetView<PayslipsController> {
           ),
         ),
       ),
-      body: Obx(() {
-        final list = controller.payslips.toList();
-        if (controller.loading.value && list.isEmpty) {
-          return LoadingView(message: EssStrings.loadingPayslips);
-        }
-        final error = controller.error.value;
-        if (error != null && list.isEmpty) {
-          return ErrorView(
-            message: controller.errorMessage ?? '',
-            onRetry: controller.load,
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: controller.load,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.lock_outline,
-                      size: 18,
-                      color: scheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        EssStrings.readOnlyNote,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: EmptyView(
-                    icon: Icons.request_quote_outlined,
-                    title: EssStrings.noPayslips,
-                    message: EssStrings.noPayslipsHint,
-                  ),
-                )
-              else
-                for (final p in list) _PayslipCard(payslip: p),
-            ],
-          ),
-        );
-      }),
+      // (R7) controller.obx: تحميل / خطأ / فارغ / بيانات (نفس الـ widgets)
+      body: controller.obx(
+        onLoading: LoadingView(message: EssStrings.loadingPayslips),
+        onError: (message) =>
+            ErrorView(message: message ?? '', onRetry: controller.load),
+        onEmpty: Obx(() => content(controller.payslips.toList())),
+        (_) => Obx(() => content(controller.payslips.toList())),
+      ),
     );
   }
 }

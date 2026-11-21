@@ -7,6 +7,7 @@ import '../controllers/visits_controller.dart';
 import '../widgets/month_calendar.dart';
 import '../widgets/visit_card.dart';
 import 'visit_form_screen.dart';
+import '../../../core/widgets/loading_view.dart';
 
 /// «كل المواعيد»: تقويم ثابت بالأعلى (نقطة خضراء على كل يوم فيه موعد)، وتحته
 /// مواعيد اليوم المحدد فقط مع إجراءاتها (تعديل، إنجاز، إلغاء، حذف).
@@ -32,7 +33,7 @@ class VisitsScreen extends StatelessWidget {
 
     Widget list;
     if (c.loading && visits.isEmpty) {
-      list = const Center(child: CircularProgressIndicator());
+      list = const LoadingView();
     } else if (c.error != null) {
       list = ErrorView(message: c.error!, onRetry: c.load);
     } else if (visits.isEmpty) {

@@ -9,7 +9,8 @@ import '../repository/erp_statement_repository.dart';
 
 /// قائمة عملاء «كشف حساب العملاء»: التحميل والبحث. لا يعرف BuildContext ولا HTTP،
 /// يمرّ كل شيء عبر [ErpStatementRepository].
-class StatementCustomersController extends GetxController {
+class StatementCustomersController extends GetxController
+    with StateMixin<List<ErpCustomer>> {
   StatementCustomersController(this._repo);
 
   final ErpStatementRepository _repo;
@@ -36,13 +37,20 @@ class StatementCustomersController extends GetxController {
     final request = ++_request;
     isLoading.value = true;
     error.value = null;
+    // (R7) StateMixin: نفس نقاط الحالة (تحميل ← بيانات/فارغ ← خطأ)
+    change(state, status: RxStatus.loading());
     try {
       final list = await _repo.fetchCustomers();
       if (request != _request) return;
       customers.assignAll(list);
+      change(
+        list,
+        status: list.isEmpty ? RxStatus.empty() : RxStatus.success(),
+      );
     } catch (e) {
       if (request != _request) return;
       error.value = e;
+      change(null, status: RxStatus.error(errorMessage));
     } finally {
       if (request == _request) isLoading.value = false;
     }
