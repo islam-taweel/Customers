@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../constants/app_strings.dart';
 
 /// اللغات المدعومة في التطبيق.
 enum AppLanguage {
@@ -15,17 +14,17 @@ enum AppLanguage {
   TextDirection get direction =>
       this == arabic ? TextDirection.rtl : TextDirection.ltr;
 
-  static AppLanguage fromCode(String? code) =>
-      AppLanguage.values.firstWhere(
-        (l) => l.code == code,
-        orElse: () => AppLanguage.arabic,
-      );
+  static AppLanguage fromCode(String? code) => AppLanguage.values.firstWhere(
+    (l) => l.code == code,
+    orElse: () => AppLanguage.arabic,
+  );
 }
 
-/// يحمل اللغة الحالية ويحفظها في الجهاز، ويُعلِم [AppStrings] بها.
+/// يحمل اللغة الحالية ويحفظها في الجهاز، ويضبط لغة GetX (Get.locale) التي تقرؤها
+/// الترجمات (lib/app/translations) و[AppStrings.isArabic].
 class LanguageController extends ChangeNotifier {
   LanguageController._(this._language) {
-    AppStrings.isArabic = _language == AppLanguage.arabic;
+    Get.locale = _language.locale;
   }
 
   static const _prefsKey = 'app_language';
@@ -50,7 +49,7 @@ class LanguageController extends ChangeNotifier {
   Future<void> setLanguage(AppLanguage language) async {
     if (language == _language) return;
     _language = language;
-    AppStrings.isArabic = language == AppLanguage.arabic;
+    Get.locale = language.locale;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();

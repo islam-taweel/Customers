@@ -528,7 +528,9 @@ class _LanguageButton extends StatelessWidget {
       ),
       style: TextButton.styleFrom(foregroundColor: Colors.white),
       icon: const Icon(Icons.language, size: 20),
-      label: Text(isArabic ? 'English' : 'العربية'),
+      label: Text(
+        isArabic ? AppStrings.languageEnglish : AppStrings.languageArabic,
+      ),
     );
   }
 }

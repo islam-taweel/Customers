@@ -31,7 +31,11 @@ class TeamController extends GetxController {
     final e = error.value;
     return e == null
         ? null
-        : hrErrorMessage(e, fallback: EssStrings.teamLoadFailed, notLinked: false);
+        : hrErrorMessage(
+            e,
+            fallback: EssStrings.teamLoadFailed,
+            notLinked: false,
+          );
   }
 
   bool get hasAccess => canApproveLeaves.value || canApproveExpenses.value;

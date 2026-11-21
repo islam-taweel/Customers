@@ -299,7 +299,7 @@ class CustomerDetailsController extends ChangeNotifier
       [
         for (final b in _balances)
           if (b.amount > 0) formatAmount(b.amount, currency: b.currency),
-      ].join(AppStrings.isArabic ? ' و ' : ' and '),
+      ].join(AppStrings.andJoiner),
     );
     return _whatsAppLauncher.send(localPhone: _customer.phone, message: message);
   }

@@ -1,333 +1,206 @@
+import 'package:get/get.dart';
+
 import 'app_strings.dart';
 
-/// نصوص قسم «مبيعات الفان» (عربي/إنجليزي). اللغة الحالية من [AppStrings.isArabic].
+/// نصوص قسم «مبيعات الفان» (عربي/إنجليزي). النصوص في lib/app/translations (ar.dart / en.dart) وتُقرأ هنا بـ .tr.
 class VanStrings {
   VanStrings._();
 
-  static String _t(String ar, String en) => AppStrings.isArabic ? ar : en;
-
-  static String get section => _t('مبيعات الفان', 'Van sales');
-  static String get stockTitle => _t('مخزون الفان', 'Van stock');
-  static String get loading =>
-      _t('جارٍ تحميل مخزون الفان...', 'Loading van stock...');
-  static String get loadFailed =>
-      _t('تعذّر تحميل مخزون الفان', 'Could not load the van stock');
-  static String get searchHint =>
-      _t('ابحث باسم المنتج أو كوده', 'Search by product name or code');
-  static String get scan => _t('مسح الباركود', 'Scan barcode');
-  static String get empty =>
-      _t('لا توجد منتجات في الفان', 'No products in the van');
-  static String get emptyHint => _t(
-    'يظهر هنا كل منتج كميته في مستودع الفان أكبر من صفر',
-    'Every product with stock in the van warehouse shows up here',
-  );
-  static String get noMatch =>
-      _t('لا يوجد منتج مطابق للبحث', 'No product matches the search');
-  static String productsCount(int n) => _t('$n منتج', '$n products');
-  static String get available => _t('الكمية المتوفرة', 'Available');
-  static String get code => _t('الكود', 'Code');
-  static String scanned(String code) =>
-      _t('نتيجة المسح: $code', 'Scan result: $code');
-  static String notInVan(String code) => _t(
-    'الباركود $code لا يطابق أي منتج في مخزون الفان',
-    'Barcode $code does not match any product in the van stock',
-  );
-  static String get scanFailed =>
-      _t('تعذّر البحث عن الباركود', 'Could not look up the barcode');
-  static String get clearScan => _t('إظهار الكل', 'Show all');
+  static String get section => 'van.section'.tr;
+  static String get stockTitle => 'van.stockTitle'.tr;
+  static String get loading => 'van.loading'.tr;
+  static String get loadFailed => 'van.loadFailed'.tr;
+  static String get searchHint => 'van.searchHint'.tr;
+  static String get scan => 'van.scan'.tr;
+  static String get empty => 'van.empty'.tr;
+  static String get emptyHint => 'van.emptyHint'.tr;
+  static String get noMatch => 'van.noMatch'.tr;
+  static String productsCount(int n) =>
+      'van.productsCount'.trParams({'n': '$n'});
+  static String get available => 'van.available'.tr;
+  static String get code => 'van.code'.tr;
+  static String scanned(String code) => 'van.scanned'.trParams({'code': code});
+  static String notInVan(String code) =>
+      'van.notInVan'.trParams({'code': code});
+  static String get scanFailed => 'van.scanFailed'.tr;
+  static String get clearScan => 'van.clearScan'.tr;
 
   // الأقسام
-  static String get stockDesc =>
-      _t('منتجات الفان وكمياتها', 'Products and quantities in the van');
-  static String get newSale => _t('فاتورة بيع جديدة', 'New sale');
-  static String get newSaleDesc => _t(
-    'بيع من الفان مباشرة للعميل',
-    'Sell straight from the van to a customer',
-  );
+  static String get stockDesc => 'van.stockDesc'.tr;
+  static String get newSale => 'van.newSale'.tr;
+  static String get newSaleDesc => 'van.newSaleDesc'.tr;
 
   // العميل
-  static String get customer => _t('العميل', 'Customer');
-  static String get chooseCustomer => _t('اختر العميل', 'Choose a customer');
-  static String get searchCustomer =>
-      _t('ابحث بالاسم أو الرقم أو الهاتف', 'Search by name, ID or phone');
-  static String get loadingCustomers =>
-      _t('جارٍ تحميل العملاء...', 'Loading customers...');
-  static String get noCustomers => _t('لا يوجد عملاء', 'No customers');
-  static String get customersFailed =>
-      _t('تعذّر تحميل العملاء', 'Could not load customers');
+  static String get customer => 'van.customer'.tr;
+  static String get chooseCustomer => 'van.chooseCustomer'.tr;
+  static String get searchCustomer => 'van.searchCustomer'.tr;
+  static String get loadingCustomers => 'van.loadingCustomers'.tr;
+  static String get noCustomers => 'van.noCustomers'.tr;
+  static String get customersFailed => 'van.customersFailed'.tr;
 
   // المنتجات
-  static String get products => _t('المنتجات', 'Products');
-  static String get addProduct => _t('إضافة منتج', 'Add product');
-  static String get chooseProduct => _t('اختر المنتج', 'Choose a product');
-  static String get noLines => _t(
-    'لم تُضف منتجات بعد. ابحث عن منتج أو امسح الباركود.',
-    'No products yet. Search for a product or scan its barcode.',
-  );
-  static String inVan(String qty) => _t('في الفان: $qty', 'In van: $qty');
-  static String get unit => _t('وحدة البيع', 'Sales unit');
+  static String get products => 'van.products'.tr;
+  static String get addProduct => 'van.addProduct'.tr;
+  static String get chooseProduct => 'van.chooseProduct'.tr;
+  static String get noLines => 'van.noLines'.tr;
+  static String inVan(String qty) => 'van.inVan'.trParams({'qty': qty});
+  static String get unit => 'van.unit'.tr;
   static String unitFactor(String uom, String factor, String stockUom) =>
-      _t('1 $uom = $factor $stockUom', '1 $uom = $factor $stockUom');
-  static String get loadingUnits =>
-      _t('جارٍ تحميل الوحدات...', 'Loading units...');
-  static String get unitsFailed =>
-      _t('تعذّر تحميل وحدات المنتج', 'Could not load the product units');
-  static String get quantity => _t('الكمية', 'Quantity');
-  static String get qtyPositive =>
-      _t('الكمية يجب أن تكون أكبر من صفر', 'Quantity must be above 0');
-  static String qtyWhole(String uom) =>
-      _t('الوحدة $uom لا تقبل كسورًا', 'The unit $uom must be a whole number');
-  static String qtyAboveStock(String available) => _t(
-    'الكمية أكبر من المتوفر في الفان ($available)',
-    'Quantity is above the van stock ($available)',
-  );
-  static String get estimatedPrice => _t('السعر التقديري', 'Estimated price');
-  static String get noPrice => _t('لا يوجد سعر', 'No price');
-  static String get add => _t('إضافة', 'Add');
-  static String get update => _t('تحديث', 'Update');
-  static String get remove => _t('حذف', 'Remove');
+      'van.unitFactor'.trParams({
+        'uom': uom,
+        'factor': factor,
+        'stockUom': stockUom,
+      });
+  static String get loadingUnits => 'van.loadingUnits'.tr;
+  static String get unitsFailed => 'van.unitsFailed'.tr;
+  static String get quantity => 'van.quantity'.tr;
+  static String get qtyPositive => 'van.qtyPositive'.tr;
+  static String qtyWhole(String uom) => 'van.qtyWhole'.trParams({'uom': uom});
+  static String qtyAboveStock(String available) =>
+      'van.qtyAboveStock'.trParams({'available': available});
+  static String get estimatedPrice => 'van.estimatedPrice'.tr;
+  static String get noPrice => 'van.noPrice'.tr;
+  static String get add => 'van.add'.tr;
+  static String get update => 'van.update'.tr;
+  static String get remove => 'van.remove'.tr;
   static String get cancel => AppStrings.cancel;
-  static String linesCount(int n) => _t('$n منتج', '$n products');
+  static String linesCount(int n) => 'van.linesCount'.trParams({'n': '$n'});
 
   // المراجعة والحفظ
-  static String get review => _t('مراجعة الفاتورة', 'Review invoice');
-  static String get reviewAndSave => _t('مراجعة وحفظ', 'Review and save');
-  static String get saveDraft => _t('حفظ كمسودة', 'Save as draft');
-  static String get estimatedTotal =>
-      _t('الإجمالي التقديري', 'Estimated total');
-  static String get reviewNote => _t(
-    'تُحفظ الفاتورة في ERPNext مسودة مع «تحديث المخزون» من مستودع الفان، ولا تخرج البضاعة إلا بعد اعتمادها. الأسعار تقديرية من قائمة الأسعار، وERPNext يحسب السعر النهائي بعملة العميل.',
-    'The invoice is saved in ERPNext as a draft with Update Stock from the van warehouse; stock leaves only after it is submitted. Prices are estimates from the price list; ERPNext sets the final price in the customer currency.',
-  );
-  static String get warehouseLabel => _t('المستودع', 'Warehouse');
-  static String get needCustomer =>
-      _t('اختر العميل أولًا', 'Choose the customer first');
-  static String get needLines =>
-      _t('أضف منتجًا واحدًا على الأقل', 'Add at least one product');
-  static String saved(String name, String total) => _t(
-    'حُفظت الفاتورة $name مسودة • الإجمالي $total',
-    'Invoice $name saved as draft • total $total',
-  );
-  static String get saveFailed =>
-      _t('تعذّر حفظ الفاتورة', 'Could not save the invoice');
-  static String get discardTitle =>
-      _t('تجاهل الفاتورة؟', 'Discard the invoice?');
-  static String get discardMessage => _t(
-    'ستُفقد المنتجات التي أضفتها.',
-    'The products you added will be lost.',
-  );
-  static String get discard => _t('تجاهل', 'Discard');
+  static String get review => 'van.review'.tr;
+  static String get reviewAndSave => 'van.reviewAndSave'.tr;
+  static String get saveDraft => 'van.saveDraft'.tr;
+  static String get estimatedTotal => 'van.estimatedTotal'.tr;
+  static String get reviewNote => 'van.reviewNote'.tr;
+  static String get warehouseLabel => 'van.warehouseLabel'.tr;
+  static String get needCustomer => 'van.needCustomer'.tr;
+  static String get needLines => 'van.needLines'.tr;
+  static String saved(String name, String total) =>
+      'van.saved'.trParams({'name': name, 'total': total});
+  static String get saveFailed => 'van.saveFailed'.tr;
+  static String get discardTitle => 'van.discardTitle'.tr;
+  static String get discardMessage => 'van.discardMessage'.tr;
+  static String get discard => 'van.discard'.tr;
 
   // إرجاع المنتجات
-  static String get returnTitle => _t('إرجاع منتجات', 'Return products');
-  static String get returnDesc =>
-      _t('إرجاع من فاتورة فان معتمدة', 'Return from a submitted van invoice');
-  static String get loadingInvoices =>
-      _t('جارٍ تحميل الفواتير...', 'Loading invoices...');
-  static String get invoicesFailed =>
-      _t('تعذّر تحميل الفواتير', 'Could not load invoices');
-  static String get noInvoices =>
-      _t('لا توجد فواتير فان معتمدة', 'No submitted van invoices');
-  static String get noInvoicesHint => _t(
-    'تظهر هنا فواتير المبيعات المعتمدة (Submitted) التي خرجت بضاعتها من الفان',
-    'Submitted sales invoices whose stock left the van show up here',
-  );
-  static String get searchInvoice => _t(
-    'ابحث برقم الفاتورة أو اسم العميل',
-    'Search by invoice number or customer',
-  );
-  static String get chooseInvoice =>
-      _t('اختر الفاتورة للإرجاع منها', 'Choose the invoice to return from');
-  static String invoiceTotal(String v) => _t('الإجمالي: $v', 'Total: $v');
-  static String get loadingItems =>
-      _t('جارٍ تحميل منتجات الفاتورة...', 'Loading invoice products...');
-  static String get itemsFailed =>
-      _t('تعذّر تحميل منتجات الفاتورة', 'Could not load invoice products');
-  static String get chooseItems => _t(
-    'حدد المنتجات وأدخل كمية الإرجاع',
-    'Select products and enter the return quantity',
-  );
-  static String soldQty(String q) => _t('المباع: $q', 'Sold: $q');
-  static String returnedQty(String q) =>
-      _t('أُرجع سابقًا: $q', 'Already returned: $q');
+  static String get returnTitle => 'van.returnTitle'.tr;
+  static String get returnDesc => 'van.returnDesc'.tr;
+  static String get loadingInvoices => 'van.loadingInvoices'.tr;
+  static String get invoicesFailed => 'van.invoicesFailed'.tr;
+  static String get noInvoices => 'van.noInvoices'.tr;
+  static String get noInvoicesHint => 'van.noInvoicesHint'.tr;
+  static String get searchInvoice => 'van.searchInvoice'.tr;
+  static String get chooseInvoice => 'van.chooseInvoice'.tr;
+  static String invoiceTotal(String v) => 'van.invoiceTotal'.trParams({'v': v});
+  static String get loadingItems => 'van.loadingItems'.tr;
+  static String get itemsFailed => 'van.itemsFailed'.tr;
+  static String get chooseItems => 'van.chooseItems'.tr;
+  static String soldQty(String q) => 'van.soldQty'.trParams({'q': q});
+  static String returnedQty(String q) => 'van.returnedQty'.trParams({'q': q});
   static String returnableQty(String q) =>
-      _t('المسموح إرجاعه: $q', 'Returnable: $q');
-  static String get nothingReturnable => _t('أُرجع بالكامل', 'Fully returned');
-  static String get returnQty => _t('كمية الإرجاع', 'Return quantity');
-  static String qtyAboveReturnable(String max) => _t(
-    'لا يمكن إرجاع أكثر من المسموح ($max)',
-    'Cannot return more than the returnable quantity ($max)',
-  );
-  static String get needReturnLines =>
-      _t('حدد منتجًا واحدًا على الأقل للإرجاع', 'Select at least one product');
+      'van.returnableQty'.trParams({'q': q});
+  static String get nothingReturnable => 'van.nothingReturnable'.tr;
+  static String get returnQty => 'van.returnQty'.tr;
+  static String qtyAboveReturnable(String max) =>
+      'van.qtyAboveReturnable'.trParams({'max': max});
+  static String get needReturnLines => 'van.needReturnLines'.tr;
   static String selectedForReturn(int n) =>
-      _t('$n منتج للإرجاع', '$n products to return');
-  static String get saveReturn =>
-      _t('حفظ الإرجاع كمسودة', 'Save return as draft');
-  static String get returnFailed =>
-      _t('تعذّر حفظ الإرجاع', 'Could not save the return');
-  static String get returnSavedTitle =>
-      _t('حُفظ مستند الإرجاع', 'Return document saved');
-  static String get returnSavedNote => _t(
-    'مسودة Sales Invoice من نوع Return مرتبطة بالفاتورة الأصلية. القيم أدناه كما حسبها ERPNext، وتعود البضاعة إلى الفان عند اعتماد المستند.',
-    'A draft Sales Invoice of type Return linked to the original invoice. The values below are as calculated by ERPNext; stock returns to the van when it is submitted.',
-  );
-  static String get returnAgainst => _t('مرتبط بالفاتورة', 'Against invoice');
-  static String get returnValue => _t('قيمة الإرجاع', 'Return value');
-  static String get netTotal => _t('الصافي', 'Net total');
-  static String get taxes => _t('الضرائب', 'Taxes');
-  static String get grandTotal => _t('الإجمالي', 'Grand total');
-  static String get done => _t('تم', 'Done');
+      'van.selectedForReturn'.trParams({'n': '$n'});
+  static String get saveReturn => 'van.saveReturn'.tr;
+  static String get returnFailed => 'van.returnFailed'.tr;
+  static String get returnSavedTitle => 'van.returnSavedTitle'.tr;
+  static String get returnSavedNote => 'van.returnSavedNote'.tr;
+  static String get returnAgainst => 'van.returnAgainst'.tr;
+  static String get returnValue => 'van.returnValue'.tr;
+  static String get netTotal => 'van.netTotal'.tr;
+  static String get taxes => 'van.taxes'.tr;
+  static String get grandTotal => 'van.grandTotal'.tr;
+  static String get done => 'van.done'.tr;
 
   // رصيد العميل
-  static String get creditTitle => _t('رصيد العميل', 'Customer credit');
-  static String get creditDesc => _t(
-    'الحد الائتماني والرصيد المستحق',
-    'Credit limit and outstanding balance',
-  );
-  static String get loadingCredit =>
-      _t('جارٍ تحميل رصيد العميل...', 'Loading customer credit...');
-  static String get creditFailed =>
-      _t('تعذّر تحميل رصيد العميل', 'Could not load customer credit');
-  static String get chooseCustomerHint => _t(
-    'اختر عميلًا لعرض حده الائتماني ورصيده',
-    'Choose a customer to see the credit limit and balance',
-  );
-  static String get creditLimit => _t('الحد الائتماني', 'Credit limit');
-  static String get currentBalance => _t('الرصيد الحالي', 'Current balance');
-  static String get currentBalanceHint =>
-      _t('المستحق على العميل الآن', 'What the customer owes now');
-  static String get availableCredit => _t('المتاح من الحد', 'Available credit');
-  static String get noCreditLimit => _t(
-    'لا يوجد حد ائتماني لهذا العميل في ERPNext',
-    'This customer has no credit limit in ERPNext',
-  );
-  static String get limitFromCustomer =>
-      _t('الحد من بيانات العميل', 'Limit set on the customer');
-  static String limitFromGroup(String g) => _t(
-    'الحد من مجموعة العملاء ($g) أو إعدادات الشركة',
-    'Limit from the customer group ($g) or company settings',
-  );
-  static String get overLimit =>
-      _t('تجاوز العميل حده الائتماني', 'The customer is over the credit limit');
-  static String get customerGroup => _t('المجموعة', 'Group');
-  static String get phone => _t('الهاتف', 'Phone');
-  static String get customerId => _t('رقم العميل', 'Customer ID');
-  static String usedPercent(String p) => _t('مستخدم $p%', '$p% used');
-  static String get creditNote => _t(
-    'الرصيد والحد كما يحسبهما ERPNext لفحص الحد الائتماني (المستحق على العميل مع أوامر البيع غير المفوترة)، بعملة الشركة. ERPNext يفحص الحد عند اعتماد الفاتورة.',
-    'Balance and limit as ERPNext calculates them for its credit check (customer outstanding including unbilled sales orders), in company currency. ERPNext checks the limit when the invoice is submitted.',
-  );
+  static String get creditTitle => 'van.creditTitle'.tr;
+  static String get creditDesc => 'van.creditDesc'.tr;
+  static String get loadingCredit => 'van.loadingCredit'.tr;
+  static String get creditFailed => 'van.creditFailed'.tr;
+  static String get chooseCustomerHint => 'van.chooseCustomerHint'.tr;
+  static String get creditLimit => 'van.creditLimit'.tr;
+  static String get currentBalance => 'van.currentBalance'.tr;
+  static String get currentBalanceHint => 'van.currentBalanceHint'.tr;
+  static String get availableCredit => 'van.availableCredit'.tr;
+  static String get noCreditLimit => 'van.noCreditLimit'.tr;
+  static String get limitFromCustomer => 'van.limitFromCustomer'.tr;
+  static String limitFromGroup(String g) =>
+      'van.limitFromGroup'.trParams({'g': g});
+  static String get overLimit => 'van.overLimit'.tr;
+  static String get customerGroup => 'van.customerGroup'.tr;
+  static String get phone => 'van.phone'.tr;
+  static String get customerId => 'van.customerId'.tr;
+  static String usedPercent(String p) => 'van.usedPercent'.trParams({'p': p});
+  static String get creditNote => 'van.creditNote'.tr;
 
   // تحذير الحد في الفاتورة الجديدة
-  static String get creditCheck => _t('فحص الحد الائتماني', 'Credit check');
-  static String afterInvoice(String v) =>
-      _t('الرصيد بعد الفاتورة: $v', 'Balance after invoice: $v');
-  static String exceedsLimit(String over) => _t(
-    'تحذير: هذه الفاتورة تتجاوز الحد الائتماني للعميل بمقدار $over. قد يرفض ERPNext اعتمادها.',
-    'Warning: this invoice exceeds the customer credit limit by $over. ERPNext may refuse to submit it.',
-  );
-  static String get withinLimit =>
-      _t('ضمن الحد الائتماني', 'Within the credit limit');
-  static String get cannotCheckLimit => _t(
-    'لا يمكن فحص الحد: بعض المنتجات بلا سعر معروف',
-    'Cannot check the limit: some products have no known price',
-  );
-  static String get exceedsTitle =>
-      _t('تجاوز الحد الائتماني', 'Credit limit exceeded');
-  static String get saveAnyway => _t('حفظ رغم ذلك', 'Save anyway');
+  static String get creditCheck => 'van.creditCheck'.tr;
+  static String afterInvoice(String v) => 'van.afterInvoice'.trParams({'v': v});
+  static String exceedsLimit(String over) =>
+      'van.exceedsLimit'.trParams({'over': over});
+  static String get withinLimit => 'van.withinLimit'.tr;
+  static String get cannotCheckLimit => 'van.cannotCheckLimit'.tr;
+  static String get exceedsTitle => 'van.exceedsTitle'.tr;
+  static String get saveAnyway => 'van.saveAnyway'.tr;
 
   // نهاية اليوم
-  static String get eodTitle => _t('نهاية اليوم', 'End of day');
-  static String get eodDesc => _t(
-    'جرد الفان وملخص مبيعات اليوم',
-    'Van count and today\'s sales summary',
-  );
-  static String get stockCountTab => _t('جرد الفان', 'Van count');
-  static String get daySalesTab => _t('مبيعات اليوم', 'Today\'s sales');
-  static String get systemQty => _t('كمية النظام', 'System qty');
-  static String get physicalQty => _t('الكمية الفعلية', 'Physical qty');
-  static String get difference => _t('الفرق', 'Difference');
-  static String get onlyDifferences =>
-      _t('إظهار الفروقات فقط', 'Show differences only');
+  static String get eodTitle => 'van.eodTitle'.tr;
+  static String get eodDesc => 'van.eodDesc'.tr;
+  static String get stockCountTab => 'van.stockCountTab'.tr;
+  static String get daySalesTab => 'van.daySalesTab'.tr;
+  static String get systemQty => 'van.systemQty'.tr;
+  static String get physicalQty => 'van.physicalQty'.tr;
+  static String get difference => 'van.difference'.tr;
+  static String get onlyDifferences => 'van.onlyDifferences'.tr;
   static String differencesCount(int n) => n == 0
-      ? _t('لا توجد فروقات', 'No differences')
-      : _t('$n منتج فيه فرق', '$n products with a difference');
-  static String get countHint => _t(
-    'الكمية الفعلية مكتوبة بكمية النظام: عدّل فقط ما يختلف بعد الجرد.',
-    'Physical quantities start at the system quantity: change only what differs after counting.',
-  );
-  static String get qtyNotNegative =>
-      _t('الكمية لا يمكن أن تكون سالبة', 'Quantity cannot be negative');
-  static String get createReconciliation =>
-      _t('إنشاء تسوية مخزون (مسودة)', 'Create stock reconciliation (draft)');
-  static String get noDifferences => _t(
-    'لا توجد فروقات بين كمية النظام والكمية الفعلية، فلا حاجة لتسوية.',
-    'System and physical quantities match: no reconciliation needed.',
-  );
-  static String get reconcileTitle =>
-      _t('إنشاء تسوية المخزون؟', 'Create the stock reconciliation?');
-  static String reconcileMessage(int n) => _t(
-    'ستُحفظ تسوية مخزون مسودة في ERPNext بـ $n منتج فيه فرق. لا يتغير مخزون الفان إلا بعد اعتمادها.',
-    'A draft stock reconciliation with $n products that differ will be saved in ERPNext. The van stock changes only after it is submitted.',
-  );
-  static String reconcileSaved(String name) => _t(
-    'حُفظت تسوية المخزون $name مسودة',
-    'Stock reconciliation $name saved as draft',
-  );
-  static String get reconcileFailed =>
-      _t('تعذّر إنشاء تسوية المخزون', 'Could not create the reconciliation');
-  static String get loadingDaySales =>
-      _t('جارٍ تحميل مبيعات اليوم...', 'Loading today\'s sales...');
-  static String get daySalesFailed =>
-      _t('تعذّر تحميل مبيعات اليوم', 'Could not load today\'s sales');
-  static String get totalSales => _t('إجمالي المبيعات', 'Total sales');
-  static String get totalReturns => _t('إجمالي الإرجاعات', 'Total returns');
-  static String get netSales => _t('الصافي', 'Net');
-  static String invoicesCount(int n) => _t('$n فاتورة', '$n invoices');
-  static String returnsCount(int n) => _t('$n مرتجع', '$n returns');
-  static String draftsPending(int n, String total) => _t(
-    '$n مسودة بانتظار الاعتماد بقيمة $total (غير محتسبة في الإجماليات)',
-    '$n drafts awaiting submission worth $total (not counted in the totals)',
-  );
-  static String get noDaySales =>
-      _t('لا توجد فواتير اليوم', 'No invoices today');
-  static String get dayTotalsNote => _t(
-    'الإجماليات من الفواتير والمرتجعات المعتمدة اليوم من الفان، بعملة الشركة كما في ERPNext.',
-    'Totals come from today\'s submitted van invoices and returns, in company currency as in ERPNext.',
-  );
-  static String get draftLabel => _t('مسودة', 'Draft');
-  static String get returnLabel => _t('مرتجع', 'Return');
+      ? 'van.differencesCount'.tr
+      : 'van.differencesCount_2'.trParams({'n': '$n'});
+  static String get countHint => 'van.countHint'.tr;
+  static String get qtyNotNegative => 'van.qtyNotNegative'.tr;
+  static String get createReconciliation => 'van.createReconciliation'.tr;
+  static String get noDifferences => 'van.noDifferences'.tr;
+  static String get reconcileTitle => 'van.reconcileTitle'.tr;
+  static String reconcileMessage(int n) =>
+      'van.reconcileMessage'.trParams({'n': '$n'});
+  static String reconcileSaved(String name) =>
+      'van.reconcileSaved'.trParams({'name': name});
+  static String get reconcileFailed => 'van.reconcileFailed'.tr;
+  static String get loadingDaySales => 'van.loadingDaySales'.tr;
+  static String get daySalesFailed => 'van.daySalesFailed'.tr;
+  static String get totalSales => 'van.totalSales'.tr;
+  static String get totalReturns => 'van.totalReturns'.tr;
+  static String get netSales => 'van.netSales'.tr;
+  static String invoicesCount(int n) =>
+      'van.invoicesCount'.trParams({'n': '$n'});
+  static String returnsCount(int n) => 'van.returnsCount'.trParams({'n': '$n'});
+  static String draftsPending(int n, String total) =>
+      'van.draftsPending'.trParams({'n': '$n', 'total': total});
+  static String get noDaySales => 'van.noDaySales'.tr;
+  static String get dayTotalsNote => 'van.dayTotalsNote'.tr;
+  static String get draftLabel => 'van.draftLabel'.tr;
+  static String get returnLabel => 'van.returnLabel'.tr;
 
   // طلب تزويد الفان
-  static String get refillTitle => _t('طلب تزويد الفان', 'Van replenishment');
-  static String get refillDesc => _t(
-    'اطلب منتجات من المستودع الرئيسي',
-    'Request products from the main store',
-  );
-  static String get refillHint => _t(
-    'اختر المنتجات القليلة وأدخل الكمية المطلوبة من المستودع الرئيسي',
-    'Pick the low products and enter the quantity you need from the main store',
-  );
-  static String get requestedQty => _t('الكمية المطلوبة', 'Requested quantity');
+  static String get refillTitle => 'van.refillTitle'.tr;
+  static String get refillDesc => 'van.refillDesc'.tr;
+  static String get refillHint => 'van.refillHint'.tr;
+  static String get requestedQty => 'van.requestedQty'.tr;
   static String requestedCount(int n) =>
-      _t('$n منتج مطلوب', '$n products requested');
-  static String get from => _t('من', 'From');
-  static String get to => _t('إلى', 'To');
-  static String get saveRequest =>
-      _t('حفظ الطلب كمسودة', 'Save request as draft');
-  static String get needRequestLines =>
-      _t('اختر منتجًا واحدًا على الأقل', 'Choose at least one product');
-  static String get requestFailed =>
-      _t('تعذّر حفظ طلب التزويد', 'Could not save the request');
-  static String get requestSavedTitle =>
-      _t('حُفظ طلب التزويد', 'Replenishment request saved');
-  static String get requestSavedNote => _t(
-    'طلب مواد (Material Request) من نوع Material Transfer محفوظ مسودة في ERPNext. يُنفَّذ النقل بعد اعتماده من المستودع.',
-    'A Material Request of type Material Transfer saved as draft in ERPNext. The transfer happens after the store approves it.',
-  );
-  static String get requestNo => _t('رقم الطلب', 'Request no.');
-  static String get requestStatus => _t('الحالة', 'Status');
-  static String get requestDate => _t('تاريخ الطلب', 'Request date');
-  static String get requiredBy => _t('مطلوب بحلول', 'Required by');
+      'van.requestedCount'.trParams({'n': '$n'});
+  static String get from => 'van.from'.tr;
+  static String get to => 'van.to'.tr;
+  static String get saveRequest => 'van.saveRequest'.tr;
+  static String get needRequestLines => 'van.needRequestLines'.tr;
+  static String get requestFailed => 'van.requestFailed'.tr;
+  static String get requestSavedTitle => 'van.requestSavedTitle'.tr;
+  static String get requestSavedNote => 'van.requestSavedNote'.tr;
+  static String get requestNo => 'van.requestNo'.tr;
+  static String get requestStatus => 'van.requestStatus'.tr;
+  static String get requestDate => 'van.requestDate'.tr;
+  static String get requiredBy => 'van.requiredBy'.tr;
 }

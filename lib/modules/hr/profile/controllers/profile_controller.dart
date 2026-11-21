@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
+import '../../../../app/services/session_service.dart';
 import '../../../../core/constants/ess_strings.dart';
 import '../../shared/hr_errors.dart';
 import '../../shared/models/employee_models.dart';
@@ -13,9 +14,12 @@ import '../repository/profile_repository.dart';
 /// نفس الطلبات وبنفس الترتيب (البيانات أولًا، ثم الصورة بعد عرضها).
 class ProfileController extends GetxController
     with StateMixin<EmployeeProfile> {
-  ProfileController(this._repository);
+  ProfileController(this._repository, [this._session]);
 
   final ProfileRepository _repository;
+
+  /// يحفظ هوية الموظف مع الجلسة (اختياري)
+  final SessionService? _session;
 
   /// صورة الموظف (null = الأيقونة: لا صورة، أو لم تصل بعد، أو فشل تحميلها)
   final image = Rxn<Uint8List>();
@@ -37,6 +41,7 @@ class ProfileController extends GetxController
       final profile = await _repository.fetchProfile();
       if (request != _request || isClosed) return;
       change(profile, status: RxStatus.success());
+      _session?.rememberEmployee(id: profile.id, name: profile.name);
       _loadImage(profile.image, request);
     } catch (e) {
       if (request != _request || isClosed) return;

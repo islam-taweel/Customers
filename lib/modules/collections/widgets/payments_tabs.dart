@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../../../features/customers/widgets/confirm_dialog.dart';
 import '../../statement/views/voucher_details_view.dart';
 import '../controllers/customer_collections_controller.dart';
@@ -51,10 +52,7 @@ class _PaymentsTabsState extends State<PaymentsTabs>
 
     Widget body;
     if (c.loading.value && drafts.isEmpty && approved.isEmpty) {
-      body = const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      body = const Padding(padding: EdgeInsets.all(32), child: LoadingView());
     } else if (c.error.value != null && drafts.isEmpty && approved.isEmpty) {
       body = Padding(
         padding: const EdgeInsets.all(24),

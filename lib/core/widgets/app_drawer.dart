@@ -385,14 +385,14 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: SegmentedButton<AppLanguage>(
                 showSelectedIcon: false,
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: AppLanguage.arabic,
-                    label: Text('العربية'),
+                    label: Text(AppStrings.languageArabic),
                   ),
                   ButtonSegment(
                     value: AppLanguage.english,
-                    label: Text('English'),
+                    label: Text(AppStrings.languageEnglish),
                   ),
                 ],
                 selected: {current},

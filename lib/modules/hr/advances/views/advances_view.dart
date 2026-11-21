@@ -60,7 +60,10 @@ class AdvancesScreen extends GetView<AdvancesController> {
         }
         final error = controller.error.value;
         if (error != null && list.isEmpty) {
-          return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
+          return ErrorView(
+            message: controller.errorMessage ?? '',
+            onRetry: controller.load,
+          );
         }
         return RefreshIndicator(
           onRefresh: controller.load,

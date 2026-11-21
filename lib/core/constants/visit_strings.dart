@@ -1,160 +1,130 @@
+import 'package:get/get.dart';
+
 import 'app_strings.dart';
 
-/// نصوص الرئيسية ومواعيد الزيارات (عربي/إنجليزي). اللغة الحالية من [AppStrings.isArabic].
+/// نصوص الرئيسية ومواعيد الزيارات (عربي/إنجليزي). النصوص في lib/app/translations (ar.dart / en.dart) وتُقرأ هنا بـ .tr.
 class VisitStrings {
   VisitStrings._();
 
-  static String _t(String ar, String en) => AppStrings.isArabic ? ar : en;
-
   // الشريط السفلي
-  static String get home => _t('الرئيسية', 'Home');
+  static String get home => 'visit.home'.tr;
   static String get dashboard => AppStrings.dashboard;
   static String get settings => AppStrings.settings;
 
   // الترحيب
   static String greeting(int hour) => hour < 12
-      ? _t('صباح الخير', 'Good morning')
+      ? 'visit.greeting'.tr
       : hour < 18
-          ? _t('مساء الخير', 'Good afternoon')
-          : _t('مساء الخير', 'Good evening');
+      ? 'visit.greeting_2'.tr
+      : 'visit.greeting_3'.tr;
   static String welcome(String? name) => (name == null || name.isEmpty)
-      ? _t('أهلًا بك', 'Welcome')
-      : _t('أهلًا بك، $name', 'Welcome, $name');
+      ? 'visit.welcome'.tr
+      : 'visit.welcome_2'.trParams({'name': name});
   static String visitsToday(int n) => n == 0
-      ? _t('لا مواعيد لديك اليوم', 'You have no appointments today')
-      : _t('لديك $n موعد اليوم', 'You have $n appointments today');
+      ? 'visit.visitsToday'.tr
+      : 'visit.visitsToday_2'.trParams({'n': '$n'});
 
   // الأقسام
-  static String get section => _t('المواعيد', 'Appointments');
-  static String get todayTitle => _t('مواعيد اليوم', "Today's appointments");
-  static String get allVisits => _t('كل المواعيد', 'All appointments');
-  static String get newVisit => _t('موعد جديد', 'New appointment');
-  static String get editVisit => _t('تعديل الموعد', 'Edit appointment');
-  static String get loading => _t('جارٍ تحميل المواعيد...', 'Loading appointments...');
-  static String get loadFailed =>
-      _t('تعذّر تحميل المواعيد', 'Could not load the appointments');
-  static String get noToday =>
-      _t('لا توجد مواعيد اليوم', 'No appointments today');
-  static String get noVisits => _t('لا توجد مواعيد', 'No appointments');
-  static String get showCancelled => _t('إظهار الملغاة', 'Show cancelled');
+  static String get section => 'visit.section'.tr;
+  static String get todayTitle => 'visit.todayTitle'.tr;
+  static String get allVisits => 'visit.allVisits'.tr;
+  static String get newVisit => 'visit.newVisit'.tr;
+  static String get editVisit => 'visit.editVisit'.tr;
+  static String get loading => 'visit.loading'.tr;
+  static String get loadFailed => 'visit.loadFailed'.tr;
+  static String get noToday => 'visit.noToday'.tr;
+  static String get noVisits => 'visit.noVisits'.tr;
+  static String get showCancelled => 'visit.showCancelled'.tr;
 
   // عنوان الموعد في ERPNext
   static String subject(String customer) =>
-      _t('زيارة: $customer', 'Visit: $customer');
+      'visit.subject'.trParams({'customer': customer});
 
   // الحالة
   static String status(String s) => switch (s) {
-        'Completed' => _t('منجز', 'Completed'),
-        'Cancelled' => _t('ملغى', 'Cancelled'),
-        'Closed' => _t('مغلق', 'Closed'),
-        _ => _t('مفتوح', 'Open'),
-      };
+    'Completed' => 'visit.status.Completed'.tr,
+    'Cancelled' => 'visit.status.Cancelled'.tr,
+    'Closed' => 'visit.status.Closed'.tr,
+    _ => 'visit.status'.tr,
+  };
 
   // التكرار
   static String weekday(int d) => switch (d) {
-        1 => _t('الإثنين', 'Mon'),
-        2 => _t('الثلاثاء', 'Tue'),
-        3 => _t('الأربعاء', 'Wed'),
-        4 => _t('الخميس', 'Thu'),
-        5 => _t('الجمعة', 'Fri'),
-        6 => _t('السبت', 'Sat'),
-        _ => _t('الأحد', 'Sun'),
-      };
+    1 => 'visit.weekday.1'.tr,
+    2 => 'visit.weekday.2'.tr,
+    3 => 'visit.weekday.3'.tr,
+    4 => 'visit.weekday.4'.tr,
+    5 => 'visit.weekday.5'.tr,
+    6 => 'visit.weekday.6'.tr,
+    _ => 'visit.weekday'.tr,
+  };
   static String weeklyOn(String days) =>
-      _t('أسبوعيًا: $days', 'Weekly: $days');
-  static String until(String date) => _t('حتى $date', 'until $date');
-  static String get forever => _t('بلا نهاية', 'no end');
-  static String get oneOff => _t('مرة واحدة', 'One-off');
+      'visit.weeklyOn'.trParams({'days': days});
+  static String until(String date) => 'visit.until'.trParams({'date': date});
+  static String get forever => 'visit.forever'.tr;
+  static String get oneOff => 'visit.oneOff'.tr;
 
   // النموذج
-  static String get customer => _t('العميل', 'Customer');
-  static String get chooseCustomer => _t('اختر العميل', 'Choose a customer');
-  static String get searchCustomer =>
-      _t('ابحث بالاسم أو الرقم', 'Search by name or ID');
-  static String get loadingCustomers =>
-      _t('جارٍ تحميل العملاء...', 'Loading customers...');
-  static String get noCustomers => _t('لا يوجد عملاء', 'No customers');
-  static String get date => _t('التاريخ', 'Date');
-  static String get startTime => _t('من الساعة', 'From');
-  static String get endTime => _t('إلى الساعة', 'To');
-  static String get notes => _t('ملاحظات (اختياري)', 'Notes (optional)');
-  static String get weekly => _t('موعد أسبوعي متكرر', 'Repeat weekly');
-  static String get weeklyHint => _t(
-        'يتكرر في الأيام المحددة. يوم التاريخ محدد دائمًا',
-        'Repeats on the chosen days. The date\'s weekday is always included',
-      );
-  static String get repeatTill => _t('يتكرر حتى', 'Repeat until');
-  static String get noEndDate => _t('بلا تاريخ نهاية', 'No end date');
-  static String get seriesNote => _t(
-        'التعديل يُطبَّق على كل تكرارات هذا الموعد',
-        'Changes apply to every occurrence of this appointment',
-      );
-  static String get save => _t('حفظ', 'Save');
-  static String get customerRequired =>
-      _t('اختر العميل أولًا', 'Choose the customer first');
-  static String get endBeforeStart => _t(
-        'وقت النهاية يجب أن يكون بعد وقت البداية',
-        'The end time must be after the start time',
-      );
-  static String get tillBeforeStart => _t(
-        'تاريخ نهاية التكرار يجب ألا يسبق تاريخ الموعد',
-        'The repeat end date can\'t be before the appointment date',
-      );
+  static String get customer => 'visit.customer'.tr;
+  static String get chooseCustomer => 'visit.chooseCustomer'.tr;
+  static String get searchCustomer => 'visit.searchCustomer'.tr;
+  static String get loadingCustomers => 'visit.loadingCustomers'.tr;
+  static String get noCustomers => 'visit.noCustomers'.tr;
+  static String get date => 'visit.date'.tr;
+  static String get startTime => 'visit.startTime'.tr;
+  static String get endTime => 'visit.endTime'.tr;
+  static String get notes => 'visit.notes'.tr;
+  static String get weekly => 'visit.weekly'.tr;
+  static String get weeklyHint => 'visit.weeklyHint'.tr;
+  static String get repeatTill => 'visit.repeatTill'.tr;
+  static String get noEndDate => 'visit.noEndDate'.tr;
+  static String get seriesNote => 'visit.seriesNote'.tr;
+  static String get save => 'visit.save'.tr;
+  static String get customerRequired => 'visit.customerRequired'.tr;
+  static String get endBeforeStart => 'visit.endBeforeStart'.tr;
+  static String get tillBeforeStart => 'visit.tillBeforeStart'.tr;
   static String conflict(String subject, DateTime start, DateTime end) {
     String two(int n) => n.toString().padLeft(2, '0');
     final day = '${start.year}-${two(start.month)}-${two(start.day)}';
-    final time = '${two(start.hour)}:${two(start.minute)}–${two(end.hour)}:${two(end.minute)}';
-    return _t(
-      'يتعارض مع موعد آخر في نفس الوقت: «$subject» يوم $day الساعة $time. اختر وقتًا آخر.',
-      'Clashes with another appointment at the same time: "$subject" on $day at $time. Choose another time.',
-    );
+    final time =
+        '${two(start.hour)}:${two(start.minute)}–${two(end.hour)}:${two(end.minute)}';
+    return 'visit.conflict'.trParams({
+      'subject': subject,
+      'day': day,
+      'time': time,
+    });
   }
-  static String get noVisitsDay =>
-      _t('لا مواعيد في هذا اليوم', 'No appointments on this day');
-  static String get previousMonth => _t('الشهر السابق', 'Previous month');
-  static String get nextMonth => _t('الشهر التالي', 'Next month');
-  static String get today => _t('اليوم', 'Today');
-  static String get created => _t('حُفظ الموعد', 'Appointment saved');
-  static String get updated => _t('عُدِّل الموعد', 'Appointment updated');
-  static String get saveFailed =>
-      _t('تعذّر حفظ الموعد', 'Could not save the appointment');
+
+  static String get noVisitsDay => 'visit.noVisitsDay'.tr;
+  static String get previousMonth => 'visit.previousMonth'.tr;
+  static String get nextMonth => 'visit.nextMonth'.tr;
+  static String get today => 'visit.today'.tr;
+  static String get created => 'visit.created'.tr;
+  static String get updated => 'visit.updated'.tr;
+  static String get saveFailed => 'visit.saveFailed'.tr;
 
   // الإجراءات
-  static String get edit => _t('تعديل', 'Edit');
-  static String get complete => _t('تم الإنجاز', 'Mark done');
-  static String get reopen => _t('إعادة فتح', 'Reopen');
-  static String get cancel => _t('إلغاء الموعد', 'Cancel appointment');
-  static String get delete => _t('حذف نهائي', 'Delete permanently');
+  static String get edit => 'visit.edit'.tr;
+  static String get complete => 'visit.complete'.tr;
+  static String get reopen => 'visit.reopen'.tr;
+  static String get cancel => 'visit.cancel'.tr;
+  static String get delete => 'visit.delete'.tr;
 
   static String cancelTitle(String subject) =>
-      _t('إلغاء «$subject»؟', 'Cancel "$subject"?');
-  static String cancelMessage(bool recurring) => recurring
-      ? _t(
-          'سيُلغى الموعد بكل تكراراته (لا يمكن إلغاء أسبوع واحد). يبقى في النظام بحالة «ملغى».',
-          'The whole series will be cancelled (a single week can\'t be). It stays in the system as Cancelled.',
-        )
-      : _t(
-          'يبقى الموعد في النظام بحالة «ملغى».',
-          'The appointment stays in the system as Cancelled.',
-        );
+      'visit.cancelTitle'.trParams({'subject': subject});
+  static String cancelMessage(bool recurring) =>
+      recurring ? 'visit.cancelMessage'.tr : 'visit.cancelMessage_2'.tr;
   static String deleteTitle(String subject) =>
-      _t('حذف «$subject» نهائيًا؟', 'Delete "$subject" permanently?');
-  static String get deleteMessage => _t(
-        'سيُحذف من ERPNext ولا يمكن استرجاعه. استخدم «إلغاء الموعد» إن أردت الاحتفاظ بسجل.',
-        'It will be removed from ERPNext for good. Use "Cancel appointment" to keep a record.',
-      );
+      'visit.deleteTitle'.trParams({'subject': subject});
+  static String get deleteMessage => 'visit.deleteMessage'.tr;
   static String editClosedTitle(String status) =>
-      _t('الموعد $status', 'This appointment is $status');
-  static String get editClosedMessage => _t(
-        'هل تريد تعديله رغم ذلك؟',
-        'Do you want to edit it anyway?',
-      );
-  static String get editAnyway => _t('تعديل', 'Edit');
+      'visit.editClosedTitle'.trParams({'status': status});
+  static String get editClosedMessage => 'visit.editClosedMessage'.tr;
+  static String get editAnyway => 'visit.editAnyway'.tr;
 
-  static String get cancelled => _t('أُلغي الموعد', 'Appointment cancelled');
-  static String get completed => _t('سُجِّل الموعد منجزًا', 'Marked as done');
-  static String get reopened => _t('أُعيد فتح الموعد', 'Appointment reopened');
-  static String get deleted => _t('حُذف الموعد', 'Appointment deleted');
-  static String get actionFailed =>
-      _t('تعذّر تنفيذ العملية', 'The action failed');
+  static String get cancelled => 'visit.cancelled'.tr;
+  static String get completed => 'visit.completed'.tr;
+  static String get reopened => 'visit.reopened'.tr;
+  static String get deleted => 'visit.deleted'.tr;
+  static String get actionFailed => 'visit.actionFailed'.tr;
 }

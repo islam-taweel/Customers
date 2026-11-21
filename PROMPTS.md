@@ -310,3 +310,45 @@
   - `app_pages` و`initial_binding`.
   - `main.dart`: حُذف `Provider<ErpEmployeeRepository>`.
   - `hr_home_binding` و`hr_access_controller`.
+
+---
+
+## R7 — Final Architecture, Translations and Cleanup
+
+### الطلب (مختصر)
+- GetX Translations في `lib/app/translations/{ar,en}.dart`: العربية افتراضية، كل نصوص الشاشات من الترجمة، والتبديل والحفظ وRTL/LTR كما كانت.
+- Shared Widgets (Loading/Error/Empty).
+- مراجعة State management وWorkers.
+- ApiClient: 401 مركزي، و403 لا يُخرج المستخدم.
+- SessionService واحد ويحفظ بيانات الموظف.
+- مراجعة Routes وBindings.
+- حذف الملفات غير المستخدمة فقط بعد إثبات ذلك.
+- البنية النهائية والوثائق، ثم commit مستقل.
+
+### ما حدث
+- **فحص عمل R7 الجزئي:** كان من بيئة بلا SDK. فُصل عن R6 دون حذف (نسخة احتياطية + index مستقل).
+- **ما أُصلح:**
+  - `monthName` خارج النطاق.
+  - 6 info (`'$x'`).
+  - استيرادات.
+  - `rebuildAllChildren` بعد نقل `LanguageScope`.
+- **قرار موثّق:** حُدّث اختبار R1 لـ 401 للمواصفة الجديدة (لا حذف).
+- **Get.reset في الاختبارات** يمسح الترجمات ← `flutter_test_config.dart`.
+- **حُذف ملفان** بعد إثبات عدم استخدامهما.
+
+### الملفات
+- **جديدة:**
+  - `lib/app/translations/{app_translations,ar,en,language_scope}.dart`
+  - `test/flutter_test_config.dart`
+  - `test/translations/*` (اختبار التكافؤ المولّد + المرجع)
+  - `test/app/translations/language_switch_test.dart`
+  - `test/app/services/session_employee_test.dart`
+- **عُدّلت:**
+  - أصناف النصوص التسعة، و`language_controller`، و`erp_api_client`، و`session_service`.
+  - profile (binding + controller)، و`payments_tabs`، و`customer_details_controller` (`andJoiner`).
+  - `login_screen` و`app_drawer` (أسماء اللغات)، و`main.dart`.
+  - `erp_api_client_session_test`.
+- **حُذفت:** `invoice_tab.dart` و`outstanding_card.dart`.
+
+### النتائج
+analyze 23 (قديمة)، test **124 ناجحة**. التفاصيل في [R7_REPORT.md](R7_REPORT.md) و[FINAL_REFACTOR_REPORT.md](FINAL_REFACTOR_REPORT.md).

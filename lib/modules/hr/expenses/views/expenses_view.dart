@@ -70,7 +70,10 @@ class ExpensesScreen extends GetView<ExpensesController> {
         }
         final error = controller.error.value;
         if (error != null && list.isEmpty) {
-          return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
+          return ErrorView(
+            message: controller.errorMessage ?? '',
+            onRetry: controller.load,
+          );
         }
         return RefreshIndicator(
           onRefresh: controller.load,

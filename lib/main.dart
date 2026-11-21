@@ -10,10 +10,11 @@ import 'app/bindings/initial_binding.dart';
 import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/services/session_service.dart';
+import 'app/translations/app_translations.dart';
+import 'app/translations/language_scope.dart';
 import 'core/constants/app_constants.dart';
 import 'core/constants/app_strings.dart';
 import 'core/localization/language_controller.dart';
-import 'core/localization/rebuild_all.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/whatsapp_launcher.dart';
 import 'core/theme/theme_controller.dart';
@@ -67,6 +68,9 @@ Future<void> main() async {
 
   // اللغة المحفوظة (العربية افتراضيًا) تُحمَّل أولًا حتى تظهر النصوص بلغتها من أول إطار
   final languageController = await LanguageController.load();
+  // الترجمات (lib/app/translations) جاهزة قبل أي طلب نص، حتى خارج GetMaterialApp
+  Get.addTranslations(AppTranslations().keys);
+  Get.locale = languageController.locale;
   // الثيم المحفوظ (فاتح سماوي افتراضيًا)، قبل أول إطار أيضًا
   final themeController = await ThemeController.load();
 
@@ -398,14 +402,17 @@ class DebtsApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: theme.theme,
             locale: language.locale,
-            supportedLocales: const [Locale('ar'), Locale('en')],
+            // الترجمات من lib/app/translations؛ العربية هي الافتراضية والاحتياطية
+            translations: AppTranslations(),
+            fallbackLocale: AppTranslations.fallback,
+            supportedLocales: AppTranslations.supported,
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
             // الاتجاه يتبع اللغة: عربي = من اليمين لليسار، إنجليزي = العكس
-            builder: (context, child) => _LanguageScope(
+            builder: (context, child) => LanguageScope(
               language: language.language,
               child: Directionality(
                 textDirection: language.direction,
@@ -420,31 +427,4 @@ class DebtsApp extends StatelessWidget {
       ),
     );
   }
-}
-
-/// عند تغيّر اللغة نعيد بناء كل الشاشات المفتوحة،
-/// لأن النصوص تُقرأ من AppStrings (وليس من InheritedWidget).
-class _LanguageScope extends StatefulWidget {
-  final AppLanguage language;
-  final Widget child;
-
-  const _LanguageScope({required this.language, required this.child});
-
-  @override
-  State<_LanguageScope> createState() => _LanguageScopeState();
-}
-
-class _LanguageScopeState extends State<_LanguageScope> {
-  @override
-  void didUpdateWidget(covariant _LanguageScope oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.language != widget.language) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) rebuildAllChildren(context);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

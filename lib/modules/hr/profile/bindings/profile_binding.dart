@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../../../app/services/session_service.dart';
 import '../controllers/profile_controller.dart';
 import '../repository/profile_repository.dart';
 
@@ -8,6 +9,9 @@ import '../repository/profile_repository.dart';
 class ProfileBinding extends Bindings {
   @override
   void dependencies() => Get.lazyPut<ProfileController>(
-    () => ProfileController(Get.find<ProfileRepository>()),
+    () => ProfileController(
+      Get.find<ProfileRepository>(),
+      Get.find<SessionService>(),
+    ),
   );
 }

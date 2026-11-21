@@ -59,6 +59,9 @@ class ErpApiClient {
   /// تشاركه بدل أن يرسل كل منها فحصًا مستقلًا.
   Future<bool>? _sessionCheck;
 
+  /// الجلسة التي يجري إنهاؤها الآن (تمنع تكرار معالجة انتهاء الجلسة)
+  String? _expiringSid;
+
   /// وقت آخر فشل في الوصول للخادم. يُستخدم لتجاوز الانتظار (المهلة 10 ثوانٍ)
   /// وقراءة النسخة المحلية مباشرة بينما الخادم غير متاح.
   DateTime? _lastNetworkFailure;
@@ -381,7 +384,12 @@ class ErpApiClient {
     _lastNetworkFailure = null;
 
     final status = response.statusCode;
-    if (status == 401 || status == 403) {
+    // 401: الجلسة غير صالحة بالتأكيد، فتُنهى مركزيًا هنا (لا في الشاشات)
+    if (status == 401) {
+      throw await _expireSession(status, sid);
+    }
+    // 403: صلاحية عادية لا تُنهي الجلسة، إلا إن أكد الخادم أن المستخدم Guest
+    if (status == 403) {
       throw await _denied(status, sid);
     }
     if (status == 404) {
@@ -400,10 +408,29 @@ class ErpApiClient {
     return response;
   }
 
+  /// نهاية الجلسة مركزيًا (401، أو 403 أكدنا أنه Guest): يحذف الكوكي ويُعلِم
+  /// التطبيق مرة واحدة فقط. الطلبات المتوازية المرفوضة معًا لا تكرر ذلك:
+  /// [_expiringSid] يمنع الدخول ثانيةً لنفس الجلسة قبل أن يكتمل حذفها، وفحص
+  /// `_session.sid == sid` يمنع حذف جلسة أحدث إن سجّل المستخدم دخوله من جديد.
+  Future<ErpApiException> _expireSession(int status, String sid) async {
+    if (_session.sid == sid && _expiringSid != sid) {
+      _expiringSid = sid;
+      try {
+        await _session.clear();
+        onSessionExpired?.call();
+      } finally {
+        _expiringSid = null;
+      }
+    }
+    return ErpApiException(ErpErrorType.sessionExpired, statusCode: status);
+  }
+
   /// 403 يعني إما انتهاء الجلسة وإما عدم وجود صلاحية لهذا الإجراء، ولا يفرّق
   /// بينهما الرمز نفسه (ولا حقل session_expired في الرد). نسأل الخادم من هو المستخدم:
-  /// Guest أو فشل السؤال = الجلسة انتهت، فنحذف الكوكي ونعود لشاشة الدخول.
-  /// اسم مستخدم = مشكلة صلاحية حقيقية.
+  /// Guest = الجلسة انتهت فنُنهيها عبر [_expireSession]. اسم مستخدم = مشكلة
+  /// صلاحية حقيقية: لا نحذف الكوكي ولا نُخرج المستخدم، ونرمي [ErpErrorType.forbidden]
+  /// (رسالتها العربية «ليس لديك صلاحية لهذا الإجراء»). إن تعذّر الفحص نفسه
+  /// (شبكة/مهلة) فلا دليل على انتهاء الجلسة، فنعامله كصلاحية ولا نُخرج أحدًا.
   Future<ErpApiException> _denied(int status, String sid) async {
     final expired = await (_sessionCheck ??= _isSessionExpired(sid)
         .whenComplete(() => _sessionCheck = null));
@@ -411,12 +438,7 @@ class ErpApiClient {
     if (!expired) {
       return ErpApiException(ErpErrorType.forbidden, statusCode: status);
     }
-    // لا نحذف جلسة أحدث إن سجّل المستخدم دخوله من جديد أثناء الفحص
-    if (_session.sid == sid) {
-      await _session.clear();
-      onSessionExpired?.call();
-    }
-    return ErpApiException(ErpErrorType.sessionExpired, statusCode: status);
+    return _expireSession(status, sid);
   }
 
   Future<bool> _isSessionExpired(String sid) async {
@@ -427,13 +449,20 @@ class ErpApiClient {
       final response = await _client
           .get(uri, headers: _headers(sid))
           .timeout(ErpConfig.requestTimeout);
-      if (response.statusCode != 200) return true;
+      if (response.statusCode == 401 || response.statusCode == 403) return true;
+      if (response.statusCode != 200) return false;
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
       final user = body is Map ? body['message']?.toString() ?? '' : '';
       return user.isEmpty || user == 'Guest';
-    } catch (_) {
-      return true;
+    } on TimeoutException {
+      return false;
+    } on SocketException {
+      return false;
+    } on http.ClientException {
+      return false;
+    } on FormatException {
+      return false;
     }
   }
 

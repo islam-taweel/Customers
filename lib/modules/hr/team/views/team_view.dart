@@ -28,7 +28,10 @@ class TeamScreen extends GetView<TeamController> {
         return Scaffold(
           appBar: AppBar(title: title),
           body: controller.error.value != null
-              ? ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load)
+              ? ErrorView(
+                  message: controller.errorMessage ?? '',
+                  onRetry: controller.load,
+                )
               : LoadingView(message: EssStrings.loadingTeam),
         );
       }
@@ -59,7 +62,8 @@ class TeamScreen extends GetView<TeamController> {
           ),
           body: Column(
             children: [
-              if (controller.loading.value) const LinearProgressIndicator(minHeight: 2),
+              if (controller.loading.value)
+                const LinearProgressIndicator(minHeight: 2),
               const _ViewOnlyNote(),
               Expanded(
                 child: TabBarView(
@@ -99,7 +103,10 @@ class TeamScreen extends GetView<TeamController> {
   }) {
     final error = controller.error.value;
     if (error != null && children.isEmpty) {
-      return ErrorView(message: controller.errorMessage ?? '', onRetry: controller.load);
+      return ErrorView(
+        message: controller.errorMessage ?? '',
+        onRetry: controller.load,
+      );
     }
     return RefreshIndicator(
       onRefresh: controller.load,

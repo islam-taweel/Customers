@@ -40,9 +40,15 @@ class OvertimeController extends GetxController with StateMixin<OvertimeMonth> {
     final request = ++_request;
     change(state, status: RxStatus.loading());
     try {
-      final data = await _repository.fetchOvertimeMonth(year.value, month.value);
+      final data = await _repository.fetchOvertimeMonth(
+        year.value,
+        month.value,
+      );
       if (request != _request || isClosed) return;
-      change(data, status: data.isEmpty ? RxStatus.empty() : RxStatus.success());
+      change(
+        data,
+        status: data.isEmpty ? RxStatus.empty() : RxStatus.success(),
+      );
     } catch (e) {
       if (request != _request || isClosed) return;
       change(

@@ -73,7 +73,7 @@ class CustomerInvoicesController extends ChangeNotifier {
   }
 
   /// كل الفواتير في قائمة واحدة (المسودات المحلية + المعتمدة + فواتير ERPNext)،
-  /// من الأحدث إلى الأقدم. يستخدمها [InvoiceTab] الذي يعرض قائمة واحدة.
+  /// من الأحدث إلى الأقدم. تُعرض كقائمة واحدة.
   List<SalesInvoice> get invoices {
     final all = <SalesInvoice>[
       for (final i in _localInvoices) i.toListEntry(),

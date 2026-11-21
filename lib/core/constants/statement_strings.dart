@@ -1,85 +1,70 @@
-import 'app_strings.dart';
+import 'package:get/get.dart';
 
 /// نصوص «كشف حساب العملاء» وشاشة تفاصيل المستند (عربي/إنجليزي).
 class StatementStrings {
   StatementStrings._();
 
-  static String _t(String ar, String en) => AppStrings.isArabic ? ar : en;
-
-  static String get section => _t('كشف حساب العملاء', 'Customer statements');
+  static String get section => 'statement.section'.tr;
 
   // قائمة العملاء
-  static String get searchHint =>
-      _t('ابحث بالاسم أو الرقم', 'Search by name or ID');
-  static String get loadingCustomers =>
-      _t('جارٍ تحميل العملاء...', 'Loading customers...');
-  static String get noCustomers => _t('لا يوجد عملاء', 'No customers');
-  static String get loadFailed =>
-      _t('تعذّر تحميل البيانات', 'Could not load the data');
+  static String get searchHint => 'statement.searchHint'.tr;
+  static String get loadingCustomers => 'statement.loadingCustomers'.tr;
+  static String get noCustomers => 'statement.noCustomers'.tr;
+  static String get loadFailed => 'statement.loadFailed'.tr;
 
   // الكشف
-  static String get loadingStatement =>
-      _t('جارٍ تحميل كشف الحساب...', 'Loading the statement...');
-  static String get allPeriods => _t('كل الفترات', 'All periods');
-  static String get chooseRange => _t('اختر الفترة', 'Choose period');
-  static String get clearRange => _t('إلغاء الفترة', 'Clear period');
-  static String get openingBalance => _t('الرصيد الافتتاحي', 'Opening balance');
-  static String get totalDebit => _t('مجموع المدين', 'Total debit');
-  static String get totalCredit => _t('مجموع الدائن', 'Total credit');
-  static String get closingBalance => _t('الرصيد الختامي', 'Closing balance');
-  static String get balance => _t('الرصيد', 'Balance');
-  static String get debit => _t('مدين', 'Debit');
-  static String get credit => _t('دائن', 'Credit');
-  static String get owesUs => _t('مستحق على العميل', 'Customer owes us');
-  static String get inCredit => _t('رصيد للعميل', 'Customer credit');
-  static String get settled => _t('الحساب مسدد', 'Settled');
-  static String get noEntries =>
-      _t('لا توجد حركات في هذه الفترة', 'No transactions in this period');
-  static String get needsAccountsRole => _t(
-        'قراءة كشف الحساب تحتاج صلاحية محاسبة (قراءة GL Entry) في ERPNext.',
-        'Reading statements needs an accounts role (read GL Entry) in ERPNext.',
-      );
+  static String get loadingStatement => 'statement.loadingStatement'.tr;
+  static String get allPeriods => 'statement.allPeriods'.tr;
+  static String get chooseRange => 'statement.chooseRange'.tr;
+  static String get clearRange => 'statement.clearRange'.tr;
+  static String get openingBalance => 'statement.openingBalance'.tr;
+  static String get totalDebit => 'statement.totalDebit'.tr;
+  static String get totalCredit => 'statement.totalCredit'.tr;
+  static String get closingBalance => 'statement.closingBalance'.tr;
+  static String get balance => 'statement.balance'.tr;
+  static String get debit => 'statement.debit'.tr;
+  static String get credit => 'statement.credit'.tr;
+  static String get owesUs => 'statement.owesUs'.tr;
+  static String get inCredit => 'statement.inCredit'.tr;
+  static String get settled => 'statement.settled'.tr;
+  static String get noEntries => 'statement.noEntries'.tr;
+  static String get needsAccountsRole => 'statement.needsAccountsRole'.tr;
 
   // تفاصيل المستند
-  static String get loadingDocument =>
-      _t('جارٍ تحميل المستند...', 'Loading the document...');
-  static String get number => _t('الرقم', 'Number');
-  static String get date => _t('التاريخ', 'Date');
-  static String get status => _t('الحالة', 'Status');
-  static String get party => _t('العميل', 'Customer');
-  static String get draft => _t('مسودة', 'Draft');
-  static String get submitted => _t('معتمد', 'Submitted');
-  static String get cancelled => _t('ملغى', 'Cancelled');
-  static String get items => _t('الأصناف', 'Items');
-  static String get qty => _t('الكمية', 'Qty');
-  static String get rate => _t('السعر', 'Rate');
-  static String get amount => _t('المبلغ', 'Amount');
-  static String get invoiceTotal => _t('قيمة الفاتورة', 'Invoice total');
-  static String get outstanding => _t('المتبقي', 'Outstanding');
-  static String get returnAgainst => _t('مرتجع مقابل', 'Return against');
-  static String get creditNote => _t('إشعار دائن (مرتجع)', 'Credit note (return)');
-  static String get modeOfPayment => _t('طريقة الدفع', 'Mode of payment');
-  static String get received => _t('المبلغ المستلم', 'Amount received');
-  static String get creditedToCustomer =>
-      _t('على حساب العميل', 'Credited to customer');
-  static String get paidTo => _t('حساب القبض', 'Received into');
-  static String get referenceNo => _t('رقم المرجع', 'Reference no.');
-  static String get referenceDate => _t('تاريخ المرجع', 'Reference date');
-  static String get allocations =>
-      _t('مخصصة للفواتير', 'Allocated to invoices');
-  static String get unallocated =>
-      _t('غير مخصص (رصيد للعميل)', 'Unallocated (customer credit)');
-  static String get notAllocated =>
-      _t('غير مخصصة لأي فاتورة', 'Not allocated to any invoice');
-  static String get remarks => _t('ملاحظات', 'Remarks');
-  static String get accounts => _t('الحسابات', 'Accounts');
-  static String get account => _t('الحساب', 'Account');
+  static String get loadingDocument => 'statement.loadingDocument'.tr;
+  static String get number => 'statement.number'.tr;
+  static String get date => 'statement.date'.tr;
+  static String get status => 'statement.status'.tr;
+  static String get party => 'statement.party'.tr;
+  static String get draft => 'statement.draft'.tr;
+  static String get submitted => 'statement.submitted'.tr;
+  static String get cancelled => 'statement.cancelled'.tr;
+  static String get items => 'statement.items'.tr;
+  static String get qty => 'statement.qty'.tr;
+  static String get rate => 'statement.rate'.tr;
+  static String get amount => 'statement.amount'.tr;
+  static String get invoiceTotal => 'statement.invoiceTotal'.tr;
+  static String get outstanding => 'statement.outstanding'.tr;
+  static String get returnAgainst => 'statement.returnAgainst'.tr;
+  static String get creditNote => 'statement.creditNote'.tr;
+  static String get modeOfPayment => 'statement.modeOfPayment'.tr;
+  static String get received => 'statement.received'.tr;
+  static String get creditedToCustomer => 'statement.creditedToCustomer'.tr;
+  static String get paidTo => 'statement.paidTo'.tr;
+  static String get referenceNo => 'statement.referenceNo'.tr;
+  static String get referenceDate => 'statement.referenceDate'.tr;
+  static String get allocations => 'statement.allocations'.tr;
+  static String get unallocated => 'statement.unallocated'.tr;
+  static String get notAllocated => 'statement.notAllocated'.tr;
+  static String get remarks => 'statement.remarks'.tr;
+  static String get accounts => 'statement.accounts'.tr;
+  static String get account => 'statement.account'.tr;
 
   static String voucherType(String doctype) => switch (doctype) {
-        'Sales Invoice' => _t('فاتورة مبيعات', 'Sales invoice'),
-        'Payment Entry' => _t('دفعة', 'Payment'),
-        'Journal Entry' => _t('قيد يومية', 'Journal entry'),
-        'Delivery Note' => _t('سند تسليم', 'Delivery note'),
-        _ => doctype,
-      };
+    'Sales Invoice' => 'statement.voucherType.Sales_Invoice'.tr,
+    'Payment Entry' => 'statement.voucherType.Payment_Entry'.tr,
+    'Journal Entry' => 'statement.voucherType.Journal_Entry'.tr,
+    'Delivery Note' => 'statement.voucherType.Delivery_Note'.tr,
+    _ => doctype,
+  };
 }

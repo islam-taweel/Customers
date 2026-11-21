@@ -19,6 +19,12 @@ class SessionService extends GetxService {
   final isAuthenticated = false.obs;
   final fullName = RxnString();
 
+  /// الموظف المرتبط بالمستخدم المسجّل دخوله (يُحفظ بعد أول تحميل لـ «حسابي»).
+  /// يعيش مع الجلسة فقط: يُمسح عند الخروج أو انتهاء الجلسة، فلا ينتقل بين مستخدمين.
+  /// لا يحمل كلمات مرور ولا أسرارًا: رقم الموظف واسمه فقط.
+  final employeeId = RxnString();
+  final employeeName = RxnString();
+
   /// انتهت الجلسة من الخادم (تعرض شاشة الدخول تنبيهًا بذلك)
   final sessionExpired = false.obs;
 
@@ -62,8 +68,19 @@ class SessionService extends GetxService {
     _syncFromStore();
   }
 
+  /// يحفظ هوية الموظف الحالي للمستخدم المسجّل (يستدعيه ProfileController).
+  void rememberEmployee({required String id, required String name}) {
+    if (!isAuthenticated.value) return;
+    employeeId.value = id;
+    employeeName.value = name;
+  }
+
   void _syncFromStore() {
     isAuthenticated.value = _store.hasSession;
     fullName.value = _store.fullName;
+    if (!isAuthenticated.value) {
+      employeeId.value = null;
+      employeeName.value = null;
+    }
   }
 }
